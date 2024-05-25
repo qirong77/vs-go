@@ -8,3 +8,11 @@ li {
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@layer components {
+    .active-li {
+      background-color: rgb(218, 221, 225);
+      opacity: 100% !important;
+      border-radius: 3px;
+    }
+  }
+  
