@@ -10,7 +10,7 @@ function App(): JSX.Element {
   const [active, setActive] = useState(0);
   const [input, setInput] = useState("");
   const [vscodeOpenedWindowFiles, setVscodeOpenedWindowFiles] = useState<IMainWindowFiles[]>([]);
-  const openedTimesCounter = new Map<string, number>();
+  const [openedFileTimes,setOpenedFileTimes] = useState({})
   const ulRef = useRef<HTMLUListElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -19,13 +19,14 @@ function App(): JSX.Element {
   };
   const updateDefaultFiles = () => {
     inputRef.current?.focus();
-    window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS).then((res) => {
+    window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS).then(([res,newOpendFileTimes]) => {
+      setOpenedFileTimes(newOpendFileTimes);
       const openedFiles = allFiles
         .filter((file) => {
-          return openedTimesCounter.get(file.filePath);
+          return openedFileTimes[file.filePath];
         })
         .sort((file1, file2) => {
-          return openedTimesCounter.get(file2.filePath)! - openedTimesCounter.get(file1.filePath)!;
+          return openedFileTimes[file1.filePath] - openedFileTimes[file2.filePath]
         });
       setVscodeOpenedWindowFiles(res);
       if (!inputRef.current?.value?.trim()) return;
@@ -42,7 +43,6 @@ function App(): JSX.Element {
       e.metaKey ? setActive(showFiles.length - 1) : setActive(active + 1 > showFiles.length - 1 ? 0 : active + 1);
     }
     if (e.key === "Enter") {
-      openedTimesCounter.set(showFiles[active].filePath, (openedTimesCounter.get(showFiles[active].filePath) || 0) + 1);
       window.electron.ipcRenderer.send(VS_GO_EVENT.OPEN_FILE, showFiles[active].filePath);
       setInput("");
       setActive(0);
@@ -54,7 +54,7 @@ function App(): JSX.Element {
     window.requestAnimationFrame(() => {
       const { height } = containerRef.current?.getBoundingClientRect() || {};
       if (!height) return;
-      window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT,height);
+      window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT,height + (showFiles.length ? 15 : 5));
     });
   }, [showFiles]);
   useEffect(() => {
@@ -71,23 +71,22 @@ function App(): JSX.Element {
         return fName.includes(input);
       })
       .sort((file1, file2) => {
-        const file1OpenedTimesScore = (openedTimesCounter.get(file1.filePath) || 0) * 100;
-        const file2OpenedTimesScore = (openedTimesCounter.get(file2.filePath) || 0) * 100;
+        const file1OpenedTimesScore = (openedFileTimes[file1.filePath] || 0 )* 1000;
+        const file2OpenedTimesScore = (openedFileTimes[file2.filePath] || 0) * 1000;
         const f1Name = normalizeStr(file1.fileName);
         const f2Name = normalizeStr(file2.fileName);
-        const f1NameScore = f1Name.includes(input) ? 100 - f1Name.indexOf(input) : 0;
-        const f2NameScore = f2Name.includes(input) ? 100 - f2Name.indexOf(input) : 0;
+        const f1NameScore = 100 - f1Name.indexOf(input);
+        const f2NameScore = 100 - f2Name.indexOf(input);
         const f1Score = file1OpenedTimesScore + f1NameScore;
         const f2Score = file2OpenedTimesScore + f2NameScore;
-        return f2Score - f1NameScore;
+        return f2Score - f1Score;
       });
     setShowFiles(newShowFiles);
   }, [input, vscodeOpenedWindowFiles]);
   useEffect(() => {
-    updateDefaultFiles();
     window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_FILES_LIST).then((res) => {
       setAllFiles(res);
-      setShowFiles(res);
+      updateDefaultFiles();
     });
   }, []);
   return (

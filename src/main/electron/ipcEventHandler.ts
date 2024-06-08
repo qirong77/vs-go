@@ -7,20 +7,25 @@ import { openFileByVscode } from '../utils/openFileByVsCode';
 export class IpcEventHandler {
   mainWindow;
   mainWindowFileManager
+  openedFileTimes = {} 
   constructor(mainWindow: MainWindow,mainWindowFileManager: MainWindowFileManager) {
     this.mainWindow = mainWindow;
     this.mainWindowFileManager = mainWindowFileManager
     ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, () => {
       return mainWindowFileManager.mainWindowFiles
     });
+    ipcMain.handle(VS_GO_EVENT.GET_OPEN_FILES_TIMES,()=>{
+      return this.openedFileTimes
+    })
     ipcMain.handle(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS,() => {
       mainWindowFileManager.updateVsCodeWindowFiles()
-      return mainWindowFileManager.vscodeWindowFiles
+      return [mainWindowFileManager.vscodeWindowFiles,this.openedFileTimes]
     });
     ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT,(e,arg)=>{
-      mainWindow.window.setSize(650, Math.floor(arg) + 5);
+      mainWindow.window.setSize(650, Math.floor(arg));
     })
     ipcMain.on(VS_GO_EVENT.OPEN_FILE,(e,filePath)=>{
+      this.openedFileTimes[filePath] = (this.openedFileTimes[filePath] || 0) + 1;
       mainWindow.window.hide();
       openFileByVscode(filePath)
     })

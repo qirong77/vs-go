@@ -5,6 +5,7 @@ import { finderBase64 } from "../../common/finderBase64";
 import { vscodeBase64 } from "../../common/vscodeBase64";
 import { IMainWindowFiles } from "../../common/type";
 import { getVsCodeOpenedFolder } from "../utils/getVsCodeOpenedFolder";
+import { readFileSync } from "node:fs";
 
 export class MainWindowFileManager {
   mainWindowFiles: IMainWindowFiles = [];
@@ -38,12 +39,16 @@ export class MainWindowFileManager {
   }
   updateVsCodeWindowFiles() {
     const vscodeOpenedFolders = getVsCodeOpenedFolder();
-    const files = vscodeOpenedFolders.map((dir) => {
+    const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));
+    const filePaths = Object.keys(vscodeWindowStatus)
+    const files = vscodeOpenedFolders.filter((dir) => {
+      return filePaths.some(item=>item.endsWith(dir.folder));
+    }). map((dir) => {
       return {
         fileName: dir.folder,
-        filePath: dir.folder,
-        iconBase64: vscodeBase64,
-        useAppBase64: finderBase64,
+        filePath: filePaths.find(item=>item.endsWith(dir.folder)) as string,
+        iconBase64: finderBase64,
+        useAppBase64: vscodeBase64,
       };
     });
     this.vscodeWindowFiles = files;
