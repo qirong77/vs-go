@@ -13,16 +13,14 @@ class MainWindow {
       width: 850,
       height: 600,
       show: true,
-      // frame: false,
+      frame: false,
       autoHideMenuBar: true,
       webPreferences: {
         preload: path.join(__dirname, '../preload/index.js'),
         sandbox: false
       }
     })
-    window.on('close', () => {
-      console.log('清除监听事件')
-    })
+
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -35,6 +33,9 @@ class MainWindow {
     window.setAlwaysOnTop(true, 'floating', 1)
     window.on('show',()=>{
       window.webContents.send(VS_GO_EVENT.MAIN_WINDOW_SHOW)
+    })
+    window.on('blur',()=>{
+      window.hide()
     })
     return window
   }

@@ -3,14 +3,11 @@ import MainWindow from "./MainWindow";
 
 class VsGoGlobalShortCut {
   constructor(mainWindow: MainWindow) {
-    // globalShortcut.register('Alt+Space', () => {
-    //   mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show()
-    // })
-    globalShortcut.register("Ctrl+Space", () => {
-      mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
-    });
+    globalShortcut.register('Alt+Space', () => {
+      mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show()
+    })
     globalShortcut.register("F12", () => {
-      mainWindow.window.webContents.toggleDevTools();
+      mainWindow.window.isVisible() && mainWindow.window.webContents.toggleDevTools();
     });
   }
 }

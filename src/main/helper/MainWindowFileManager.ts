@@ -22,15 +22,15 @@ export class MainWindowFileManager {
       return {
         fileName: basename(dir),
         filePath: dir,
-        iconBase64: 'xx',
-        useAppBase64: 'xxx',
+        iconBase64: finderBase64,
+        useAppBase64: vscodeBase64,
       };
     }) as IMainWindowFiles;
     const notUseVscodeDirs = directories.map((dir) => {
       return {
         fileName: basename(dir),
         filePath: dir,
-        iconBase64: '',
+        iconBase64: finderBase64,
         useAppBase64: "",
       };
     }) as IMainWindowFiles;
@@ -40,7 +40,7 @@ export class MainWindowFileManager {
     const vscodeOpenedFolders = getVsCodeOpenedFolder();
     const files = vscodeOpenedFolders.map((dir) => {
       return {
-        fileName: dir.file,
+        fileName: dir.folder,
         filePath: dir.folder,
         iconBase64: vscodeBase64,
         useAppBase64: finderBase64,

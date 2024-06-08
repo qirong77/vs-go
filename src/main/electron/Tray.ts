@@ -1,4 +1,4 @@
-import { Menu, Tray, nativeImage } from 'electron'
+import { Menu, Tray, app, nativeImage } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 class VsGoTray {
@@ -17,9 +17,10 @@ class VsGoTray {
     tray.setToolTip('VsGoTray')
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: 'Item1',
-        type: 'radio',
-        checked: true
+        label: '退出App',
+        click() {
+          app.quit()
+        }
       }
     ])
     tray.setContextMenu(contextMenu)

@@ -13,6 +13,7 @@ function App(): JSX.Element {
   const openedTimesCounter = new Map<string, number>();
   const ulRef = useRef<HTMLUListElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
@@ -28,6 +29,7 @@ function App(): JSX.Element {
     }
     if (e.key === "Enter") {
       openedTimesCounter.set(showFiles[active].filePath, (openedTimesCounter.get(showFiles[active].filePath) || 0) + 1);
+      window.electron.ipcRenderer.send(VS_GO_EVENT.OPEN_FILE, showFiles[active].filePath);
       setInput("");
       setActive(0);
       return;
@@ -49,8 +51,8 @@ function App(): JSX.Element {
     const newShowFiles = allFiles.sort((file1, file2) => {
       const file1OpenedTimesScore = (openedTimesCounter.get(file1.filePath) || 0) * 100;
       const file2OpenedTimesScore = (openedTimesCounter.get(file2.filePath) || 0) * 100;
-      const f1Name = normalizeStr(file1.fileName)
-      const f2Name= normalizeStr(file2.fileName)
+      const f1Name = normalizeStr(file1.fileName);
+      const f2Name = normalizeStr(file2.fileName);
       const f1NameScore = f1Name.includes(input) ? 100 - f1Name.indexOf(input) : 0;
       const f2NameScore = f2Name.includes(input) ? 100 - f2Name.indexOf(input) : 0;
       const f1Score = file1OpenedTimesScore + f1NameScore;
@@ -64,16 +66,22 @@ function App(): JSX.Element {
       setAllFiles(res);
       setShowFiles(res);
     });
-    window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, () => {
-      // window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_VSCODE_WINDOW_STATUS).then((res) => {
-      //   console.log(res)
-      //   // setVscodeOpenedWindow(res);
-      // });
-    });
-    window.electron.ipcRenderer.invoke(VS_GO_EVENT.Test).then((res) => {
-      console.log(res)
-      // setVscodeOpenedWindow(res);
-    });
+    const updateDefaultFiles = () => {
+      inputRef.current?.focus();
+      window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS).then((res) => {
+        const openedFiles = allFiles
+          .filter((file) => {
+            return openedTimesCounter.get(file.filePath);
+          })
+          .sort((file1, file2) => {
+            return openedTimesCounter.get(file2.filePath)! - openedTimesCounter.get(file1.filePath)!;
+          });
+        setVscodeOpenedWindowFiles(res);
+        setShowFiles([...res, ...openedFiles]);
+      });
+    };
+    window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, debounce(updateDefaultFiles,5000));
+    updateDefaultFiles();
   }, []);
   return (
     <div className="search-window" ref={containerRef}>
@@ -84,6 +92,7 @@ function App(): JSX.Element {
           onKeyDown={handleKeyDown}
           onChange={handleInput}
           value={input}
+          ref={inputRef}
           autoFocus
           className="mx-4 pl-[4px] h-full text-xl outline-none flex-1"
         ></input>
