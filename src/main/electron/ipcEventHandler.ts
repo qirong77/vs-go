@@ -17,9 +17,11 @@ export class IpcEventHandler {
     ipcMain.handle(VS_GO_EVENT.GET_OPEN_FILES_TIMES,()=>{
       return this.openedFileTimes
     })
+    // 执行code -s命令需要2s,会导致卡顿,目前没比较好的解决办法
     ipcMain.handle(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS,() => {
-      mainWindowFileManager.updateVsCodeWindowFiles()
-      return [mainWindowFileManager.vscodeWindowFiles,this.openedFileTimes]
+      return new Promise((resolve)=>{
+        resolve([mainWindowFileManager.vscodeWindowFiles,this.openedFileTimes])
+      })
     });
     ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT,(e,arg)=>{
       mainWindow.window.setSize(650, Math.floor(arg));

@@ -10,8 +10,10 @@ import { readFileSync } from "node:fs";
 export class MainWindowFileManager {
   mainWindowFiles: IMainWindowFiles = [];
   vscodeWindowFiles: IMainWindowFiles = [];
+  lastGetVsCodeWindowFilesTime = 0;
   constructor() {
     this.update();
+    this.updateVsCodeWindowFiles()
   }
   async update() {
     const directories = [] as string[];
@@ -37,6 +39,7 @@ export class MainWindowFileManager {
     }) as IMainWindowFiles;
     this.mainWindowFiles = [...useVscodeDirs, ...notUseVscodeDirs];
   }
+  // 长任务,至少2s执行时间
   updateVsCodeWindowFiles() {
     const vscodeOpenedFolders = getVsCodeOpenedFolder();
     const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));

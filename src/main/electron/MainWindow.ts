@@ -43,7 +43,6 @@ class MainWindow {
     this.window.show()
     this.window.focus()
     this.window.center()
-
     // showWindowOnCurrentDesktop(this.window)
     // this.window.center()
   }
