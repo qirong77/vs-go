@@ -40,8 +40,9 @@ class MainWindow {
     return window
   }
   show() {
-    showWindowOnCurrentDesktop(this.window)
-    this.window.center()
+    this.window.show()
+    // showWindowOnCurrentDesktop(this.window)
+    // this.window.center()
   }
   hide() {
     this.window.hide()
