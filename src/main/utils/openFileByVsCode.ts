@@ -1,3 +1,4 @@
+import { dialog } from "electron";
 import { vsGoConfig } from "../config";
 import {exec} from 'child_process'
 export function openFileByVscode(filePath: string) {
