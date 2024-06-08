@@ -22,32 +22,30 @@ export class MainWindowFileManager {
       return {
         fileName: basename(dir),
         filePath: dir,
-        iconBase64: finderBase64,
-        useAppBase64: vscodeBase64,
+        iconBase64: 'xx',
+        useAppBase64: 'xxx',
       };
     }) as IMainWindowFiles;
     const notUseVscodeDirs = directories.map((dir) => {
       return {
         fileName: basename(dir),
         filePath: dir,
-        iconBase64: finderBase64,
+        iconBase64: '',
         useAppBase64: "",
       };
     }) as IMainWindowFiles;
     this.mainWindowFiles = [...useVscodeDirs, ...notUseVscodeDirs];
   }
-  search(str = "") {
-    if (!str) {
-      const vscodeOpenedFolders = getVsCodeOpenedFolder();
-      return vscodeOpenedFolders.map(item=>({
-        fileName: item.folder,
-        filePath: item.file,
-        iconBase64: finderBase64,
-        useAppBase64: vscodeBase64,
-      }))
-    }
-    return this.mainWindowFiles.filter((item) => {
-      return item.fileName.includes(str);
+  updateVsCodeWindowFiles() {
+    const vscodeOpenedFolders = getVsCodeOpenedFolder();
+    const files = vscodeOpenedFolders.map((dir) => {
+      return {
+        fileName: dir.file,
+        filePath: dir.folder,
+        iconBase64: vscodeBase64,
+        useAppBase64: finderBase64,
+      };
     });
+    this.vscodeWindowFiles = files;
   }
 }

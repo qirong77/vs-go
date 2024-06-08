@@ -1,6 +1,7 @@
 import { is } from '@electron-toolkit/utils'
 import { BrowserWindow, screen } from 'electron'
 import path from 'path'
+import { VS_GO_EVENT } from '../../common/EVENT'
 
 class MainWindow {
   window: BrowserWindow
@@ -32,6 +33,9 @@ class MainWindow {
     // 在docker栏隐藏,支持浮动
     window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
     window.setAlwaysOnTop(true, 'floating', 1)
+    window.on('show',()=>{
+      window.webContents.send(VS_GO_EVENT.MAIN_WINDOW_SHOW)
+    })
     return window
   }
   show() {

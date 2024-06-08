@@ -12,3 +12,7 @@ app.whenReady().then(() => {
   new IpcEventHandler(mainWindow, new MainWindowFileManager());
   mainWindow.show();
 });
+process.on('uncaughtException', (error) => {
+  // 在此处记录错误信息，例如写入日志文件或发送到远程服务器
+  console.error('Uncaught Exception:', error);
+});
