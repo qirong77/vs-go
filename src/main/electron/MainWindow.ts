@@ -12,6 +12,7 @@ class MainWindow {
       width: 850,
       height: 600,
       show: true,
+      // frame: false,
       autoHideMenuBar: true,
       webPreferences: {
         preload: path.join(__dirname, '../preload/index.js'),

@@ -1,6 +1,6 @@
 export type IMainWindowFiles = {
-  iconPath: any;
-  appIcon: string;
+  useAppBase64: string;
+  iconBase64:string;
   filePath: string;
   fileName: string;
 }[];
