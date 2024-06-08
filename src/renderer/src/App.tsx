@@ -17,7 +17,7 @@ function App(): JSX.Element {
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
-  const updateDefaultFiles = () => {
+  const updateDefaultFiles = debounce(() => {
     inputRef.current?.focus();
     window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS).then(([res,newOpendFileTimes]) => {
       setOpenedFileTimes(newOpendFileTimes);
@@ -32,7 +32,7 @@ function App(): JSX.Element {
       if (!inputRef.current?.value?.trim()) return;
       setShowFiles([...res, ...openedFiles]);
     });
-  };
+  },5000);
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -88,6 +88,9 @@ function App(): JSX.Element {
       setAllFiles(res);
       updateDefaultFiles();
     });
+    window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, () => {
+      updateDefaultFiles();
+    })
   }, []);
   return (
     <div className="search-window overflow-hidden" ref={containerRef}>
