@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+// @ts-ignore
 import pinyin from "pinyin";
 import { ArrowRight, SearchIcon } from "./icon";
 import { VS_GO_EVENT } from "../../common/EVENT";
@@ -9,7 +10,7 @@ function App(): JSX.Element {
   const [allFiles, setAllFiles] = useState<IMainWindowFiles>([]);
   const [active, setActive] = useState(0);
   const [input, setInput] = useState("");
-  const [vscodeOpenedWindowFiles, setVscodeOpenedWindowFiles] = useState<IMainWindowFiles[]>([]);
+  const [vscodeOpenedWindowFiles, setVscodeOpenedWindowFiles] = useState<IMainWindowFiles>([]);
   const [openedFileTimes,setOpenedFileTimes] = useState({})
   const ulRef = useRef<HTMLUListElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,7 +33,7 @@ function App(): JSX.Element {
       if (!inputRef.current?.value?.trim()) return;
       setShowFiles([...res, ...openedFiles]);
     });
-  },5000);
+  },10000);
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();

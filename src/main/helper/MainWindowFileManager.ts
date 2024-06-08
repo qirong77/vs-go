@@ -39,20 +39,20 @@ export class MainWindowFileManager {
   }
   updateVsCodeWindowFiles() {
     const vscodeOpenedFolders = getVsCodeOpenedFolder();
-    console.log(vscodeOpenedFolders)
     const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));
-    const filePaths = Object.keys(vscodeWindowStatus)
-    const files = vscodeOpenedFolders.filter((dir) => {
-      return filePaths.some(item=>item.endsWith(dir.folder));
-    }). map((dir) => {
-      return {
-        fileName: dir.folder,
-        filePath: filePaths.find(item=>item.endsWith(dir.folder)) as string,
-        // iconBase64: finderBase64,
-        // useAppBase64: vscodeBase64,
-      };
-    });
-    console.log(files)
+    const filePaths = Object.keys(vscodeWindowStatus);
+    const files = vscodeOpenedFolders
+      .filter((dir) => {
+        return filePaths.some((item) => item.endsWith(dir.folder));
+      })
+      .map((dir) => {
+        return {
+          fileName: dir.folder,
+          filePath: filePaths.find((item) => item.endsWith(dir.folder)) || "",
+          iconBase64: finderBase64,
+          useAppBase64: vscodeBase64,
+        };
+      })
     this.vscodeWindowFiles = files;
   }
 }

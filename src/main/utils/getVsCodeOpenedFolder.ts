@@ -1,9 +1,9 @@
-import { vsGoConfig } from "../config/index.ts";
-import { getExecString } from "./getExecString.ts";
+import { vsGoConfig } from "../config/index";
+import { getExecString } from "./getExecString";
 
 export function getVsCodeOpenedFolder() {
     const codeStatus = getExecString(`${vsGoConfig.codeCommandPath} -s`)
-    return getWindowFiles(codeStatus)
+    return getWindowFiles(codeStatus) || []
 }
 /* 
 Workspace Stats: 
@@ -38,5 +38,5 @@ function getWindowFiles(vscodeStatus = "") {
       };
     });
 
-  return windows;
+  return windows.filter(Boolean) as { file: string; folder: string }[];
 }
