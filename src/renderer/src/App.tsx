@@ -17,7 +17,21 @@ function App(): JSX.Element {
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
-
+  const updateDefaultFiles = () => {
+    inputRef.current?.focus();
+    window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS).then((res) => {
+      const openedFiles = allFiles
+        .filter((file) => {
+          return openedTimesCounter.get(file.filePath);
+        })
+        .sort((file1, file2) => {
+          return openedTimesCounter.get(file2.filePath)! - openedTimesCounter.get(file1.filePath)!;
+        });
+      setVscodeOpenedWindowFiles(res);
+      if (!inputRef.current?.value?.trim()) return;
+      setShowFiles([...res, ...openedFiles]);
+    });
+  };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -32,14 +46,17 @@ function App(): JSX.Element {
       window.electron.ipcRenderer.send(VS_GO_EVENT.OPEN_FILE, showFiles[active].filePath);
       setInput("");
       setActive(0);
+      updateDefaultFiles()
       return;
     }
   };
   useEffect(() => {
-    const { height } = containerRef.current?.getBoundingClientRect() || {};
-    if (!height) return;
-    window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT + 30, height);
-  }, [showFiles.length]);
+    window.requestAnimationFrame(() => {
+      const { height } = containerRef.current?.getBoundingClientRect() || {};
+      if (!height) return;
+      window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT,height);
+    });
+  }, [showFiles]);
   useEffect(() => {
     ulRef.current?.querySelector(".active-li")?.scrollIntoView(false);
   }, [active]);
@@ -48,43 +65,33 @@ function App(): JSX.Element {
       setShowFiles(vscodeOpenedWindowFiles);
       return;
     }
-    const newShowFiles = allFiles.sort((file1, file2) => {
-      const file1OpenedTimesScore = (openedTimesCounter.get(file1.filePath) || 0) * 100;
-      const file2OpenedTimesScore = (openedTimesCounter.get(file2.filePath) || 0) * 100;
-      const f1Name = normalizeStr(file1.fileName);
-      const f2Name = normalizeStr(file2.fileName);
-      const f1NameScore = f1Name.includes(input) ? 100 - f1Name.indexOf(input) : 0;
-      const f2NameScore = f2Name.includes(input) ? 100 - f2Name.indexOf(input) : 0;
-      const f1Score = file1OpenedTimesScore + f1NameScore;
-      const f2Score = file2OpenedTimesScore + f2NameScore;
-      return f2Score - f1NameScore;
-    });
+    const newShowFiles = allFiles
+      .filter((file) => {
+        const fName = normalizeStr(file.fileName);
+        return fName.includes(input);
+      })
+      .sort((file1, file2) => {
+        const file1OpenedTimesScore = (openedTimesCounter.get(file1.filePath) || 0) * 100;
+        const file2OpenedTimesScore = (openedTimesCounter.get(file2.filePath) || 0) * 100;
+        const f1Name = normalizeStr(file1.fileName);
+        const f2Name = normalizeStr(file2.fileName);
+        const f1NameScore = f1Name.includes(input) ? 100 - f1Name.indexOf(input) : 0;
+        const f2NameScore = f2Name.includes(input) ? 100 - f2Name.indexOf(input) : 0;
+        const f1Score = file1OpenedTimesScore + f1NameScore;
+        const f2Score = file2OpenedTimesScore + f2NameScore;
+        return f2Score - f1NameScore;
+      });
     setShowFiles(newShowFiles);
   }, [input, vscodeOpenedWindowFiles]);
   useEffect(() => {
+    updateDefaultFiles();
     window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_FILES_LIST).then((res) => {
       setAllFiles(res);
       setShowFiles(res);
     });
-    const updateDefaultFiles = () => {
-      inputRef.current?.focus();
-      window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS).then((res) => {
-        const openedFiles = allFiles
-          .filter((file) => {
-            return openedTimesCounter.get(file.filePath);
-          })
-          .sort((file1, file2) => {
-            return openedTimesCounter.get(file2.filePath)! - openedTimesCounter.get(file1.filePath)!;
-          });
-        setVscodeOpenedWindowFiles(res);
-        setShowFiles([...res, ...openedFiles]);
-      });
-    };
-    window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, debounce(updateDefaultFiles,5000));
-    updateDefaultFiles();
   }, []);
   return (
-    <div className="search-window" ref={containerRef}>
+    <div className="search-window overflow-hidden" ref={containerRef}>
       <div className={`relative flex pl-[20px] w-[100vw] items-center h-[50px] border-b-[1px] border-slate-300`}>
         <SearchIcon />
         <input
@@ -97,7 +104,11 @@ function App(): JSX.Element {
           className="mx-4 pl-[4px] h-full text-xl outline-none flex-1"
         ></input>
       </div>
-      <div>
+      <div
+        style={{
+          display: showFiles.length ? "block" : "none",
+        }}
+      >
         <ul ref={ulRef} className="px-[10px] my-[6px] overflow-y-scroll max-h-[300px]">
           {showFiles.map((file, i) => {
             return (

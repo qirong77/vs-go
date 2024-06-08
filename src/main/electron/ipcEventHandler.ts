@@ -18,7 +18,7 @@ export class IpcEventHandler {
       return mainWindowFileManager.vscodeWindowFiles
     });
     ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT,(e,arg)=>{
-      mainWindow.window.setSize(850, Math.floor(arg));
+      mainWindow.window.setSize(650, Math.floor(arg) + 5);
     })
     ipcMain.on(VS_GO_EVENT.OPEN_FILE,(e,filePath)=>{
       mainWindow.window.hide();
