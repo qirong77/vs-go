@@ -23,14 +23,17 @@ export class IpcEventHandler {
         resolve([mainWindowFileManager.vscodeWindowFiles,this.openedFileTimes])
       })
     });
-    ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT,(e,arg)=>{
+    ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT,(_e,arg)=>{
       !is.dev && mainWindow.window.setSize(650, Math.floor(arg));
     })
-    ipcMain.on(VS_GO_EVENT.OPEN_FILE,(e,filePath)=>{
+    ipcMain.on(VS_GO_EVENT.OPEN_FILE,(_e,filePath)=>{
       mainWindow.window.hide();
       this.openedFileTimes[filePath] = (this.openedFileTimes[filePath] || 0) + 1;
       openFileByVscode(filePath)
-      this.mainWindowFileManager.updateVsCodeWindowFiles(true)
+      // 延迟执行,否则会卡顿,因为执行code -s需要大概1s
+      setTimeout(()=>{
+        this.mainWindowFileManager.updateVsCodeWindowFiles(true)
+      })
     })
   }
 }
