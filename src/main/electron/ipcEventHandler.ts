@@ -27,8 +27,8 @@ export class IpcEventHandler {
       !is.dev && mainWindow.window.setSize(650, Math.floor(arg));
     })
     ipcMain.on(VS_GO_EVENT.OPEN_FILE,(e,filePath)=>{
-      this.openedFileTimes[filePath] = (this.openedFileTimes[filePath] || 0) + 1;
       mainWindow.window.hide();
+      this.openedFileTimes[filePath] = (this.openedFileTimes[filePath] || 0) + 1;
       openFileByVscode(filePath)
       this.mainWindowFileManager.updateVsCodeWindowFiles(true)
     })

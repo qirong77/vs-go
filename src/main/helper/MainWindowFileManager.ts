@@ -1,4 +1,3 @@
-import { dialog } from 'electron';
 import { basename } from "node:path";
 import { vsGoConfig } from "../config";
 import { getSubDirectory } from "../utils/getSubDirectory";
@@ -49,7 +48,7 @@ export class MainWindowFileManager {
   }
   // 长任务,至少2s执行时间
   updateVsCodeWindowFiles(isImmediate = false) {
-    const canUpdate = new Date().getTime() - 3 * (1000 * 60)  < this.lastGetVsCodeWindowFilesTime
+    const canUpdate = new Date().getTime() - 3 * (1000 * 60)  > this.lastGetVsCodeWindowFilesTime
     if(!isImmediate && !canUpdate) return;
     this.lastGetVsCodeWindowFilesTime = new Date().getTime();
     const vscodeOpenedFolders = getVsCodeOpenedFolder();
