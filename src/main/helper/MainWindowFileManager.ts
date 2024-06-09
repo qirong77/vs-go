@@ -1,3 +1,4 @@
+import { dialog } from 'electron';
 import { basename } from "node:path";
 import { vsGoConfig } from "../config";
 import { getSubDirectory } from "../utils/getSubDirectory";
@@ -6,14 +7,21 @@ import { vscodeBase64 } from "../../common/vscodeBase64";
 import { IMainWindowFiles } from "../../common/type";
 import { getVsCodeOpenedFolder } from "../utils/getVsCodeOpenedFolder";
 import { readFileSync } from "node:fs";
-
 export class MainWindowFileManager {
   mainWindowFiles: IMainWindowFiles = [];
   vscodeWindowFiles: IMainWindowFiles = [];
   lastGetVsCodeWindowFilesTime = 0;
   constructor() {
     this.update();
-    this.updateVsCodeWindowFiles()
+    this.updateVsCodeWindowFiles();
+    // 
+    // const worker = new Worker(new URL("../test-worker.js", import.meta.url));
+    // // 监听来自 Worker 线程的消息
+    // worker.on("message", (result) => {
+    //   dialog.showMessageBox(result)
+    //   console.log("Long task result:", result);
+    // });
+    // worker.postMessage("hello");
   }
   async update() {
     const directories = [] as string[];
@@ -41,6 +49,8 @@ export class MainWindowFileManager {
   }
   // 长任务,至少2s执行时间
   updateVsCodeWindowFiles() {
+    if(new Date().getTime() - 3 * (1000 * 60)  < this.lastGetVsCodeWindowFilesTime) return;
+    this.lastGetVsCodeWindowFilesTime = new Date().getTime();
     const vscodeOpenedFolders = getVsCodeOpenedFolder();
     const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));
     const filePaths = Object.keys(vscodeWindowStatus);
@@ -55,7 +65,7 @@ export class MainWindowFileManager {
           iconBase64: finderBase64,
           useAppBase64: vscodeBase64,
         };
-      })
+      });
     this.vscodeWindowFiles = files;
   }
 }

@@ -17,18 +17,21 @@ function App(): JSX.Element {
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
   };
+  // 搜索框为空时的默认展示,Vscode已打开的文件和打开的文件
   const updateDefaultFiles = () => {
     inputRef.current?.focus();
     window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS).then(([res, newOpendFileTimes]) => {
-      setOpenedFileTimes(newOpendFileTimes);
+      setVscodeOpenedWindowFiles(res);
+      setOpenedFileTimes({
+        ...newOpendFileTimes,
+      });
       const openedFiles = allFiles
         .filter((file) => {
-          return openedFileTimes[file.filePath];
+          return newOpendFileTimes[file.filePath] && file.useAppBase64;
         })
         .sort((file1, file2) => {
-          return openedFileTimes[file1.filePath] - openedFileTimes[file2.filePath];
+          return newOpendFileTimes[file2.filePath] - newOpendFileTimes[file1.filePath];
         });
-      setVscodeOpenedWindowFiles(res);
       if (!inputRef.current?.value?.trim()) return;
       setShowFiles([...res, ...openedFiles]);
     });
@@ -51,6 +54,12 @@ function App(): JSX.Element {
     }
   };
   useEffect(() => {
+    window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_FILES_LIST).then((res) => {
+      setAllFiles(res);
+    });
+    window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, updateDefaultFiles);
+  }, []);
+  useEffect(() => {
     window.requestAnimationFrame(() => {
       const { height } = containerRef.current?.getBoundingClientRect() || {};
       if (!height) return;
@@ -62,7 +71,7 @@ function App(): JSX.Element {
   }, [active]);
   useEffect(() => {
     if (!input) {
-      setShowFiles(vscodeOpenedWindowFiles);
+      updateDefaultFiles();
       return;
     }
     const newShowFiles = allFiles
@@ -84,11 +93,8 @@ function App(): JSX.Element {
     setShowFiles(newShowFiles);
   }, [input, vscodeOpenedWindowFiles]);
   useEffect(() => {
-    window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_FILES_LIST).then((res) => {
-      setAllFiles(res);
-    });
-    window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, updateDefaultFiles);
-  }, []);
+    updateDefaultFiles();
+  }, [allFiles]);
   return (
     <div className="search-window overflow-hidden" ref={containerRef}>
       <div className={`relative flex pl-[20px] w-[100vw] items-center h-[50px] border-b-[1px] border-slate-300`}>
@@ -112,9 +118,10 @@ function App(): JSX.Element {
           {showFiles.map((file, i) => {
             return (
               <li
-                className={`flex [&>svg]:mx-[6px] [&>svg]:w-[18px] [&>svg]:h-[18px] items-center  pl-1 h-[34px] ${
-                  i === active ? "active-li" : ""
-                }`}
+                className={`flex [&>svg]:mx-[6px] [&>svg]:w-[18px] [&>svg]:h-[18px] items-center  pl-1 h-[34px] 
+                  ${i === active ? "active-li" : ""}
+                  ${vscodeOpenedWindowFiles.find((f) => f.filePath === file.filePath) ? "opened-li" : ""}
+                  `}
                 key={file.filePath + i}
               >
                 {file?.useAppBase64 && (

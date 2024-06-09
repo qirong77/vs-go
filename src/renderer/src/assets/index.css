@@ -11,8 +11,13 @@ li {
 @layer components {
     .active-li {
       background-color: rgb(218, 221, 225);
-      opacity: 100% !important;
+      opacity: 100%;
       border-radius: 3px;
     }
   }
   
+@layer components {
+  .opened-li {
+    opacity: 0.7;
+  }
+}
