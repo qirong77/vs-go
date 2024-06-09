@@ -67,7 +67,7 @@ function App(): JSX.Element {
       if (!height) return;
       window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, height);
     });
-  }, [showFiles]);
+  }, [showFiles.length]);
   useEffect(() => {
     ulRef.current?.querySelector(".active-li")?.scrollIntoView(false);
   }, [active]);
