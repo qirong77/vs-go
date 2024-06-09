@@ -25,6 +25,7 @@ function App(): JSX.Element {
       setOpenedFileTimes({
         ...newOpendFileTimes,
       });
+      if (inputRef.current?.value?.trim()) return;
       const openedFiles = allFiles
         .filter((file) => {
           return newOpendFileTimes[file.filePath] && file.useAppBase64;
@@ -32,7 +33,6 @@ function App(): JSX.Element {
         .sort((file1, file2) => {
           return newOpendFileTimes[file2.filePath] - newOpendFileTimes[file1.filePath];
         });
-      if (!inputRef.current?.value?.trim()) return;
       setShowFiles([...res, ...openedFiles]);
     });
   };
@@ -54,16 +54,18 @@ function App(): JSX.Element {
     }
   };
   useEffect(() => {
+
     window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_FILES_LIST).then((res) => {
       setAllFiles(res);
     });
     window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, updateDefaultFiles);
+    updateDefaultFiles()
   }, []);
   useEffect(() => {
     window.requestAnimationFrame(() => {
       const { height } = containerRef.current?.getBoundingClientRect() || {};
       if (!height) return;
-      window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, height + (showFiles.length ? 15 : 5));
+      window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, height);
     });
   }, [showFiles]);
   useEffect(() => {
@@ -92,9 +94,6 @@ function App(): JSX.Element {
       });
     setShowFiles(newShowFiles);
   }, [input, vscodeOpenedWindowFiles]);
-  useEffect(() => {
-    updateDefaultFiles();
-  }, [allFiles]);
   return (
     <div className="search-window overflow-hidden" ref={containerRef}>
       <div className={`relative flex pl-[20px] w-[100vw] items-center h-[50px] border-b-[1px] border-slate-300`}>
