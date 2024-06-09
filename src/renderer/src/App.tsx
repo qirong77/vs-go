@@ -28,12 +28,12 @@ function App(): JSX.Element {
       if (inputRef.current?.value?.trim()) return;
       const openedFiles = allFiles
         .filter((file) => {
-          return newOpendFileTimes[file.filePath] && file.useAppBase64;
+          return newOpendFileTimes[file.filePath] && file.useAppBase64 || res.find((f) => f.filePath === file.filePath);
         })
         .sort((file1, file2) => {
           return newOpendFileTimes[file2.filePath] - newOpendFileTimes[file1.filePath];
         });
-      setShowFiles([...res, ...openedFiles]);
+      setShowFiles([...res,...openedFiles]);
     });
   };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
