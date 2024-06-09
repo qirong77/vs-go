@@ -28,26 +28,19 @@ class MainWindow {
       window.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
     // 在docker栏隐藏,支持浮动
-    if(!is.dev) {
-      window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-      window.setAlwaysOnTop(true, 'floating', 1)
-    }
+    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    window.setAlwaysOnTop(true, 'torn-off-menu', 999)
     window.on('show',()=>{
       window.webContents.send(VS_GO_EVENT.MAIN_WINDOW_SHOW)
     })
     window.on('blur',()=>{
-      if(!is.dev)  {
-        window.hide()
-      }
+      window.hide()
     })
     return window
   }
   show() {
-    this._window.show()
-    this._window.focus()
-    this._window.center()
-    // showWindowOnCurrentDesktop(this.window)
-    // this.window.center()
+    showWindowOnCurrentDesktop(this.window)
+    this.window.center()
   }
   hide() {
     this._window.hide()

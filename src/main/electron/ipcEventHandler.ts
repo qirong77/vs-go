@@ -6,8 +6,8 @@ import { openFileByVscode } from '../utils/openFileByVsCode';
 import { is } from '@electron-toolkit/utils'
 
 export class IpcEventHandler {
-  mainWindow;
-  mainWindowFileManager
+  mainWindow:MainWindow;
+  mainWindowFileManager:MainWindowFileManager
   openedFileTimes = {} 
   constructor(mainWindow: MainWindow,mainWindowFileManager: MainWindowFileManager) {
     this.mainWindow = mainWindow;
@@ -30,6 +30,7 @@ export class IpcEventHandler {
       this.openedFileTimes[filePath] = (this.openedFileTimes[filePath] || 0) + 1;
       mainWindow.window.hide();
       openFileByVscode(filePath)
+      this.mainWindowFileManager.updateVsCodeWindowFiles(true)
     })
   }
 }

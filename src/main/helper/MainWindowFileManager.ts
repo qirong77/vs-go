@@ -48,8 +48,9 @@ export class MainWindowFileManager {
     this.mainWindowFiles = [...useVscodeDirs, ...notUseVscodeDirs];
   }
   // 长任务,至少2s执行时间
-  updateVsCodeWindowFiles() {
-    if(new Date().getTime() - 3 * (1000 * 60)  < this.lastGetVsCodeWindowFilesTime) return;
+  updateVsCodeWindowFiles(isImmediate = false) {
+    const canUpdate = new Date().getTime() - 3 * (1000 * 60)  < this.lastGetVsCodeWindowFilesTime
+    if(!isImmediate && !canUpdate) return;
     this.lastGetVsCodeWindowFilesTime = new Date().getTime();
     const vscodeOpenedFolders = getVsCodeOpenedFolder();
     const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));
