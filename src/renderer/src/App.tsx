@@ -46,7 +46,7 @@ function App(): JSX.Element {
       e.metaKey ? setActive(showFiles.length - 1) : setActive(active + 1 > showFiles.length - 1 ? 0 : active + 1);
     }
     if (e.key === "Enter") {
-      window.electron.ipcRenderer.send(VS_GO_EVENT.OPEN_FILE, showFiles[active].filePath);
+      window.electron.ipcRenderer.send(VS_GO_EVENT.OPEN_FILE, showFiles[active]);
       setInput("");
       setActive(0);
       updateDefaultFiles();

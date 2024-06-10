@@ -39,8 +39,11 @@ class MainWindow {
     return window
   }
   show() {
-    showWindowOnCurrentDesktop(this.window)
+    this.window.show()
+    this.window.focus()
     this.window.center()
+    // showWindowOnCurrentDesktop(this.window)
+    // this.window.center()
   }
   hide() {
     this._window.hide()
