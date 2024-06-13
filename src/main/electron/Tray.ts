@@ -1,8 +1,11 @@
 import { Menu, Tray, app, nativeImage } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import MainWindow from './MainWindow'
 class VsGoTray {
-  constructor() {
+  mainWindow
+  constructor(mainWindow:MainWindow) {
+    this.mainWindow = mainWindow
     const __dirname = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
     /* 图片地址:
     npm run dev => out/.png
@@ -21,7 +24,13 @@ class VsGoTray {
         click() {
           app.quit()
         }
-      }
+      },
+      {
+        label: '重新创建窗口',
+        click() {
+          mainWindow.createWindow()
+        }
+      },
     ])
     tray.setContextMenu(contextMenu)
   }

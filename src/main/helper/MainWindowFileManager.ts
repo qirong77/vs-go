@@ -4,8 +4,10 @@ import { getSubDirectory } from "../utils/getSubDirectory";
 import { finderBase64 } from "../../common/finderBase64";
 import { vscodeBase64 } from "../../common/vscodeBase64";
 import { IMainWindowFiles } from "../../common/type";
+
 import { getVsCodeOpenedFolder } from "../utils/getVsCodeOpenedFolder";
 import { readFileSync } from "node:fs";
+
 export class MainWindowFileManager {
   mainWindowFiles: IMainWindowFiles = [];
   vscodeWindowFiles: IMainWindowFiles = [];
@@ -13,7 +15,9 @@ export class MainWindowFileManager {
   constructor() {
     this.update();
     this.updateVsCodeWindowFiles();
-    // 
+    // 测试
+    // const dialog = new Dialog()
+    //
     // const worker = new Worker(new URL("../test-worker.js", import.meta.url));
     // // 监听来自 Worker 线程的消息
     // worker.on("message", (result) => {
@@ -48,8 +52,8 @@ export class MainWindowFileManager {
   }
   // 长任务,至少2s执行时间
   updateVsCodeWindowFiles(isImmediate = false) {
-    const canUpdate = new Date().getTime() - 3 * (1000 * 60)  > this.lastGetVsCodeWindowFilesTime
-    if(!isImmediate && !canUpdate) return;
+    const canUpdate = new Date().getTime() - 3 * (1000 * 60) > this.lastGetVsCodeWindowFilesTime;
+    if (!isImmediate && !canUpdate) return;
     this.lastGetVsCodeWindowFilesTime = new Date().getTime();
     const vscodeOpenedFolders = getVsCodeOpenedFolder();
     const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));

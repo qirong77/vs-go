@@ -2,12 +2,15 @@ import { is } from '@electron-toolkit/utils'
 import { BrowserWindow, screen } from 'electron'
 import path from 'path'
 import { VS_GO_EVENT } from '../../common/EVENT'
+
+
 class MainWindow {
   private _window: BrowserWindow
   constructor() {
     this._window = this.createWindow()
   }
   createWindow() {
+    this._window?.destroy()
     const window = new BrowserWindow({
       width: 850,
       height: 600,
@@ -19,7 +22,6 @@ class MainWindow {
         sandbox: false
       }
     })
-
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
