@@ -19,7 +19,12 @@ worker.postMessage("hello");
 export let mainWindowFiles: IMainWindowFiles = [];
 export let vscodeOpenedFiles: IMainWindowFiles = [];
 let lastGetVsCodeWindowFilesTime = 0;
+let lastUpdateMainWindowFilesTime = 0;
 export async function updateMainWindowFiles() {
+  const canUpdate = new Date().getTime() -/* x分钟 */ 1 * (1000 * 60) > lastUpdateMainWindowFilesTime;
+  if (!canUpdate) return;
+  console.log("updateMainWindowFiles")
+  lastUpdateMainWindowFilesTime = new Date().getTime();
   const directories = [] as string[];
   for (let i = 0; i < vsGoConfig.workSpaceDirectories.length; i++) {
     const dirs = await getSubDirectory(vsGoConfig.workSpaceDirectories[i]);
@@ -45,7 +50,8 @@ export async function updateMainWindowFiles() {
 }
 export function updateVsCodeOpenedFiles(isImmediate = false) {
   const canUpdate = new Date().getTime() - 3 * (1000 * 60) > lastGetVsCodeWindowFilesTime;
-  if (!(!canUpdate || !isImmediate)) return;
+  if (!canUpdate && !isImmediate) return;
+  console.log('updateVsCodeOpenedFiles')
   lastGetVsCodeWindowFilesTime = new Date().getTime();
   const vscodeOpenedFolders = getVsCodeOpenedFolder();
   const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));

@@ -2,7 +2,8 @@ import { is } from "@electron-toolkit/utils";
 import { BrowserWindow, screen } from "electron";
 import path from "path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-let window = createMainWindow();
+import { updateMainWindowFiles, updateVsCodeOpenedFiles } from "./MainWindowFileManager";
+let _mainWindow = createMainWindow();
 
 export function createMainWindow() {
   const window = new BrowserWindow({
@@ -37,30 +38,40 @@ export function createMainWindow() {
 export function showWindowOnCurrentDesktop() {
   const { x, y } = screen.getCursorScreenPoint();
   const currentDisplay = screen.getDisplayNearestPoint({ x, y });
-  window.setPosition(currentDisplay.workArea.x, currentDisplay.workArea.y);
-  window.show();
+  _mainWindow.setPosition(Math.floor(currentDisplay.workArea.x / 2), Math.floor(currentDisplay.workArea.y / 2));
+  _mainWindow.show();
+  _mainWindow.center();
+  // _mainWindow.focus();
+  // _mainWindow.center();
 }
 // export function showWindowOnCurrentDesktop2(window: BrowserWindow) {
 //   window.show();
 //   window.focus();
 //   window.center();
 // }
-
 export function toogleIsShowMainWindow() {
-  if (window.isVisible()) {
-    window.hide();
+  if (_mainWindow.isDestroyed()) {
+    _mainWindow = createMainWindow();
+    _mainWindow.show()
+    return
+  }
+  if (_mainWindow.isVisible()) {
+    _mainWindow.hide();
+    updateVsCodeOpenedFiles();
   } else {
+    _mainWindow.show();
     showWindowOnCurrentDesktop();
+    updateMainWindowFiles();
   }
 }
 export function toogleDevTools() {
-  window.isVisible() && window.webContents.toggleDevTools();
+  _mainWindow.isVisible() && _mainWindow.webContents.toggleDevTools();
 }
 
-export function setWindowSize(w,h) {
-  window.setSize(w, h);
+export function setWindowSize(w: number, h: number) {
+  _mainWindow.setSize(w, h);
 }
 
 export function hide() {
-  window.hide();
+  _mainWindow.hide();
 }

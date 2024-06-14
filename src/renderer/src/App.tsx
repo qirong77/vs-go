@@ -117,7 +117,7 @@ function App(): JSX.Element {
           {showFiles.map((file, i) => {
             return (
               <li
-                className={`flex [&>svg]:mx-[6px] [&>svg]:w-[18px] [&>svg]:h-[18px] items-center  pl-1 h-[34px] 
+                className={`flex [&>svg]:mx-[6px] [&>svg]:w-[18px] [&>svg]:h-[18px] items-center  pl-1 h-[34px]
                   ${i === active ? "active-li" : ""}
                   ${vscodeOpenedWindowFiles.find((f) => f.filePath === file.filePath) ? "opened-li" : ""}
                   `}
