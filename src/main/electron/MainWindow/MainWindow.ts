@@ -39,8 +39,10 @@ export function showWindowOnCurrentDesktop() {
   const { x, y } = screen.getCursorScreenPoint();
   const currentDisplay = screen.getDisplayNearestPoint({ x, y });
   _mainWindow.setPosition(Math.floor(currentDisplay.workArea.x / 2), Math.floor(currentDisplay.workArea.y / 2));
-  _mainWindow.show();
-  _mainWindow.center();
+  setTimeout(()=>{
+    _mainWindow.show();
+    _mainWindow.center();
+  })
   // _mainWindow.focus();
   // _mainWindow.center();
 }
@@ -52,7 +54,7 @@ export function showWindowOnCurrentDesktop() {
 export function toogleIsShowMainWindow() {
   if (_mainWindow.isDestroyed()) {
     _mainWindow = createMainWindow();
-    _mainWindow.show()
+    showWindowOnCurrentDesktop();
     return
   }
   if (_mainWindow.isVisible()) {
