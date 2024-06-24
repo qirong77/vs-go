@@ -1,8 +1,8 @@
 import { is } from "@electron-toolkit/utils";
-import { BrowserWindow, screen } from "electron";
+import { BrowserWindow } from "electron";
 import path from "path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import { updateMainWindowFiles, updateVsCodeOpenedFiles } from "./MainWindowFileManager";
+import { updateMainWindowFiles } from "./MainWindowFileManager";
 let _mainWindow = createMainWindow();
 
 export function createMainWindow() {
@@ -40,9 +40,9 @@ export function showWindowOnCurrentDesktop() {
   // const currentDisplay = screen.getDisplayNearestPoint({ x, y });
   // const [w,h] = _mainWindow.getSize();
   // _mainWindow.setPosition(Math.floor(currentDisplay.workArea.x / 2 + w / 2), Math.floor(currentDisplay.workArea.y / 2 + h / 2));
-  _mainWindow.show();
   _mainWindow.center();
-  _mainWindow.focus();
+  _mainWindow.show();
+  // _mainWindow.focus();
   // _mainWindow.center();
 }
 // export function showWindowOnCurrentDesktop2(window: BrowserWindow) {
@@ -50,6 +50,7 @@ export function showWindowOnCurrentDesktop() {
 //   window.focus();
 //   window.center();
 // }
+
 export function toogleIsShowMainWindow() {
   if (_mainWindow.isDestroyed()) {
     _mainWindow = createMainWindow();
@@ -58,7 +59,6 @@ export function toogleIsShowMainWindow() {
   }
   if (_mainWindow.isVisible()) {
     _mainWindow.hide();
-    updateVsCodeOpenedFiles();
   } else {
     _mainWindow.show();
     showWindowOnCurrentDesktop();
@@ -75,4 +75,8 @@ export function setWindowSize(w: number, h: number) {
 
 export function hide() {
   _mainWindow.hide();
+}
+
+export function getMainWindow() {
+  return _mainWindow
 }
