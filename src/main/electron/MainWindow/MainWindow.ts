@@ -36,14 +36,13 @@ export function createMainWindow() {
   return window;
 }
 export function showWindowOnCurrentDesktop() {
-  const { x, y } = screen.getCursorScreenPoint();
-  const currentDisplay = screen.getDisplayNearestPoint({ x, y });
-  _mainWindow.setPosition(Math.floor(currentDisplay.workArea.x / 2), Math.floor(currentDisplay.workArea.y / 2));
-  setTimeout(()=>{
-    _mainWindow.show();
-    _mainWindow.center();
-  })
-  // _mainWindow.focus();
+  // const { x, y } = screen.getCursorScreenPoint();
+  // const currentDisplay = screen.getDisplayNearestPoint({ x, y });
+  // const [w,h] = _mainWindow.getSize();
+  // _mainWindow.setPosition(Math.floor(currentDisplay.workArea.x / 2 + w / 2), Math.floor(currentDisplay.workArea.y / 2 + h / 2));
+  _mainWindow.show();
+  _mainWindow.center();
+  _mainWindow.focus();
   // _mainWindow.center();
 }
 // export function showWindowOnCurrentDesktop2(window: BrowserWindow) {

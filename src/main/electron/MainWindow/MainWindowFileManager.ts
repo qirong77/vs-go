@@ -7,6 +7,7 @@ import { IMainWindowFiles } from "../../../common/type";
 
 import { getVsCodeOpenedFolder } from "../../utils/getVsCodeOpenedFolder";
 import { readFileSync } from "node:fs";
+import { dialog } from "electron";
 /* TEST-WORKER
 const worker = new Worker(new URL("../test-worker.js", import.meta.url));
 // 监听来自 Worker 线程的消息
@@ -53,22 +54,26 @@ export function updateVsCodeOpenedFiles(isImmediate = false) {
   if (!canUpdate && !isImmediate) return;
   console.log('updateVsCodeOpenedFiles')
   lastGetVsCodeWindowFilesTime = new Date().getTime();
-  const vscodeOpenedFolders = getVsCodeOpenedFolder();
-  const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));
-  const filePaths = Object.keys(vscodeWindowStatus);
-  const files = vscodeOpenedFolders
-    .filter((dir) => {
-      return filePaths.some((item) => item.endsWith(dir.folder));
-    })
-    .map((dir) => {
-      return {
-        fileName: dir.folder,
-        filePath: filePaths.find((item) => item.endsWith(dir.folder)) || "",
-        iconBase64: finderBase64,
-        useAppBase64: vscodeBase64,
-      };
-    });
-  vscodeOpenedFiles = files;
+  try {
+    const vscodeOpenedFolders = getVsCodeOpenedFolder();
+    const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));
+    const filePaths = Object.keys(vscodeWindowStatus);
+    const files = vscodeOpenedFolders
+      .filter((dir) => {
+        return filePaths.some((item) => item.endsWith(dir.folder));
+      })
+      .map((dir) => {
+        return {
+          fileName: dir.folder,
+          filePath: filePaths.find((item) => item.endsWith(dir.folder)) || "",
+          iconBase64: finderBase64,
+          useAppBase64: vscodeBase64,
+        };
+      });
+    vscodeOpenedFiles = files;
+  } catch (error) {
+    dialog.showErrorBox("获取VSCode窗口失败", '请检查VSCode窗口是否正常打开');
+  }
 }
 export function getMainWindowFiles() {
   return mainWindowFiles;
