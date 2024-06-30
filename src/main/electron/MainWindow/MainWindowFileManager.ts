@@ -8,6 +8,7 @@ import { IMainWindowFiles } from "../../../common/type";
 import { getVsCodeOpenedFolder } from "../../utils/getVsCodeOpenedFolder";
 import { readFileSync } from "node:fs";
 import { dialog } from "electron";
+import { debounce } from "../../../common/debounce";
 /* TEST-WORKER
 const worker = new Worker(new URL("../test-worker.js", import.meta.url));
 // 监听来自 Worker 线程的消息
@@ -48,7 +49,7 @@ export async function updateMainWindowFiles() {
   }) as IMainWindowFiles;
   mainWindowFiles = [...useVscodeDirs, ...notUseVscodeDirs];
 }
-export function updateVsCodeOpenedFiles() {
+function updateVsCodeOpenedFiles() {
   try {
     const vscodeOpenedFolders = getVsCodeOpenedFolder();
     const vscodeWindowStatus = JSON.parse(readFileSync(vsGoConfig.vscodeStausFilePath, "utf-8"));
@@ -70,6 +71,7 @@ export function updateVsCodeOpenedFiles() {
     dialog.showErrorBox("获取VSCode窗口失败", '请检查VSCode窗口是否正常打开');
   }
 }
+export const deboucedUpdateVsCodeFiles = debounce(updateVsCodeOpenedFiles, 2000 * 60)
 export function getMainWindowFiles() {
   return mainWindowFiles;
 }

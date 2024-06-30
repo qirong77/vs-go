@@ -5,7 +5,7 @@ import { is } from "@electron-toolkit/utils";
 import { IMainWindowFile } from "../../common/type";
 import { execSync } from "child_process";
 import { hide, setWindowSize } from "./MainWindow/MainWindow";
-import { getMainWindowFiles, getVsCodeOpenedFiles, updateVsCodeOpenedFiles } from "./MainWindow/MainWindowFileManager";
+import { getMainWindowFiles, getVsCodeOpenedFiles, deboucedUpdateVsCodeFiles } from "./MainWindow/MainWindowFileManager";
 const openedFileTimes: { [key: string]: number } = {};
 ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, (_e, arg) => {
   !is.dev && setWindowSize(650, Math.floor(arg));
@@ -21,9 +21,8 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
     execSync(command);
   }
   // 延迟执行,否则会卡顿,因为执行code -s需要大概1s
-  setTimeout(() => {
-    updateVsCodeOpenedFiles();
-  });
+  // 延迟几秒执行,否则Vscode可能会多开?
+  setTimeout(deboucedUpdateVsCodeFiles,5000);
 });
 ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, () => {
   return getMainWindowFiles();

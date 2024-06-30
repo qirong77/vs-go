@@ -2,7 +2,7 @@ import { is } from "@electron-toolkit/utils";
 import { BrowserWindow } from "electron";
 import path from "path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import { updateMainWindowFiles } from "./MainWindowFileManager";
+import { deboucedUpdateVsCodeFiles, updateMainWindowFiles } from "./MainWindowFileManager";
 let _mainWindow = createMainWindow();
 
 export function createMainWindow() {
@@ -33,6 +33,7 @@ export function createMainWindow() {
   window.on("blur", () => {
     window.hide();
   });
+  window.on('hide',deboucedUpdateVsCodeFiles)
   return window;
 }
 export function showWindowOnCurrentDesktop() {
