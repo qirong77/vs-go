@@ -20,12 +20,8 @@ worker.postMessage("hello");
 */
 export let mainWindowFiles: IMainWindowFiles = [];
 export let vscodeOpenedFiles: IMainWindowFiles = [];
-let lastUpdateMainWindowFilesTime = 0;
 export async function updateMainWindowFiles() {
-  const canUpdate = new Date().getTime() -/* x分钟 */ 1 * (1000 * 60) > lastUpdateMainWindowFilesTime;
-  if (!canUpdate) return;
   console.log("updateMainWindowFiles")
-  lastUpdateMainWindowFilesTime = new Date().getTime();
   const directories = [] as string[];
   for (let i = 0; i < vsGoConfig.workSpaceDirectories.length; i++) {
     const dirs = await getSubDirectory(vsGoConfig.workSpaceDirectories[i]);
@@ -68,10 +64,11 @@ function updateVsCodeOpenedFiles() {
       });
     vscodeOpenedFiles = files;
   } catch (error) {
-    dialog.showErrorBox("获取VSCode窗口失败", '请检查VSCode窗口是否正常打开');
+    dialog.showErrorBox("获取VSCode窗口失败", '请检查VSCode窗口是否正常打开' + error);
   }
 }
-export const deboucedUpdateVsCodeFiles = debounce(updateVsCodeOpenedFiles, 2000 * 60)
+export const deboucedUpdateVsCodeFiles = debounce(updateVsCodeOpenedFiles, 1000 * 60 * 3)
+export const deboucedUpdateMainWindowFiles = debounce(updateMainWindowFiles, 1000 * 60 * 10)
 export function getMainWindowFiles() {
   return mainWindowFiles;
 }
