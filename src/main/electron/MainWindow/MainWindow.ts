@@ -1,10 +1,12 @@
 import { is } from "@electron-toolkit/utils";
-import { BrowserWindow } from "electron";
+import { app, BrowserWindow } from "electron";
 import path from "path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { deboucedUpdateMainWindowFiles, deboucedUpdateVsCodeFiles } from "./MainWindowFileManager";
-let _mainWindow = createMainWindow();
-
+let _mainWindow: BrowserWindow;
+app.once('ready', () => {
+  _mainWindow = createMainWindow();
+})
 export function createMainWindow() {
   const window = new BrowserWindow({
     width: 850,

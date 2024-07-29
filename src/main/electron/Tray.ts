@@ -2,6 +2,7 @@ import { Menu, Tray, app, nativeImage } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMainWindow, getMainWindow } from "./MainWindow/MainWindow";
+import { showErrorDialog } from "./Dialog";
 const __dirname = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 /* 图片地址:
 npm run dev => out/.png
@@ -30,10 +31,22 @@ const contextMenu = Menu.buildFromTemplate([
   {
     label: "显示窗口and打开控制台",
     click() {
-      const w = getMainWindow()
-      w.show()
-      w.webContents.openDevTools()
+      const w = getMainWindow();
+      w.show();
+      w.webContents.openDevTools();
     },
-  }
+  },
+  {
+    label: "查看窗口状态",
+    click() {
+      const w = getMainWindow();
+      const infos: string[] = [];
+      infos.push("w.isDestroyed()" + w.isDestroyed() + "\n");
+      infos.push("w.webContents.isCrashed" + w.webContents.isCrashed + "\n");
+      infos.push("w.webContents.isDestroyed" + w.webContents.isDestroyed + "\n");
+      infos.push("w.webContents.isLoadingMainFrame" + w.webContents.isLoadingMainFrame + "\n");
+      showErrorDialog(infos.join(""))
+    },
+  },
 ]);
 tray.setContextMenu(contextMenu);

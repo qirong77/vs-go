@@ -43,7 +43,16 @@ export async function updateMainWindowFiles() {
       useAppBase64: "",
     };
   }) as IMainWindowFiles;
-  mainWindowFiles = [...useVscodeDirs, ...notUseVscodeDirs];
+  const useVscodeFiles = vsGoConfig.workSpaceFiles.map((file) => {
+    return {
+      fileName: basename(file),
+      filePath: file,
+      iconBase64: finderBase64,
+      useAppBase64: vscodeBase64,
+    };
+  }) as IMainWindowFiles;
+  notUseVscodeDirs.push(...useVscodeFiles);
+  mainWindowFiles = [...useVscodeDirs, ...notUseVscodeDirs,...useVscodeFiles];
 }
 function updateVsCodeOpenedFiles() {
   try {
