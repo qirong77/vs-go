@@ -41,10 +41,10 @@ const contextMenu = Menu.buildFromTemplate([
     click() {
       const w = getMainWindow();
       const infos: string[] = [];
-      infos.push("w.isDestroyed()" + w.isDestroyed() + "\n");
-      infos.push("w.webContents.isCrashed" + w.webContents.isCrashed + "\n");
-      infos.push("w.webContents.isDestroyed" + w.webContents.isDestroyed + "\n");
-      infos.push("w.webContents.isLoadingMainFrame" + w.webContents.isLoadingMainFrame + "\n");
+      infos.push("w.isDestroyed:" + w.isDestroyed() + "\n");
+      infos.push("w.webContents.isCrashed:" + w.webContents.isCrashed() + "\n");
+      infos.push("w.webContents.isDestroyed:" + w.webContents.isDestroyed() + "\n");
+      infos.push("w.webContents.isLoadingMainFrame:" + w.webContents.isLoadingMainFrame() + "\n");
       showErrorDialog(infos.join(""))
     },
   },
