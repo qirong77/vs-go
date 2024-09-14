@@ -21,7 +21,6 @@ worker.postMessage("hello");
 export let mainWindowFiles: IMainWindowFiles = [];
 export let vscodeOpenedFiles: IMainWindowFiles = [];
 export async function updateMainWindowFiles() {
-  console.log("updateMainWindowFiles")
   const directories = [] as string[];
   for (let i = 0; i < vsGoConfig.workSpaceDirectories.length; i++) {
     const dirs = await getSubDirectory(vsGoConfig.workSpaceDirectories[i]);

@@ -6,7 +6,6 @@ import { showErrorDialog } from "../electron/Dialog";
 import { mkdirSync } from "node:original-fs";
 import { getDefaultWorkSpaceFile } from "./getDefaultWorkSpaceFile";
 import { app } from "electron";
-import { execFileSync } from "child_process";
 if (!existsSync(ProjectPath)) {
   mkdirSync(ProjectPath);
 }
@@ -22,12 +21,8 @@ vsGoConfig.workSpaceDirectories.concat(vsGoConfig.workSpaceFiles).forEach((fileP
   }
 });
 app.whenReady().then(()=>{
-  setTimeout(()=>{
-    try {
-      execFileSync('code -s')
-    } catch (error) {
-      showErrorDialog('未检测到code命令,在VsCode中使用Command+Shift+P,搜索code进行安装qr')
-    }
-  },3000)
+  if(!existsSync(vsGoConfig.codeCommandPath)) {
+    showErrorDialog('未检测到code命令,在VsCode中使用Command+Shift+P,搜索code进行安装qr')
+  }
 })
 export { vsGoConfig };
