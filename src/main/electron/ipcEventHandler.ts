@@ -5,7 +5,7 @@ import { is } from "@electron-toolkit/utils";
 import { IMainWindowFile } from "../../common/type";
 import { execSync } from "child_process";
 import { hide, setWindowSize } from "./MainWindow/MainWindow";
-import { getMainWindowFiles, getVsCodeOpenedFiles, deboucedUpdateVsCodeFiles } from "./MainWindow/MainWindowFileManager";
+import { getMainWindowFiles, getVsCodeOpenedFiles, updateMainWindowFiles } from "./MainWindow/MainWindowFileManager";
 import { existsSync } from "fs";
 const openedFileTimes: { [key: string]: number } = {};
 ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, (_e, arg) => {
@@ -16,6 +16,7 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
   const filePath = file.filePath;
   if(!existsSync(filePath)) {
     dialog.showErrorBox('文件不存在',`${filePath} 不存在`)
+    return
   }
   if (file.useAppBase64) {
     openedFileTimes[filePath] = (openedFileTimes[filePath] || 0) + 1;
@@ -24,11 +25,9 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
     const command = `open ${file.filePath}`;
     execSync(command);
   }
-  // 延迟执行,否则会卡顿,因为执行code -s需要大概1s
-  // 延迟几秒执行,否则Vscode可能会多开?
-  setTimeout(deboucedUpdateVsCodeFiles,5000);
 });
-ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, () => {
+ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, async () => {
+  await updateMainWindowFiles()
   return getMainWindowFiles();
 });
 

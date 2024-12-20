@@ -22,7 +22,7 @@ vsGoConfig.workSpaceDirectories.concat(vsGoConfig.workSpaceFiles).forEach((fileP
 });
 app.whenReady().then(()=>{
   if(!existsSync(vsGoConfig.codeCommandPath)) {
-    showErrorDialog('未检测到code命令,在VsCode中使用Command+Shift+P,搜索code进行安装qr')
+    showErrorDialog('未检测到code命令,在VsCode中使用Command+Shift+P,搜索code进行安装')
   }
 })
 export { vsGoConfig };

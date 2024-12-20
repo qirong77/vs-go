@@ -2,7 +2,6 @@ import { is } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
 import path from "path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import { deboucedUpdateMainWindowFiles, deboucedUpdateVsCodeFiles } from "./MainWindowFileManager";
 let _mainWindow: BrowserWindow;
 app.once('ready', () => {
   _mainWindow = createMainWindow();
@@ -35,12 +34,6 @@ export function createMainWindow() {
   window.on("blur", () => {
     window.hide();
   });
-  window.on('hide',()=>{
-    setTimeout(()=>{
-      deboucedUpdateVsCodeFiles();
-      deboucedUpdateMainWindowFiles()
-    },1000 * 60)
-  })
   return window;
 }
 export function showWindowOnCurrentDesktop() {
@@ -70,7 +63,6 @@ export function toogleIsShowMainWindow() {
   } else {
     _mainWindow.show();
     showWindowOnCurrentDesktop();
-
   }
 }
 export function toogleDevTools() {

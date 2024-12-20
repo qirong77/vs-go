@@ -54,7 +54,6 @@ function App(): JSX.Element {
     }
   };
   useEffect(() => {
-
     window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_FILES_LIST).then((res) => {
       setAllFiles(res);
     });
