@@ -61,6 +61,3 @@ export async function updateMainWindowFiles() {
 export function getMainWindowFiles() {
   return mainWindowFiles;
 }
-export function getVsCodeOpenedFiles() {
-  return vscodeOpenedFiles;
-}

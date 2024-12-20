@@ -5,9 +5,9 @@ import { is } from "@electron-toolkit/utils";
 import { IMainWindowFile } from "../../common/type";
 import { execSync } from "child_process";
 import { hide, setWindowSize } from "./MainWindow/MainWindow";
-import { getMainWindowFiles, getVsCodeOpenedFiles, updateMainWindowFiles } from "./MainWindow/MainWindowFileManager";
+import { getMainWindowFiles, updateMainWindowFiles } from "./MainWindow/MainWindowFileManager";
 import { existsSync } from "fs";
-const openedFileTimes: { [key: string]: number } = {};
+
 ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, (_e, arg) => {
   !is.dev && setWindowSize(650, Math.floor(arg));
 });
@@ -19,7 +19,6 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
     return
   }
   if (file.useAppBase64) {
-    openedFileTimes[filePath] = (openedFileTimes[filePath] || 0) + 1;
     openFileByVscode(filePath);
   } else {
     const command = `open ${file.filePath}`;
@@ -31,11 +30,3 @@ ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, async () => {
   return getMainWindowFiles();
 });
 
-ipcMain.handle(VS_GO_EVENT.GET_OPEN_FILES_TIMES, () => {
-  return openedFileTimes;
-});
-ipcMain.handle(VS_GO_EVENT.GET_VSCODE_WINDOW_FIELS, () => {
-  return new Promise((resolve) => {
-    resolve([getVsCodeOpenedFiles(), openedFileTimes]);
-  });
-});
