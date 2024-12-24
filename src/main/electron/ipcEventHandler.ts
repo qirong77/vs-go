@@ -5,7 +5,7 @@ import { is } from "@electron-toolkit/utils";
 import { IMainWindowFile } from "../../common/type";
 import { execSync } from "child_process";
 import { hide, setWindowSize } from "./MainWindow/MainWindow";
-import { getMainWindowFiles, updateMainWindowFiles } from "./MainWindow/MainWindowFileManager";
+import { getMainWindowFiles } from "./MainWindow/MainWindowFileManager";
 import { existsSync } from "fs";
 
 ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, (_e, arg) => {
@@ -26,7 +26,7 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
   }
 });
 ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, async () => {
-  await updateMainWindowFiles()
-  return getMainWindowFiles();
+  const res = await getMainWindowFiles()
+  return res
 });
 

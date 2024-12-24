@@ -53,6 +53,11 @@ export function showWindowOnCurrentDesktop() {
 // }
 
 export function toogleIsShowMainWindow() {
+  if(!_mainWindow) {
+    _mainWindow = createMainWindow();
+    showWindowOnCurrentDesktop();
+    return
+  }
   if (_mainWindow.isDestroyed()) {
     _mainWindow = createMainWindow();
     showWindowOnCurrentDesktop();

@@ -18,13 +18,7 @@ worker.on("message", (result) => {
 });
 worker.postMessage("hello");
 */
-export let mainWindowFiles: IMainWindowFiles = [];
-export let vscodeOpenedFiles: IMainWindowFiles = [];
-let lastUpdateTime = 0;
-export async function updateMainWindowFiles() {
-  if(lastUpdateTime && (Date.now() - lastUpdateTime < 1000)) {
-    return
-  }
+export async function getMainWindowFiles() {
   const directories = [] as string[];
   for (let i = 0; i < vsGoConfig.workSpaceDirectories.length; i++) {
     const dirs = await getSubDirectory(vsGoConfig.workSpaceDirectories[i]);
@@ -55,9 +49,7 @@ export async function updateMainWindowFiles() {
     };
   }) as IMainWindowFiles;
   notUseVscodeDirs.push(...useVscodeFiles);
-  mainWindowFiles = [...useVscodeDirs, ...notUseVscodeDirs,...useVscodeFiles];
-  lastUpdateTime = Date.now();
+  const result = [...useVscodeDirs, ...notUseVscodeDirs,...useVscodeFiles];
+  return result
 }
-export function getMainWindowFiles() {
-  return mainWindowFiles;
-}
+
