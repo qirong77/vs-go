@@ -1,4 +1,4 @@
-import AggregateError from 'aggregate-error';
+// import AggregateError from 'aggregate-error';
 
 /**
 An error to be thrown when the request is aborted by AbortController.
@@ -99,7 +99,8 @@ export default async function pMap(
 
                 if (resolvingCount === 0 && !isResolved) {
                     if (!stopOnError && errors.length > 0) {
-                        reject(new AggregateError(errors));
+                        // reject(new AggregateError(errors));
+                        reject(errors);
                         return;
                     }
 
