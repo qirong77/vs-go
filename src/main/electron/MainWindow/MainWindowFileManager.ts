@@ -6,7 +6,7 @@ import { IMainWindowFiles } from "../../../common/type";
 import { homedir } from "node:os";
 import { existsSync, mkdirSync } from "node:fs";
 import { getIconBuffers } from "../../utils/getIconPath";
-console.log(getIconBuffers)
+
 // import { getVsCodeOpenedFolder } from "../../utils/getVsCodeOpenedFolder";
 // import { readFileSync } from "node:fs";
 // import { dialog } from "electron";
@@ -21,10 +21,9 @@ worker.on("message", (result) => {
 worker.postMessage("hello");
 */
 export async function getMainWindowFiles() {
-    const timeStart = Date.now();
     const terminal = await getTerminallPath();
-    const files = [...getWorkSpaceFiles(), ...getZshFile(),...terminal];
-    console.log((Date.now() - timeStart) / 1000);
+    const app = await getApp();
+    const files = [...getWorkSpaceFiles(), ...getZshFile(),...terminal,...app];
     return files;
 }
 
@@ -99,4 +98,22 @@ async function getTerminallPath() {
             isApp: true,
         },
     ];
+}
+
+async function getApp() {
+    const apps = getSubDirectory('/Applications').filter((app) => {
+        return app.endsWith('.app')
+    })
+    const files: IMainWindowFiles = []
+    for (const app of apps) {
+        const appIcon = await getIconBuffers([app]) || ''
+        files.push({
+            filePath: app,
+            fileName: basename(app),
+            iconBase64: appIcon,
+            useAppBase64: '',
+            isApp: true,
+        })
+    }
+    return files
 }
