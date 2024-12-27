@@ -1,9 +1,10 @@
-import { basename } from "node:path";
-import { vsGoConfig } from "../../config";
+import { basename, resolve } from "node:path";
 import { getSubDirectory } from "../../utils/getSubDirectory";
 import { finderBase64 } from "../../../common/finderBase64";
 import { vscodeBase64 } from "../../../common/vscodeBase64";
 import { IMainWindowFiles } from "../../../common/type";
+import { homedir } from "node:os";
+import { existsSync, mkdirSync } from "node:fs";
 
 // import { getVsCodeOpenedFolder } from "../../utils/getVsCodeOpenedFolder";
 // import { readFileSync } from "node:fs";
@@ -19,37 +20,67 @@ worker.on("message", (result) => {
 worker.postMessage("hello");
 */
 export async function getMainWindowFiles() {
-  const directories = [] as string[];
-  for (let i = 0; i < vsGoConfig.workSpaceDirectories.length; i++) {
-    const dirs = await getSubDirectory(vsGoConfig.workSpaceDirectories[i]);
-    directories.push(...dirs);
-  }
-  const useVscodeDirs = directories.map((dir) => {
-    return {
-      fileName: basename(dir),
-      filePath: dir,
-      iconBase64: finderBase64,
-      useAppBase64: vscodeBase64,
-    };
-  }) as IMainWindowFiles;
-  const notUseVscodeDirs = directories.map((dir) => {
-    return {
-      fileName: basename(dir),
-      filePath: dir,
-      iconBase64: finderBase64,
-      useAppBase64: "",
-    };
-  }) as IMainWindowFiles;
-  const useVscodeFiles = vsGoConfig.workSpaceFiles.map((file) => {
-    return {
-      fileName: basename(file),
-      filePath: file,
-      iconBase64: finderBase64,
-      useAppBase64: vscodeBase64,
-    };
-  }) as IMainWindowFiles;
-  notUseVscodeDirs.push(...useVscodeFiles);
-  const result = [...useVscodeDirs, ...notUseVscodeDirs,...useVscodeFiles];
-  return result
+    const timeStart = Date.now();
+    const files = [...getWorkSpaceFiles(), ...getZshFile()];
+    console.log((Date.now() - timeStart) / 1000);
+    return files;
 }
 
+function getWorkSpaceFiles() {
+    const ProjectPath = resolve(homedir(), "Desktop", "VsGo-Projects");
+    if (!existsSync(ProjectPath)) {
+        mkdirSync(ProjectPath);
+    }
+    const DesktopPath = resolve(homedir(), "Desktop");
+    const windowFiles: IMainWindowFiles = [ProjectPath, DesktopPath]
+        .map((dir) => {
+            const subDirs = getSubDirectory(dir);
+            const files = subDirs.map((dir) => {
+                return [
+                    {
+                        fileName: basename(dir),
+                        filePath: dir,
+                        iconBase64: finderBase64,
+                        useAppBase64: vscodeBase64,
+
+                        isApp: false,
+                    },
+                    {
+                        fileName: basename(dir),
+                        filePath: dir,
+                        iconBase64: finderBase64,
+                        useAppBase64: "",
+                        isApp: false,
+                    },
+                ];
+            });
+            return files;
+        })
+        .flat(3);
+    return windowFiles;
+}
+
+function getZshFile() {
+    const results: IMainWindowFiles = [];
+    const zshrc = resolve(homedir(), ".zshrc");
+    if (existsSync(zshrc)) {
+        results.push({
+            filePath: zshrc,
+            fileName: ".zshrc",
+            iconBase64: finderBase64,
+            useAppBase64: vscodeBase64,
+            isApp: false,
+        });
+    }
+    const zprofile = resolve(homedir(), ".zprofile");
+    if (existsSync(zprofile)) {
+        results.push({
+            filePath: zprofile,
+            fileName: ".zprofile",
+            iconBase64: finderBase64,
+            useAppBase64: vscodeBase64,
+            isApp: false,
+        });
+    }
+    return results;
+}
