@@ -5,7 +5,8 @@ import { vscodeBase64 } from "../../../common/vscodeBase64";
 import { IMainWindowFiles } from "../../../common/type";
 import { homedir } from "node:os";
 import { existsSync, mkdirSync } from "node:fs";
-
+import { getIconBuffers } from "../../utils/getIconPath";
+console.log(getIconBuffers)
 // import { getVsCodeOpenedFolder } from "../../utils/getVsCodeOpenedFolder";
 // import { readFileSync } from "node:fs";
 // import { dialog } from "electron";
@@ -21,7 +22,8 @@ worker.postMessage("hello");
 */
 export async function getMainWindowFiles() {
     const timeStart = Date.now();
-    const files = [...getWorkSpaceFiles(), ...getZshFile()];
+    const terminal = await getTerminallPath();
+    const files = [...getWorkSpaceFiles(), ...getZshFile(),...terminal];
     console.log((Date.now() - timeStart) / 1000);
     return files;
 }
@@ -83,4 +85,18 @@ function getZshFile() {
         });
     }
     return results;
+}
+
+async function getTerminallPath() {
+    const terminalPasth = "/System/Applications/Utilities/Terminal.app";
+    const terMinalIcon = await getIconBuffers([terminalPasth]);
+    return [
+        {
+            filePath: terminalPasth,
+            fileName: "Terminal",
+            iconBase64: terMinalIcon,
+            useAppBase64: '',
+            isApp: true,
+        },
+    ];
 }

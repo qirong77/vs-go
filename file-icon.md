@@ -1,0 +1,1 @@
+1. 需要 copy 到 out/renderer下
