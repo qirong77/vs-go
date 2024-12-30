@@ -27,7 +27,14 @@ function App(): JSX.Element {
             return;
         }
     };
-
+    useEffect(() => {
+        window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, () => {
+            inputRef.current?.focus();
+        });
+        return () => {
+            window.electron.ipcRenderer.removeAllListeners(VS_GO_EVENT.MAIN_WINDOW_SHOW);
+        }
+    },[])
     useEffect(() => {
         window.requestAnimationFrame(() => {
             const { height } = containerRef.current?.getBoundingClientRect() || {};
