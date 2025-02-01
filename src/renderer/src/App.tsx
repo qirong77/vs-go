@@ -20,7 +20,7 @@ function App(): JSX.Element {
             e.preventDefault();
             e.metaKey ? setActive(showFiles.length - 1) : setActive(active + 1 > showFiles.length - 1 ? 0 : active + 1);
         }
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.nativeEvent.isComposing) {
             window.electron.ipcRenderer.send(VS_GO_EVENT.OPEN_FILE, showFiles[active]);
             setInput("");
             setActive(0);
