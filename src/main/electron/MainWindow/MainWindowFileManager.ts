@@ -43,15 +43,12 @@ function getWorkSpaceFiles() {
                         filePath: dir,
                         iconBase64: finderBase64,
                         useAppBase64: vscodeBase64,
-
-                        isApp: false,
                     },
                     {
                         fileName: basename(dir),
                         filePath: dir,
                         iconBase64: finderBase64,
                         useAppBase64: "",
-                        isApp: false,
                     },
                 ];
             });
@@ -70,7 +67,6 @@ function getZshFile() {
             fileName: ".zshrc",
             iconBase64: finderBase64,
             useAppBase64: vscodeBase64,
-            isApp: false,
         });
     }
     const zprofile = resolve(homedir(), ".zprofile");
@@ -80,7 +76,6 @@ function getZshFile() {
             fileName: ".zprofile",
             iconBase64: finderBase64,
             useAppBase64: vscodeBase64,
-            isApp: false,
         });
     }
     return results;
@@ -95,7 +90,6 @@ async function getTerminallPath() {
             fileName: "Terminal",
             iconBase64: terMinalIcon,
             useAppBase64: '',
-            isApp: true,
         },
     ];
 }
@@ -112,7 +106,6 @@ async function getApp() {
             fileName: basename(app),
             iconBase64: appIcon,
             useAppBase64: '',
-            isApp: true,
         })
     }
     return files

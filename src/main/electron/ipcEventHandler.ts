@@ -7,6 +7,7 @@ import { execSync } from "child_process";
 import { hide, setWindowSize } from "./MainWindow/MainWindow";
 import { getMainWindowFiles } from "./MainWindow/MainWindowFileManager";
 import { existsSync } from "fs";
+import { vscodeBase64 } from "../../common/vscodeBase64";
 
 ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, (_e, arg) => {
     !is.dev && setWindowSize(650, Math.floor(arg));
@@ -18,12 +19,15 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
         dialog.showErrorBox("文件不存在", `${filePath} 不存在`);
         return;
     }
-    if (!file.isApp) {
+    // const isApp = file.filePath.includes('Applications')
+    const isOpenFileByVsCode = file.useAppBase64 === vscodeBase64
+    if(isOpenFileByVsCode) {
         openFileByVscode(filePath);
-    } else {
-        const command = `open ${file.filePath}`;
-        execSync(command);
+        return
     }
+    const command = `open ${file.filePath}`;
+    execSync(command);
+    return
 });
 ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, async () => {
     const res = await getMainWindowFiles();
