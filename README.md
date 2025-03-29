@@ -11,7 +11,7 @@ VS-Go 是一个基于 Electron 的快速启动器应用，旨在提供高效、�
 
 ## 🛠️ 技术栈
 
-- **框架**: Electron + Vue 3
+- **框架**: Electron + React
 - **构建工具**: Vite
 - **UI 框架**: Tailwind CSS
 - **开发语言**: TypeScript
