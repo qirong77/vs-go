@@ -13,7 +13,6 @@ const vsGoConfig = {
   workSpaceDirectories: [ProjectPath, resolve(homedir(), "Desktop")],
   workSpaceFiles: getDefaultWorkSpaceFile(),
   codeCommandPath: "/usr/local/bin/code",
-  vscodeStausFilePath: resolve(homedir(), "Desktop", ".qirong-vscode-window-status.json"),
 };
 vsGoConfig.workSpaceDirectories.concat(vsGoConfig.workSpaceFiles).forEach((filePath) => {
   if (!existsSync(filePath)) {

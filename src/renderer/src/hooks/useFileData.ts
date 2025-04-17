@@ -22,7 +22,7 @@ export function useFileData(searchValue: string) {
         const newShowFiles = allFiles
             .filter((file) => {
                 const fName = normalizeStr(file.fileName);
-                return fName.includes(searchValue);
+                return fName.includes(searchValue.trim());
             })
             .sort((file1, file2) => {
                 const f1Name = normalizeStr(file1.fileName);
