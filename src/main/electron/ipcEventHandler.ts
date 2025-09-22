@@ -20,16 +20,29 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
         return;
     }
     // const isApp = file.filePath.includes('Applications')
-    const isOpenFileByVsCode = file.useAppBase64 === vscodeBase64
-    if(isOpenFileByVsCode) {
+    const isOpenFileByVsCode = file.useAppBase64 === vscodeBase64;
+    if (isOpenFileByVsCode) {
         openFileByVscode(filePath);
-        return
+        return;
     }
     const command = `open -R ${file.filePath}`;
     execSync(command);
-    return
+    return;
 });
 ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, async () => {
     const res = await getMainWindowFiles();
     return res;
+});
+
+ipcMain.on(VS_GO_EVENT.BROWSER_LIST, async (event) => {
+    return [];
+});
+ipcMain.on(VS_GO_EVENT.BROWSER_ADD, async (event, arg) => {
+    return [];
+});
+ipcMain.on(VS_GO_EVENT.BROWSER_REMOVE, async (event, arg) => {
+    return [];
+});
+ipcMain.on(VS_GO_EVENT.BROWSER_UPDATE, async (event, arg) => {
+    return [];
 });

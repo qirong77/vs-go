@@ -17,7 +17,42 @@ const image = nativeImage.createFromPath(is.dev ? imageDevPath : imagePath);
 image.setTemplateImage(true);
 const tray = new Tray(image);
 tray.setToolTip("VsGoTray");
+
+import { BrowserWindow } from "electron";
+let browserSettingWindow: BrowserWindow | null = null;
+function createBrowserSettingWindow() {
+  if (browserSettingWindow && !browserSettingWindow.isDestroyed()) {
+    browserSettingWindow.focus();
+    return;
+  }
+  browserSettingWindow = new BrowserWindow({
+    width: 500,
+    height: 600,
+    title: "浏览器设置",
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/index.js"),
+      sandbox: false,
+    },
+    autoHideMenuBar: true,
+    resizable: true,
+  });
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    browserSettingWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/browser-setting");
+  } else {
+    browserSettingWindow.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "browser-setting" });
+  }
+  browserSettingWindow.on("closed", () => {
+    browserSettingWindow = null;
+  });
+}
+
 const contextMenu = Menu.buildFromTemplate([
+  {
+    label: "浏览器设置",
+    click() {
+      createBrowserSettingWindow();
+    },
+  },
   {
     label: "退出App",
     click() {
