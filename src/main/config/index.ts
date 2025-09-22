@@ -13,6 +13,7 @@ const vsGoConfig = {
   workSpaceDirectories: [ProjectPath, resolve(homedir(), "Desktop")],
   workSpaceFiles: getDefaultWorkSpaceFile(),
   codeCommandPath: "/usr/local/bin/code",
+  codeAppPath:'/Applications/Visual Studio Code.app',
 };
 vsGoConfig.workSpaceDirectories.concat(vsGoConfig.workSpaceFiles).forEach((filePath) => {
   if (!existsSync(filePath)) {

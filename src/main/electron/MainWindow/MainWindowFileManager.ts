@@ -6,20 +6,6 @@ import { IMainWindowFiles } from "../../../common/type";
 import { homedir } from "node:os";
 import { existsSync, mkdirSync } from "node:fs";
 import { getIconBuffers } from "../../utils/getIconPath";
-
-// import { getVsCodeOpenedFolder } from "../../utils/getVsCodeOpenedFolder";
-// import { readFileSync } from "node:fs";
-// import { dialog } from "electron";
-// import { debounce } from "../../../common/debounce";
-/* TEST-WORKER
-const worker = new Worker(new URL("../test-worker.js", import.meta.url));
-// 监听来自 Worker 线程的消息
-worker.on("message", (result) => {
-  dialog.showMessageBox(result)
-  console.log("Long task result:", result);
-});
-worker.postMessage("hello");
-*/
 export async function getMainWindowFiles() {
     const terminal = await getTerminallPath();
     const app = await getApp();

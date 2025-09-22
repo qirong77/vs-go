@@ -10,7 +10,7 @@ export function getVsCodeOpenedFolder() {
 Workspace Stats: 
 |  Window (kuaishou-frontend-idp)
 |  Window (config.ts — qirong-extension)
-|  Window (getVsCodeOpenedFolder.ts — vs-go)
+|  Window (getVsCodeOpenedFolder.ts — vsgo)
 |  Window (ceres-components-tiangong)
 |    Folder (qirong-extension): 29 files
 */

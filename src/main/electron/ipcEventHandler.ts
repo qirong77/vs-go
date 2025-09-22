@@ -25,7 +25,7 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
         openFileByVscode(filePath);
         return
     }
-    const command = `open ${file.filePath}`;
+    const command = `open -R ${file.filePath}`;
     execSync(command);
     return
 });
