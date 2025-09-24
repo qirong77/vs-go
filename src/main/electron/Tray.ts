@@ -9,6 +9,9 @@ const imageDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 npm run dev => out/.png
 npm run build => build/.png
 */
+/* 
+如果没有生效，检查rocket-takeoff@2x.png是否在build和out目录下
+*/
 const imagePath = path.join(imageDir, "rocket-takeoff@2x.png");
 const imageDevPath = join(
   dirname(dirname(__dirname)),
@@ -31,8 +34,8 @@ function createBrowserSettingWindow() {
     return;
   }
   browserSettingWindow = new BrowserWindow({
-    width: 500,
-    height: 600,
+    width: 600,
+    height: 500,
     title: "浏览器设置",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
