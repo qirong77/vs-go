@@ -73,11 +73,11 @@ function BrowserSetting() {
                     添加
                 </button>
             </div>
-            <div className="flex-1 overflow-auto border rounded p-2 bg-gray-50 dark:bg-gray-800">
+            <div className="flex-1 overflow-auto border rounded px-2 bg-gray-50 dark:bg-gray-800">
                 {loading ? (
                     <div className="text-gray-400 text-center mt-0">加载中...</div>
                 ) : filtered.length === 0 ? (
-                    <div className="text-gray-400 text-center mt-10">暂无数据</div>
+                    <div className="text-gray-400 text-center mt-0">暂无数据</div>
                 ) : (
                     <ul>
                         {filtered.map((item) => (

@@ -5,10 +5,10 @@ import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
 import pMap from '../p-map/index.mjs'
 
-const __dirname = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
+const ____dirname = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
 const execFileP = promisify(execFile)
-const binary = path.join(__dirname, 'renderer', 'lib', 'file-icon', 'file-icon')
+const binary = path.join(____dirname, 'renderer', 'lib', 'file-icon', 'file-icon')
 const HUNDRED_MEGABYTES = 1024 * 1024 * 100
 
 const spawnOptions = {

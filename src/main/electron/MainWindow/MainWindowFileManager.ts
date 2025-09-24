@@ -6,10 +6,15 @@ import { IMainWindowFiles } from "../../../common/type";
 import { homedir } from "node:os";
 import { existsSync, mkdirSync } from "node:fs";
 import { getIconBuffers } from "../../utils/getIconPath";
+import { BrowserItem, vsgoStore } from "../store";
 export async function getMainWindowFiles() {
     const terminal = await getTerminallPath();
     const app = await getApp();
-    const files = [...getWorkSpaceFiles(), ...getZshFile(),...terminal,...app];
+    const browserList = vsgoStore.get("browserList") as BrowserItem[];
+    const _browserList = browserList.map((item) => {
+        return { fileName: item.url, filePath: item.url, browser: { ...item } };
+    });
+    const files = [...getWorkSpaceFiles(), ...getZshFile(), ...terminal, ...app, ..._browserList];
     return files;
 }
 
@@ -24,18 +29,8 @@ function getWorkSpaceFiles() {
             const subDirs = getSubDirectory(dir);
             const files = subDirs.map((dir) => {
                 return [
-                    {
-                        fileName: basename(dir),
-                        filePath: dir,
-                        iconBase64: finderBase64,
-                        useAppBase64: vscodeBase64,
-                    },
-                    {
-                        fileName: basename(dir),
-                        filePath: dir,
-                        iconBase64: finderBase64,
-                        useAppBase64: "",
-                    },
+                    { fileName: basename(dir), filePath: dir, iconBase64: finderBase64, useAppBase64: vscodeBase64 },
+                    { fileName: basename(dir), filePath: dir, iconBase64: finderBase64, useAppBase64: "" },
                 ];
             });
             return files;
@@ -48,21 +43,11 @@ function getZshFile() {
     const results: IMainWindowFiles = [];
     const zshrc = resolve(homedir(), ".zshrc");
     if (existsSync(zshrc)) {
-        results.push({
-            filePath: zshrc,
-            fileName: ".zshrc",
-            iconBase64: finderBase64,
-            useAppBase64: vscodeBase64,
-        });
+        results.push({ filePath: zshrc, fileName: ".zshrc", iconBase64: finderBase64, useAppBase64: vscodeBase64 });
     }
     const zprofile = resolve(homedir(), ".zprofile");
     if (existsSync(zprofile)) {
-        results.push({
-            filePath: zprofile,
-            fileName: ".zprofile",
-            iconBase64: finderBase64,
-            useAppBase64: vscodeBase64,
-        });
+        results.push({ filePath: zprofile, fileName: ".zprofile", iconBase64: finderBase64, useAppBase64: vscodeBase64 });
     }
     return results;
 }
@@ -70,29 +55,18 @@ function getZshFile() {
 async function getTerminallPath() {
     const terminalPasth = "/System/Applications/Utilities/Terminal.app";
     const terMinalIcon = await getIconBuffers([terminalPasth]);
-    return [
-        {
-            filePath: terminalPasth,
-            fileName: "Terminal",
-            iconBase64: terMinalIcon,
-            useAppBase64: '',
-        },
-    ];
+    return [{ filePath: terminalPasth, fileName: "Terminal", iconBase64: terMinalIcon, useAppBase64: "" }];
 }
 
 async function getApp() {
-    const apps = getSubDirectory('/Applications').filter((app) => {
-        return app.endsWith('.app')
-    })
-    const files: IMainWindowFiles = []
+    return [];
+    const apps = getSubDirectory("/Applications").filter((app) => {
+        return app.endsWith(".app");
+    });
+    const files: IMainWindowFiles = [];
     for (const app of apps) {
-        const appIcon = await getIconBuffers([app]) || ''
-        files.push({
-            filePath: app,
-            fileName: basename(app),
-            iconBase64: appIcon,
-            useAppBase64: '',
-        })
+        const appIcon = (await getIconBuffers([app])) || "";
+        files.push({ filePath: app, fileName: basename(app), iconBase64: appIcon, useAppBase64: "" });
     }
-    return files
+    return files;
 }

@@ -8,6 +8,7 @@ import { hide, setWindowSize } from "./MainWindow/MainWindow";
 import { getMainWindowFiles } from "./MainWindow/MainWindowFileManager";
 import { existsSync } from "fs";
 import { vscodeBase64 } from "../../common/vscodeBase64";
+import { BrowserItem, vsgoStore } from "./store";
 
 ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, (_e, arg) => {
     !is.dev && setWindowSize(650, Math.floor(arg));
@@ -34,15 +35,31 @@ ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, async () => {
     return res;
 });
 
-ipcMain.on(VS_GO_EVENT.BROWSER_LIST, async (event) => {
-    return [];
+ipcMain.handle(VS_GO_EVENT.BROWSER_LIST, async (event) => {
+    const browserList = vsgoStore.get('browserList', []) as BrowserItem[];
+    return browserList;
 });
-ipcMain.on(VS_GO_EVENT.BROWSER_ADD, async (event, arg) => {
-    return [];
+ipcMain.handle(VS_GO_EVENT.BROWSER_ADD, async (event, arg) => {
+    const browserList = vsgoStore.get('browserList', []) as BrowserItem[];
+    browserList.push(arg);
+    vsgoStore.set('browserList', browserList);
+    return browserList;
 });
-ipcMain.on(VS_GO_EVENT.BROWSER_REMOVE, async (event, arg) => {
-    return [];
+ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE, async (event, arg) => {
+    const browserList = vsgoStore.get('browserList', []) as BrowserItem[];
+    const index = browserList.findIndex(item => item.id === arg.id);
+    if (index !== -1) {
+        browserList.splice(index, 1);
+        vsgoStore.set('browserList', browserList);
+    }
+    return browserList;
 });
-ipcMain.on(VS_GO_EVENT.BROWSER_UPDATE, async (event, arg) => {
-    return [];
+ipcMain.handle(VS_GO_EVENT.BROWSER_UPDATE, async (event, arg) => {
+    const browserList = vsgoStore.get('browserList', []) as BrowserItem[];
+    const index = browserList.findIndex(item => item.id === arg.id);
+    if (index !== -1) {
+        browserList[index] = arg;
+        vsgoStore.set('browserList', browserList);
+    }
+    return browserList;
 });
