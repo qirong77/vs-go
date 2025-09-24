@@ -18,6 +18,7 @@ function createMainWindow() {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
     },
+
   });
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
