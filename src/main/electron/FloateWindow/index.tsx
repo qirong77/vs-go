@@ -12,7 +12,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
         return oldWindow;
     }
     const floatingWindow = new BrowserWindow({
-        width: 1000,
+        width: 1200,
         height: 800,
         alwaysOnTop: true,
         webPreferences: {
