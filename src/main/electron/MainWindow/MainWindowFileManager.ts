@@ -14,7 +14,11 @@ export async function getMainWindowFiles() {
     const _browserList = browserList.map((item) => {
         return { fileName: item.url, filePath: item.url, browser: { ...item } };
     });
-    const files = [...getWorkSpaceFiles(), ...getZshFile(), ...terminal, ...app, ..._browserList];
+    const recentBrowserList = vsgoStore.get("recentBrowserList") as BrowserItem[];
+    const _recentBrowserList = recentBrowserList.map((item) => {
+        return { fileName: item.name, filePath: item.url, browser: { ...item } };
+    });
+    const files = [...getWorkSpaceFiles(), ...getZshFile(), ...terminal, ...app, ..._browserList, ..._recentBrowserList];
     return files;
 }
 
@@ -26,6 +30,7 @@ function getWorkSpaceFiles() {
     const DesktopPath = resolve(homedir(), "Desktop");
     const windowFiles: IMainWindowFiles = [ProjectPath, DesktopPath]
         .map((dir) => {
+            const timeStamp = new Date().getTime();
             const subDirs = getSubDirectory(dir);
             const files = subDirs.map((dir) => {
                 return [
@@ -33,6 +38,7 @@ function getWorkSpaceFiles() {
                     { fileName: basename(dir), filePath: dir, iconBase64: finderBase64, useAppBase64: "" },
                 ];
             });
+            console.log(`Processed ${subDirs.length} subdirectories in ${dir} at ${(new Date().getTime() - timeStamp) / 1000} s`);
             return files;
         })
         .flat(3);

@@ -1,7 +1,7 @@
 import { Menu, Tray, app, nativeImage } from "electron";
 import path, { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createMainWindow, getMainWindow } from "./MainWindow/MainWindow";
+
 import { showErrorDialog } from "./Dialog";
 import { is } from "@electron-toolkit/utils";
 const imageDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -19,71 +19,56 @@ const tray = new Tray(image);
 tray.setToolTip("VsGoTray");
 
 import { BrowserWindow } from "electron";
+import { MainWindowManager } from "./MainWindow/MainWindow";
 let browserSettingWindow: BrowserWindow | null = null;
 function createBrowserSettingWindow() {
-  if (browserSettingWindow && !browserSettingWindow.isDestroyed()) {
-    browserSettingWindow.focus();
-    return;
-  }
-  browserSettingWindow = new BrowserWindow({
-    width: 500,
-    height: 600,
-    title: "浏览器设置",
-    webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
-      sandbox: false,
-    },
-    autoHideMenuBar: true,
-    resizable: true,
-  });
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    browserSettingWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/browser-setting");
-  } else {
-    browserSettingWindow.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "browser-setting" });
-  }
-  browserSettingWindow.on("closed", () => {
-    browserSettingWindow = null;
-  });
+    if (browserSettingWindow && !browserSettingWindow.isDestroyed()) {
+        browserSettingWindow.focus();
+        return;
+    }
+    browserSettingWindow = new BrowserWindow({
+        width: 500,
+        height: 600,
+        title: "浏览器设置",
+        webPreferences: { preload: path.join(__dirname, "../preload/index.js"), sandbox: false },
+        autoHideMenuBar: true,
+        resizable: true,
+    });
+    if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+        browserSettingWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/browser-setting");
+    } else {
+        browserSettingWindow.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "browser-setting" });
+    }
+    browserSettingWindow.on("closed", () => {
+        browserSettingWindow = null;
+    });
 }
 
 const contextMenu = Menu.buildFromTemplate([
-  {
-    label: "浏览器设置",
-    click() {
-      createBrowserSettingWindow();
+    {
+        label: "浏览器设置",
+        click() {
+            createBrowserSettingWindow();
+        },
     },
-  },
-  {
-    label: "退出App",
-    click() {
-      app.quit();
+    {
+        label: "退出App",
+        click() {
+            app.quit();
+        },
     },
-  },
-  {
-    label: "重新创建窗口",
-    click() {
-      createMainWindow();
+
+    {
+        label: "查看窗口状态",
+        click() {
+            const w = MainWindowManager.getMainWindow();
+            const infos: string[] = [];
+            infos.push("w.isDestroyed:" + w.isDestroyed() + "\n");
+            infos.push("w.webContents.isCrashed:" + w.webContents.isCrashed() + "\n");
+            infos.push("w.webContents.isDestroyed:" + w.webContents.isDestroyed() + "\n");
+            infos.push("w.webContents.isLoadingMainFrame:" + w.webContents.isLoadingMainFrame() + "\n");
+            showErrorDialog(infos.join(""));
+        },
     },
-  },
-  {
-    label: "显示窗口and打开控制台",
-    click() {
-      const w = getMainWindow();
-      w.show();
-      w.webContents.openDevTools();
-    },
-  },
-  {
-    label: "查看窗口状态",
-    click() {
-      const w = getMainWindow();
-      const infos: string[] = [];
-      infos.push("w.isDestroyed:" + w.isDestroyed() + "\n");
-      infos.push("w.webContents.isCrashed:" + w.webContents.isCrashed() + "\n");
-      infos.push("w.webContents.isDestroyed:" + w.webContents.isDestroyed() + "\n");
-      infos.push("w.webContents.isLoadingMainFrame:" + w.webContents.isLoadingMainFrame() + "\n");
-      showErrorDialog(infos.join(""));
-    },
-  },
 ]);
 tray.setContextMenu(contextMenu);

@@ -10,7 +10,7 @@ function App() {
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const { showFiles } = useFileData(input);
-    const [browserItem, setBrowserItem] = useState<any>();
+    // const [browserItem, setBrowserItem] = useState<any>();
     // 搜索框为空时的默认展示,Vscode已打开的文件和打开的文件
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "ArrowUp") {
@@ -23,12 +23,19 @@ function App() {
         }
         if (e.key === "Enter" && !e.nativeEvent.isComposing) {
             const targetItem = showFiles[active];
-            if (targetItem.browser) {
-                setBrowserItem(targetItem.browser);
+            if (targetItem?.browser) {
+                window.electron.ipcRenderer.send(VS_GO_EVENT.CREATE_FLOATING_WINDOW, targetItem.browser);
                 return;
             }
             if (targetItem) {
-                window.electron.ipcRenderer.send(VS_GO_EVENT.OPEN_FILE);
+                window.electron.ipcRenderer.send(VS_GO_EVENT.OPEN_FILE, targetItem);
+                setInput("");
+                setActive(0);
+                return;
+            }
+            const isUrl = /^(http|https):\/\/[^ "]+$/.test(input);
+            if (isUrl) {
+                window.electron.ipcRenderer.send(VS_GO_EVENT.CREATE_FLOATING_WINDOW, input);
                 setInput("");
                 setActive(0);
                 return;
@@ -43,13 +50,13 @@ function App() {
             window.electron.ipcRenderer.removeAllListeners(VS_GO_EVENT.MAIN_WINDOW_SHOW);
         };
     }, []);
-    // useEffect(() => {
-    //     window.requestAnimationFrame(() => {
-    //         const { height } = containerRef.current?.getBoundingClientRect() || {};
-    //         if (!height) return;
-    //         window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, height);
-    //     });
-    // }, [showFiles.length]);
+    useEffect(() => {
+        window.requestAnimationFrame(() => {
+            const { height } = containerRef.current?.getBoundingClientRect() || {};
+            if (!height) return;
+            window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, height);
+        });
+    }, [showFiles.length]);
     useEffect(() => {
         ulRef.current?.querySelector(".active-li")?.scrollIntoView(false);
     }, [active]);
@@ -92,12 +99,11 @@ function App() {
                     })}
                 </ul>
             </div>
-
-            <IfComponent condition={!!browserItem?.url}>
+            {/* <IfComponent condition={!!browserItem?.url}>
                 <div style={{ border: "1px solid #eee" }}>
-                    <iframe src={browserItem?.url} style={{width:'100%',minHeight:'500px'}}></iframe>
+                    <iframe src={browserItem?.url} style={{ width: "100%", minHeight: "500px" }}></iframe>
                 </div>
-            </IfComponent>
+            </IfComponent> */}
         </div>
     );
 }

@@ -28,9 +28,9 @@ export function useFileData(searchValue: string) {
                 const f1Name = normalizeStr(file1.fileName);
                 const f2Name = normalizeStr(file2.fileName);
                 const f1NameScore = 100 - f1Name.indexOf(searchValue);
-                const f2NameScore = 100 - f2Name.indexOf(searchValue);
-                const f1Score = f1NameScore;
-                const f2Score = f2NameScore;
+                const f2NameScore = 100 - f2Name.indexOf(searchValue);  
+                const f1Score = f1NameScore + (file1.browser ? 20 : 0);
+                const f2Score = f2NameScore + (file2.browser ? 20 : 0);
                 return f2Score - f1Score;
             });
         setShowFiles(newShowFiles);

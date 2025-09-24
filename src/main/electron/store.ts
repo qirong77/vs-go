@@ -6,6 +6,7 @@ export type BrowserItem = {
     id: string;
     name: string;
     url: string;
+    lastVisit?: number;
 };
 const schema = {
     browserList: {
@@ -19,8 +20,19 @@ const schema = {
                 url: { type: 'string' }
             }
         }
-    }
+    },
+    recentBrowserList: {
+        type: 'array',
+        default: [],
+        items: {
+            type: 'object',
+            properties: {
+                id: { type: 'string' },
+                name: { type: 'string' },
+                url: { type: 'string' }
+            }
+        }
+    },
 };
 const store = new Store({ schema });
-store.set('browserList', store.get('browserList', []) as BrowserItem[]);
 export const vsgoStore = store
