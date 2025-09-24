@@ -12,7 +12,7 @@ export async function getMainWindowFiles() {
   const app = await getApp();
   const browserList = vsgoStore.get("browserList") as BrowserItem[];
   const _browserList = browserList.map((item) => {
-    return { fileName: item.url, filePath: item.url, browser: { ...item } };
+    return { fileName: item.name, filePath: item.url, browser: { ...item } };
   });
   const recentBrowserList = vsgoStore.get("recentBrowserList") as BrowserItem[];
   const _recentBrowserList = recentBrowserList.map((item) => {
