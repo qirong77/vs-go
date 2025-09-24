@@ -41,10 +41,16 @@ function BrowserSetting() {
     };
     // 删除
     const handleRemove = async (id: string) => {
-        await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, id);
-        fetchList();
+        await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, id).then(() => {
+            fetchList();
+        });
     };
-
+    // 删除所有
+    const handleRemoveAll = async () => {
+         ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE_ALL).then(() => {
+            fetchList();
+        });
+    };
     // 搜索过滤
     const filtered = search.trim() ? list.filter((i) => i.name.includes(search) || i.url.includes(search)) : list;
 
@@ -55,8 +61,9 @@ function BrowserSetting() {
                     🌐
                 </span>
                 <span className="text-xl font-bold "> 浏览器设置</span>
-
                 <button className="bg-gray-200 text px-3 py-1 rounded ml-auto">导入书签</button>
+                <button className="bg-gray-200 text px-3 py-1 rounded ml-4" onClick={() => handleRemoveAll()}>删除所有</button>
+
             </h2>
             <div className="mb-4 flex gap-2">
                 <input
@@ -77,7 +84,7 @@ function BrowserSetting() {
                 {loading ? (
                     <div className="text-gray-400 text-center mt-0">加载中...</div>
                 ) : filtered.length === 0 ? (
-                    <div className="text-gray-400 text-center mt-0">暂无数据</div>
+                    <div className="text-gray-400 text-center my-2">暂无数据</div>
                 ) : (
                     <ul>
                         {filtered.map((item) => (

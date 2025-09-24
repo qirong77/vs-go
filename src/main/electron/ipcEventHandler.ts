@@ -45,21 +45,27 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_ADD, async (event, arg) => {
     vsgoStore.set('browserList', browserList);
     return browserList;
 });
-ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE, async (event, arg) => {
+ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE, async (event, id) => {
     const browserList = vsgoStore.get('browserList', []) as BrowserItem[];
-    const index = browserList.findIndex(item => item.id === arg.id);
+    const index = browserList.findIndex(item => item.id == id);
+    console.log(index)
     if (index !== -1) {
         browserList.splice(index, 1);
         vsgoStore.set('browserList', browserList);
     }
     return browserList;
 });
+ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE_ALL, async (event) => {
+    vsgoStore.set('browserList', []);
+    return [];
+});
 ipcMain.handle(VS_GO_EVENT.BROWSER_UPDATE, async (event, arg) => {
     const browserList = vsgoStore.get('browserList', []) as BrowserItem[];
-    const index = browserList.findIndex(item => item.id === arg.id);
+    const index = browserList.findIndex(item => item.id == arg.id);
     if (index !== -1) {
         browserList[index] = arg;
         vsgoStore.set('browserList', browserList);
     }
     return browserList;
 });
+ipcMain.handle

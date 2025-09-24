@@ -11,8 +11,9 @@ export function createMainWindow() {
     width: 850,
     height: 600,
     show: true,
-    frame: is.dev ? true : false,
-    autoHideMenuBar: is.dev ? false : true,
+    // frame: is.dev ? true : false,
+    title: "Vsgo",
+    // autoHideMenuBar: is.dev ? false : true,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
