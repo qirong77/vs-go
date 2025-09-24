@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { VS_GO_EVENT } from "../../common/EVENT";
+import BookmarkImportModal from "./components/BookmarkImportModal";
 
 type BrowserItem = {
   id: string;
@@ -19,6 +20,9 @@ function BrowserSetting() {
   const [url, setUrl] = useState("");
   const [list, setList] = useState<BrowserItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importBookmarks, setImportBookmarks] = useState<BrowserItem[]>([]);
+  const [importing, setImporting] = useState(false);
 
   // 获取列表
   const fetchList = async () => {
@@ -55,6 +59,54 @@ function BrowserSetting() {
       fetchList();
     });
   };
+
+  // 导入书签 - 选择文件
+  const handleImportBookmarks = async () => {
+    try {
+      setImporting(true);
+      const bookmarks = await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_IMPORT_SELECT_FILE);
+      
+      if (bookmarks && bookmarks.length > 0) {
+        setImportBookmarks(bookmarks);
+        setImportModalOpen(true);
+      } else if (bookmarks && bookmarks.length === 0) {
+        alert('所选文件中没有找到有效的书签');
+      }
+    } catch (error) {
+      console.error('导入书签失败:', error);
+      alert(error instanceof Error ? error.message : '导入书签失败，请重试');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // 确认导入选中的书签
+  const handleConfirmImport = async (selectedBookmarks: BrowserItem[]) => {
+    try {
+      const result = await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_IMPORT_BOOKMARKS, selectedBookmarks);
+      
+      setImportModalOpen(false);
+      setImportBookmarks([]);
+      
+      // 显示导入结果
+      const message = `成功导入 ${result.imported} 个书签${
+        result.duplicate > 0 ? `，跳过 ${result.duplicate} 个重复书签` : ''
+      }`;
+      alert(message);
+      
+      // 刷新列表
+      await fetchList();
+    } catch (error) {
+      console.error('导入书签失败:', error);
+      alert('导入书签失败，请重试');
+    }
+  };
+
+  // 关闭导入弹窗
+  const handleCloseImportModal = () => {
+    setImportModalOpen(false);
+    setImportBookmarks([]);
+  };
   // 搜索过滤
   const filtered = search.trim()
     ? list.filter((i) => i.name.includes(search) || i.url.includes(search))
@@ -67,8 +119,12 @@ function BrowserSetting() {
           🌐
         </span>
         <span className="text-xl font-bold "> 浏览器设置</span>
-        <button className="bg-gray-200 text px-3 py-1 rounded ml-auto">
-          导入书签
+        <button 
+          className="bg-gray-200 text px-3 py-1 rounded ml-auto hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleImportBookmarks}
+          disabled={importing}
+        >
+          {importing ? "导入中..." : "导入书签"}
         </button>
         <button
           className="bg-gray-200 text px-3 py-1 rounded ml-4"
@@ -111,7 +167,7 @@ function BrowserSetting() {
         ) : filtered.length === 0 ? (
           <div className="text-gray-400 text-center my-2">暂无数据</div>
         ) : (
-          <ul>
+          <ul className="h-[300px] overflow-scroll">
             {filtered.map((item) => (
               <li
                 key={item.id}
@@ -132,6 +188,14 @@ function BrowserSetting() {
           </ul>
         )}
       </div>
+
+      {/* 导入书签弹窗 */}
+      <BookmarkImportModal
+        isOpen={importModalOpen}
+        bookmarks={importBookmarks}
+        onClose={handleCloseImportModal}
+        onImport={handleConfirmImport}
+      />
     </div>
   );
 }

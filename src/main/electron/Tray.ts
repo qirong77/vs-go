@@ -34,8 +34,8 @@ function createBrowserSettingWindow() {
     return;
   }
   browserSettingWindow = new BrowserWindow({
-    width: 600,
-    height: 500,
+    width: 800,
+    height: 600,
     title: "浏览器设置",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
