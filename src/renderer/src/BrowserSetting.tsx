@@ -118,8 +118,8 @@ function BrowserSetting() {
                 className="flex items-center justify-between py-2 border-b last:border-b-0"
               >
                 <div className="flex-1">
-                  <span className="font-medium mr-2">{item.name}</span>
-                  <span className="text-xs text-gray-500">{item.url}</span>
+                  <span className="font-medium mr-2">{item.name?.length > 30 ? item.name.slice(0, 30) + "..." : item.name}</span>
+                  <span className="text-xs text-gray-500">{item.url?.length > 30 ? item.url.slice(0, 30) + "..." : item.url}</span>
                 </div>
                 <button
                   className="text-red-500 px-2"

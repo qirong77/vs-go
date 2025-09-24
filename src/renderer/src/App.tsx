@@ -120,7 +120,7 @@ function App() {
                     src={"data:image/png;base64," + file.iconBase64}
                   />
                 )}
-                {file.browser && <span>🌐</span>}
+                {file.browser && <span className="ml-1 text-lg">🌐</span>}
                 <span className="text-lg pl-[8px]">
                   {file.fileName.replace(".app", "")}{" "}
                 </span>
