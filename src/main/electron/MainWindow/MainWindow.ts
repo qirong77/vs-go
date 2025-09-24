@@ -4,71 +4,80 @@ import path from "path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 let _mainWindow: BrowserWindow;
 app.once("ready", () => {
-    _mainWindow = createMainWindow();
+  _mainWindow = createMainWindow();
 });
 function createMainWindow() {
-    const window = new BrowserWindow({
-        width: 850,
-        height: 600,
-        show: true,
-        frame: is.dev ? true : false,
-        title: "Vsgo",
-        autoHideMenuBar: is.dev ? false : true,
-        webPreferences: { preload: path.join(__dirname, "../preload/index.js"), sandbox: false },
-    });
-    // HMR for renderer base on electron-vite cli.
-    // Load the remote URL for development or the local html file for production.
-    if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-        window.loadURL(process.env["ELECTRON_RENDERER_URL"]);
-    } else {
-        window.loadFile(path.join(__dirname, "../renderer/index.html"));
-    }
-    // 在docker栏隐藏,支持浮动
-    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    window.setAlwaysOnTop(true, "torn-off-menu", 10);
-    window.on("show", () => {
-        window.webContents.send(VS_GO_EVENT.MAIN_WINDOW_SHOW);
-    });
-    return window;
+  const window = new BrowserWindow({
+    width: 850,
+    height: 600,
+    show: true,
+    frame: is.dev ? true : false,
+    title: "Vsgo",
+    autoHideMenuBar: is.dev ? false : true,
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/index.js"),
+      sandbox: false,
+    },
+  });
+  // HMR for renderer base on electron-vite cli.
+  // Load the remote URL for development or the local html file for production.
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    window.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+  } else {
+    window.loadFile(path.join(__dirname, "../renderer/index.html"));
+  }
+  // 在docker栏隐藏,支持浮动
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  window.setAlwaysOnTop(true, "torn-off-menu", 10);
+  window.on("show", () => {
+    window.webContents.send(VS_GO_EVENT.MAIN_WINDOW_SHOW);
+  });
+  return window;
 }
 function showWindowOnCurrentDesktop() {
-    _mainWindow.center();
-    _mainWindow.show();
-    _mainWindow.focus();
+  _mainWindow.center();
+  _mainWindow.show();
+  _mainWindow.focus();
 }
 
 function toogleIsShowMainWindow() {
-    if (!_mainWindow) {
-        _mainWindow = createMainWindow();
-        showWindowOnCurrentDesktop();
-        return;
-    }
-    if (_mainWindow.isDestroyed()) {
-        _mainWindow = createMainWindow();
-        showWindowOnCurrentDesktop();
-        return;
-    }
-    if (_mainWindow.isVisible()) {
-        _mainWindow.hide();
-    } else {
-        showWindowOnCurrentDesktop();
-        FloatingWindowManager.ShowAllFloatingWindows();
-    }
+  if (!_mainWindow) {
+    _mainWindow = createMainWindow();
+    showWindowOnCurrentDesktop();
+    return;
+  }
+  if (_mainWindow.isDestroyed()) {
+    _mainWindow = createMainWindow();
+    showWindowOnCurrentDesktop();
+    return;
+  }
+  if (_mainWindow.isVisible()) {
+    _mainWindow.hide();
+  } else {
+    showWindowOnCurrentDesktop();
+    FloatingWindowManager.ShowAllFloatingWindows();
+  }
 }
 function toogleDevTools() {
-    _mainWindow.isVisible() && _mainWindow.webContents.toggleDevTools();
+  _mainWindow.isVisible() && _mainWindow.webContents.toggleDevTools();
 }
 
 function setWindowSize(w: number, h: number) {
-    _mainWindow.setSize(w, h);
+  _mainWindow.setSize(w, h);
 }
 
 function hide() {
-    _mainWindow.hide();
+  _mainWindow.hide();
 }
 
 function getMainWindow() {
-    return _mainWindow;
+  return _mainWindow;
 }
-export const MainWindowManager = { toogleIsShowMainWindow, toogleDevTools, getMainWindow, hide, setWindowSize };
+export const MainWindowManager = {
+  toogleIsShowMainWindow,
+  toogleDevTools,
+  getMainWindow,
+  hide,
+  setWindowSize,
+};
 import { FloatingWindowManager } from "../FloateWindow";

@@ -9,14 +9,14 @@ li {
 @tailwind components;
 @tailwind utilities;
 @layer components {
-    li.active-li {
-      background-color: #2e59BA;
-      opacity: 100%;
-      border-radius: 3px;
-      color: white;
-    }
+  li.active-li {
+    background-color: #2e59ba;
+    opacity: 100%;
+    border-radius: 3px;
+    color: white;
   }
-  
+}
+
 @layer components {
   .opened-li {
     background-color: rgb(227 232 253);

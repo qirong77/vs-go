@@ -2,9 +2,9 @@ import { vsGoConfig } from "../config/index";
 import { getExecString } from "./getExecString";
 
 export function getVsCodeOpenedFolder() {
-    // 执行code相关的命令会有Vscode在docker栏跳动,目前看无法避免
-    const codeStatus = getExecString(`${vsGoConfig.codeCommandPath} -s`)
-    return getWindowFiles(codeStatus) || []
+  // 执行code相关的命令会有Vscode在docker栏跳动,目前看无法避免
+  const codeStatus = getExecString(`${vsGoConfig.codeCommandPath} -s`);
+  return getWindowFiles(codeStatus) || [];
 }
 /* 
 Workspace Stats: 

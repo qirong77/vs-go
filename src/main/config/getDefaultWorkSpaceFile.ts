@@ -12,5 +12,5 @@ export function getDefaultWorkSpaceFile() {
   if (existsSync(zprofile)) {
     results.push(zprofile);
   }
-  return results
+  return results;
 }

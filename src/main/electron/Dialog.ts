@@ -1,21 +1,20 @@
 import { app, dialog } from "electron";
 import { MainWindowManager } from "./MainWindow/MainWindow";
 
-
 export function showErrorDialog(msg = "") {
-  if(app.isReady()) {
+  if (app.isReady()) {
     dialog.showMessageBox(MainWindowManager.getMainWindow(), {
       title: "错误",
       message: msg,
       type: "error",
     });
-    return
+    return;
   }
-  app.whenReady().then(()=>{
+  app.whenReady().then(() => {
     dialog.showMessageBox(MainWindowManager.getMainWindow(), {
       title: "错误",
       message: msg,
       type: "error",
     });
-  })
+  });
 }

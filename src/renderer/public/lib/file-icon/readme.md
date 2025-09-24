@@ -13,56 +13,71 @@ npm install file-icon
 ## Usage
 
 ```js
-import fs from 'node:fs';
-import {fileIconToBuffer, fileIconToFile} from 'file-icon';
+import fs from "node:fs";
+import { fileIconToBuffer, fileIconToFile } from "file-icon";
 
 // An app name can be used
-const buffer = await fileIconToBuffer('Safari');
-fs.writeFileSync('safari-icon.png', buffer);
+const buffer = await fileIconToBuffer("Safari");
+fs.writeFileSync("safari-icon.png", buffer);
 
 // An array of app names
-const apps = ['Finder', 'Safari'];
+const apps = ["Finder", "Safari"];
 const buffers = await fileIconToBuffer(apps);
-buffers.map((buffer, index) => fs.writeFileSync(`${apps[index]}-icon.png`, buffer));
+buffers.map((buffer, index) =>
+  fs.writeFileSync(`${apps[index]}-icon.png`, buffer),
+);
 
 // Or a bundle ID
-const buffer2 = await fileIconToBuffer('com.apple.Safari', {size: 64});
-fs.writeFileSync('safari-icon.png', buffer2);
+const buffer2 = await fileIconToBuffer("com.apple.Safari", { size: 64 });
+fs.writeFileSync("safari-icon.png", buffer2);
 
 // Or a an array of bundle IDs
-const bundleIds = ['com.apple.Finder', 'com.apple.Safari'];
+const bundleIds = ["com.apple.Finder", "com.apple.Safari"];
 const buffers2 = await fileIconToBuffer(bundleIds);
-buffers2.map((buffer, index) => fs.writeFileSync(`${bundleIds[index]}-icon.png`, buffer));
+buffers2.map((buffer, index) =>
+  fs.writeFileSync(`${bundleIds[index]}-icon.png`, buffer),
+);
 
 // Or a process ID
 const buffer3 = await fileIconToBuffer(257);
-fs.writeFileSync('pid.png', buffer3);
+fs.writeFileSync("pid.png", buffer3);
 
 // Or an array of process IDs
 const pids = [257, 16];
-const buffers3 = await fileIconToBuffer(pids, {size: 128});
-buffers3.map((buffer, index) => fs.writeFileSync(`${pids[index]}-icon.png`, buffer));
+const buffers3 = await fileIconToBuffer(pids, { size: 128 });
+buffers3.map((buffer, index) =>
+  fs.writeFileSync(`${pids[index]}-icon.png`, buffer),
+);
 
 // Or a path to an app / file
-const buffer4 = await fileIconToBuffer('/Applications/Safari.app');
-fs.writeFileSync('safari-icon.png', buffer4);
+const buffer4 = await fileIconToBuffer("/Applications/Safari.app");
+fs.writeFileSync("safari-icon.png", buffer4);
 
 // Or an array of filenames
-const paths = ['/Applications/Safari.app', '/Applications/Calculator.app'];
+const paths = ["/Applications/Safari.app", "/Applications/Calculator.app"];
 const buffers4 = await fileIconToBuffer(paths);
-buffers4.map((buffer, index) => fs.writeFileSync(`${paths[index].split(/\/|\./)[2]}-icon.png`, buffer));
-fs.writeFileSync('jpeg-file-type-icon.png', buffer4);
+buffers4.map((buffer, index) =>
+  fs.writeFileSync(`${paths[index].split(/\/|\./)[2]}-icon.png`, buffer),
+);
+fs.writeFileSync("jpeg-file-type-icon.png", buffer4);
 
 // Or a mix of all of them!
-await fileIconToBuffer(['Finder', 257, 'com.apple.Calculator', '/Applications/Safari.app']);
+await fileIconToBuffer([
+  "Finder",
+  257,
+  "com.apple.Calculator",
+  "/Applications/Safari.app",
+]);
 
 // You can also use `fileIconToFile` and provide `options.destination` with the path to write to
-await fileIconToFile('Safari', {destination: 'safari-icon.png'});
+await fileIconToFile("Safari", { destination: "safari-icon.png" });
 
 // You can also use same length arrays for `input` and `options.destination`
-await fileIconToFile(['Safari', 'Finder'], {destination: ['safari-icon.png', 'finder-icon.png']});
+await fileIconToFile(["Safari", "Finder"], {
+  destination: ["safari-icon.png", "finder-icon.png"],
+});
 
-console.log('Done');
+console.log("Done");
 ```
 
 ## API
@@ -78,11 +93,12 @@ Returns a `Promise<Buffer[]>` for multiple PNG images if `input` is of type `Arr
 Type: `string | number | Array<string | number>`
 
 Either:
-- App name *(string)*
-- App bundle identifier *(string)*
-- App process ID *(number)*
-- Path to an app *(string)*
-- Path to a file *(string)*
+
+- App name _(string)_
+- App bundle identifier _(string)_
+- App process ID _(number)_
+- Path to an app _(string)_
+- Path to a file _(string)_
 
 ### options
 
@@ -118,10 +134,10 @@ Size of the returned icon.
 
 #### destination
 
-*Required*\
+_Required_\
 Type: `string | string[]`
 
-Output file for the icon. If `input` is a single value, `options.destination` *must* be of type `string`.  If `input` is an `Array`, `options.destination` *must* be of type `string[]` with the same `length` as `input`.
+Output file for the icon. If `input` is a single value, `options.destination` _must_ be of type `string`. If `input` is an `Array`, `options.destination` _must_ be of type `string[]` with the same `length` as `input`.
 
 ## Related
 
