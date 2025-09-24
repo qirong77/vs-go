@@ -23,7 +23,6 @@ function App() {
         }
         if (e.key === "Enter" && !e.nativeEvent.isComposing) {
             const targetItem = showFiles[active];
-            console.log(targetItem);
             if (targetItem.browser) {
                 setBrowserItem(targetItem.browser);
                 return;
@@ -44,13 +43,13 @@ function App() {
             window.electron.ipcRenderer.removeAllListeners(VS_GO_EVENT.MAIN_WINDOW_SHOW);
         };
     }, []);
-    useEffect(() => {
-        window.requestAnimationFrame(() => {
-            const { height } = containerRef.current?.getBoundingClientRect() || {};
-            if (!height) return;
-            window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, height);
-        });
-    }, [showFiles.length]);
+    // useEffect(() => {
+    //     window.requestAnimationFrame(() => {
+    //         const { height } = containerRef.current?.getBoundingClientRect() || {};
+    //         if (!height) return;
+    //         window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, height);
+    //     });
+    // }, [showFiles.length]);
     useEffect(() => {
         ulRef.current?.querySelector(".active-li")?.scrollIntoView(false);
     }, [active]);

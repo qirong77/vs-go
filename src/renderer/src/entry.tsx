@@ -5,7 +5,7 @@ import BrowserSetting from "./BrowserSetting";
 const hash = window.location.hash;
 const root = document.getElementById("root") as HTMLElement;
 
-if (hash === "#/browser-setting") {
+if (hash.includes("browser-setting")) {
   ReactDOM.createRoot(root).render(<BrowserSetting />);
 } else {
   ReactDOM.createRoot(root).render(<App />);
