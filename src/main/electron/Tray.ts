@@ -13,11 +13,7 @@ npm run build => build/.png
 如果没有生效，检查rocket-takeoff@2x.png是否在build和out目录下
 */
 const imagePath = path.join(imageDir, "rocket-takeoff@2x.png");
-const imageDevPath = join(
-  dirname(dirname(__dirname)),
-  "build",
-  "rocket-takeoff@2x.png",
-);
+const imageDevPath = join(dirname(dirname(__dirname)), "build", "rocket-takeoff@2x.png");
 // 使用高分辨率图片,用@2x结尾
 const image = nativeImage.createFromPath(is.dev ? imageDevPath : imagePath);
 // 自适应主题
@@ -45,22 +41,23 @@ function createBrowserSettingWindow() {
     resizable: true,
   });
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    browserSettingWindow.loadURL(
-      process.env["ELECTRON_RENDERER_URL"] + "#/browser-setting",
-    );
+    browserSettingWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/browser-setting");
   } else {
-    browserSettingWindow.loadFile(
-      path.join(__dirname, "../renderer/index.html"),
-      { hash: "browser-setting" },
-    );
+    browserSettingWindow.loadFile(path.join(__dirname, "../renderer/index.html"), {
+      hash: "browser-setting",
+    });
   }
-  
+
   // 添加快捷键支持
   browserSettingWindow.webContents.on("before-input-event", (_event, input) => {
-        if (input.modifiers.includes("meta") && input.modifiers.includes("control") && input.key.toLowerCase() === "i") {
-            browserSettingWindow?.webContents.toggleDevTools();
-        }
-    });
+    if (
+      input.modifiers.includes("meta") &&
+      input.modifiers.includes("control") &&
+      input.key.toLowerCase() === "i"
+    ) {
+      browserSettingWindow?.webContents.toggleDevTools();
+    }
+  });
 
   browserSettingWindow.on("closed", () => {
     browserSettingWindow = null;
@@ -88,14 +85,8 @@ const contextMenu = Menu.buildFromTemplate([
       const infos: string[] = [];
       infos.push("w.isDestroyed:" + w.isDestroyed() + "\n");
       infos.push("w.webContents.isCrashed:" + w.webContents.isCrashed() + "\n");
-      infos.push(
-        "w.webContents.isDestroyed:" + w.webContents.isDestroyed() + "\n",
-      );
-      infos.push(
-        "w.webContents.isLoadingMainFrame:" +
-          w.webContents.isLoadingMainFrame() +
-          "\n",
-      );
+      infos.push("w.webContents.isDestroyed:" + w.webContents.isDestroyed() + "\n");
+      infos.push("w.webContents.isLoadingMainFrame:" + w.webContents.isLoadingMainFrame() + "\n");
       showErrorDialog(infos.join(""));
     },
   },

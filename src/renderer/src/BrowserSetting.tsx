@@ -65,16 +65,16 @@ function BrowserSetting() {
     try {
       setImporting(true);
       const bookmarks = await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_IMPORT_SELECT_FILE);
-      
+
       if (bookmarks && bookmarks.length > 0) {
         setImportBookmarks(bookmarks);
         setImportModalOpen(true);
       } else if (bookmarks && bookmarks.length === 0) {
-        alert('所选文件中没有找到有效的书签');
+        alert("所选文件中没有找到有效的书签");
       }
     } catch (error) {
-      console.error('导入书签失败:', error);
-      alert(error instanceof Error ? error.message : '导入书签失败，请重试');
+      console.error("导入书签失败:", error);
+      alert(error instanceof Error ? error.message : "导入书签失败，请重试");
     } finally {
       setImporting(false);
     }
@@ -83,22 +83,25 @@ function BrowserSetting() {
   // 确认导入选中的书签
   const handleConfirmImport = async (selectedBookmarks: BrowserItem[]) => {
     try {
-      const result = await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_IMPORT_BOOKMARKS, selectedBookmarks);
-      
+      const result = await ipcRenderer.invoke(
+        VS_GO_EVENT.BROWSER_IMPORT_BOOKMARKS,
+        selectedBookmarks
+      );
+
       setImportModalOpen(false);
       setImportBookmarks([]);
-      
+
       // 显示导入结果
       const message = `成功导入 ${result.imported} 个书签${
-        result.duplicate > 0 ? `，跳过 ${result.duplicate} 个重复书签` : ''
+        result.duplicate > 0 ? `，跳过 ${result.duplicate} 个重复书签` : ""
       }`;
       alert(message);
-      
+
       // 刷新列表
       await fetchList();
     } catch (error) {
-      console.error('导入书签失败:', error);
-      alert('导入书签失败，请重试');
+      console.error("导入书签失败:", error);
+      alert("导入书签失败，请重试");
     }
   };
 
@@ -119,7 +122,7 @@ function BrowserSetting() {
           🌐
         </span>
         <span className="text-xl font-bold "> 浏览器设置</span>
-        <button 
+        <button
           className="bg-gray-200 text px-3 py-1 rounded ml-auto hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleImportBookmarks}
           disabled={importing}
@@ -154,10 +157,7 @@ function BrowserSetting() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
-        <button
-          className="bg-blue-500 text-white px-3 py-1 rounded"
-          onClick={handleAdd}
-        >
+        <button className="bg-blue-500 text-white px-3 py-1 rounded" onClick={handleAdd}>
           添加
         </button>
       </div>
@@ -174,13 +174,14 @@ function BrowserSetting() {
                 className="flex items-center justify-between py-2 border-b last:border-b-0"
               >
                 <div className="flex-1">
-                  <span className="font-medium mr-2">{item.name?.length > 30 ? item.name.slice(0, 30) + "..." : item.name}</span>
-                  <span className="text-xs text-gray-500">{item.url?.length > 30 ? item.url.slice(0, 30) + "..." : item.url}</span>
+                  <span className="font-medium mr-2">
+                    {item.name?.length > 30 ? item.name.slice(0, 30) + "..." : item.name}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {item.url?.length > 30 ? item.url.slice(0, 30) + "..." : item.url}
+                  </span>
                 </div>
-                <button
-                  className="text-red-500 px-2"
-                  onClick={() => handleRemove(item.id)}
-                >
+                <button className="text-red-500 px-2" onClick={() => handleRemove(item.id)}>
                   删除
                 </button>
               </li>

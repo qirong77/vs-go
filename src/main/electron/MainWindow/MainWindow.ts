@@ -18,7 +18,6 @@ function createMainWindow() {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
     },
-
   });
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
@@ -27,14 +26,18 @@ function createMainWindow() {
   } else {
     window.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
-  
+
   // 添加快捷键支持
   window.webContents.on("before-input-event", (_event, input) => {
-        if (input.modifiers.includes("meta") && input.modifiers.includes("control") && input.key.toLowerCase() === "i") {
-            window.webContents.toggleDevTools();
-        }
-    });
-  
+    if (
+      input.modifiers.includes("meta") &&
+      input.modifiers.includes("control") &&
+      input.key.toLowerCase() === "i"
+    ) {
+      window.webContents.toggleDevTools();
+    }
+  });
+
   // 在docker栏隐藏,支持浮动
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   window.setAlwaysOnTop(true, "torn-off-menu", 10);

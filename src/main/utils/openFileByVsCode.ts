@@ -13,7 +13,7 @@ export function openFileByVscode(filePath: string) {
       if (error) {
         dialog.showErrorBox("error", JSON.stringify(error));
       }
-    },
+    }
     // exec(`${vsGoConfig.codeCommandPath}  --new-window "${filePath}"`, (error) => {
     //   if (error) {
     //     dialog.showErrorBox("error", JSON.stringify(error));

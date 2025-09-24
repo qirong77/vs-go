@@ -15,9 +15,7 @@ function App() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      e.metaKey
-        ? setActive(0)
-        : setActive(active - 1 < 0 ? showFiles.length - 1 : active - 1);
+      e.metaKey ? setActive(0) : setActive(active - 1 < 0 ? showFiles.length - 1 : active - 1);
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -28,10 +26,7 @@ function App() {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       const targetItem = showFiles[active];
       if (targetItem?.browser) {
-        window.electron.ipcRenderer.send(
-          VS_GO_EVENT.CREATE_FLOATING_WINDOW,
-          targetItem.browser,
-        );
+        window.electron.ipcRenderer.send(VS_GO_EVENT.CREATE_FLOATING_WINDOW, targetItem.browser);
         return;
       }
       if (targetItem) {
@@ -42,10 +37,11 @@ function App() {
       }
       const isUrl = /^(http|https):\/\/[^ "]+$/.test(input);
       if (isUrl) {
-        window.electron.ipcRenderer.send(
-          VS_GO_EVENT.CREATE_FLOATING_WINDOW,
-          input,
-        );
+        window.electron.ipcRenderer.send(VS_GO_EVENT.CREATE_FLOATING_WINDOW, {
+          url: input.trim(),
+          name: input.trim(),
+          id: new Date().getTime() + "",
+        });
         setInput("");
         setActive(0);
         return;
@@ -57,19 +53,14 @@ function App() {
       inputRef.current?.focus();
     });
     return () => {
-      window.electron.ipcRenderer.removeAllListeners(
-        VS_GO_EVENT.MAIN_WINDOW_SHOW,
-      );
+      window.electron.ipcRenderer.removeAllListeners(VS_GO_EVENT.MAIN_WINDOW_SHOW);
     };
   }, []);
   useEffect(() => {
     window.requestAnimationFrame(() => {
       const { height } = containerRef.current?.getBoundingClientRect() || {};
       if (!height) return;
-      window.electron.ipcRenderer.send(
-        VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT,
-        height,
-      );
+      window.electron.ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, height);
     });
   }, [showFiles.length]);
   useEffect(() => {
@@ -93,10 +84,7 @@ function App() {
       </div>
 
       <div style={{ display: showFiles.length ? "block" : "none" }}>
-        <ul
-          ref={ulRef}
-          className="px-[10px] my-[6px] overflow-y-scroll max-h-[300px]"
-        >
+        <ul ref={ulRef} className="px-[10px] my-[6px] overflow-y-scroll max-h-[300px]">
           {showFiles.map((file, i) => {
             return (
               <li
@@ -121,9 +109,7 @@ function App() {
                   />
                 )}
                 {file.browser && <span className="ml-1 text-lg">🌐</span>}
-                <span className="text-lg pl-[8px]">
-                  {file.fileName.replace(".app", "")}{" "}
-                </span>
+                <span className="text-lg pl-[8px]">{file.fileName.replace(".app", "")} </span>
               </li>
             );
           })}

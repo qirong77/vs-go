@@ -56,7 +56,7 @@ function getWorkSpaceFiles() {
         ];
       });
       console.log(
-        `Processed ${subDirs.length} subdirectories in ${dir} at ${(new Date().getTime() - timeStamp) / 1000} s`,
+        `Processed ${subDirs.length} subdirectories in ${dir} at ${(new Date().getTime() - timeStamp) / 1000} s`
       );
       return files;
     })

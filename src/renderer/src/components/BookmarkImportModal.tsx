@@ -26,7 +26,7 @@ export default function BookmarkImportModal({
   // 初始化时选中所有书签
   useEffect(() => {
     if (bookmarks.length > 0) {
-      setSelectedBookmarks(new Set(bookmarks.map(b => b.id)));
+      setSelectedBookmarks(new Set(bookmarks.map((b) => b.id)));
       setSelectAll(true);
     }
   }, [bookmarks]);
@@ -46,19 +46,20 @@ export default function BookmarkImportModal({
     if (selectAll) {
       setSelectedBookmarks(new Set());
     } else {
-      setSelectedBookmarks(new Set(filteredBookmarks.map(b => b.id)));
+      setSelectedBookmarks(new Set(filteredBookmarks.map((b) => b.id)));
     }
     setSelectAll(!selectAll);
   };
 
   const handleImport = () => {
-    const selected = bookmarks.filter(bookmark => selectedBookmarks.has(bookmark.id));
+    const selected = bookmarks.filter((bookmark) => selectedBookmarks.has(bookmark.id));
     onImport(selected);
   };
 
-  const filteredBookmarks = bookmarks.filter(bookmark =>
-    bookmark.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bookmark.url.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredBookmarks = bookmarks.filter(
+    (bookmark) =>
+      bookmark.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bookmark.url.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const selectedCount = selectedBookmarks.size;
@@ -71,9 +72,7 @@ export default function BookmarkImportModal({
         {/* 头部 */}
         <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              导入书签
-            </h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">导入书签</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               找到 {bookmarks.length} 个书签，已选择 {selectedCount} 个
             </p>

@@ -8,21 +8,14 @@ export function useFileData(searchValue: string) {
   const [showFiles, setShowFiles] = useState<IMainWindowFiles>([]);
 
   const updateAllFiles = useCallback(() => {
-    window.electron.ipcRenderer
-      .invoke(VS_GO_EVENT.GET_FILES_LIST)
-      .then((res) => {
-        setAllFiles(res);
-      });
+    window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_FILES_LIST).then((res) => {
+      setAllFiles(res);
+    });
   }, []);
   useEffect(() => {
-    window.electron.ipcRenderer.on(
-      VS_GO_EVENT.MAIN_WINDOW_SHOW,
-      updateAllFiles,
-    );
+    window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, updateAllFiles);
     return () => {
-      window.electron.ipcRenderer.removeAllListeners(
-        VS_GO_EVENT.MAIN_WINDOW_SHOW,
-      );
+      window.electron.ipcRenderer.removeAllListeners(VS_GO_EVENT.MAIN_WINDOW_SHOW);
     };
   }, [updateAllFiles]);
   useEffect(() => {

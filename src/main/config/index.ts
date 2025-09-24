@@ -15,18 +15,14 @@ const vsGoConfig = {
   codeCommandPath: "/usr/local/bin/code",
   codeAppPath: "/Applications/Visual Studio Code.app",
 };
-vsGoConfig.workSpaceDirectories
-  .concat(vsGoConfig.workSpaceFiles)
-  .forEach((filePath) => {
-    if (!existsSync(filePath)) {
-      showErrorDialog("配置文件不存在:" + `${filePath} 不存在`);
-    }
-  });
+vsGoConfig.workSpaceDirectories.concat(vsGoConfig.workSpaceFiles).forEach((filePath) => {
+  if (!existsSync(filePath)) {
+    showErrorDialog("配置文件不存在:" + `${filePath} 不存在`);
+  }
+});
 app.whenReady().then(() => {
   if (!existsSync(vsGoConfig.codeCommandPath)) {
-    showErrorDialog(
-      "未检测到code命令,在VsCode中使用Command+Shift+P,搜索code进行安装",
-    );
+    showErrorDialog("未检测到code命令,在VsCode中使用Command+Shift+P,搜索code进行安装");
   }
 });
 export { vsGoConfig };
