@@ -69,7 +69,7 @@ function ShowAllFloatingWindows() {
   });
 }
 function toogleFloatingWindowVisible() { 
-    const isVisible = floatingWindows.some((win) => !win.isDestroyed() && win.isVisible());
+    const isVisible = floatingWindows.some((win) => !win.isDestroyed() && win?.isVisible());
     if (isVisible) {
         HideAllFloatingWindows();
     } else {
