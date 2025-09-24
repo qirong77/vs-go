@@ -41,6 +41,12 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     });
     floatingWindow.loadURL(url);
     floatingWindows.push(floatingWindow);
+    floatingWindow.webContents.on("before-input-event", (_event, input) => {
+        if (input.modifiers.includes("meta") && input.modifiers.includes("control") && input.key.toLowerCase() === "i") {
+            floatingWindow.webContents.toggleDevTools();
+        }
+    });
+
     floatingWindow.on("closed", () => {
         const index = floatingWindows.indexOf(floatingWindow);
         if (index > -1) {
@@ -62,7 +68,7 @@ function HideAllFloatingWindows() {
 function ShowAllFloatingWindows() {
     floatingWindows.forEach((win) => {
         if (!win.isDestroyed() && !win.isVisible()) {
-          win.showInactive()
+            win.showInactive();
         }
     });
 }
@@ -74,9 +80,4 @@ function toogleFloatingWindowVisible() {
         ShowAllFloatingWindows();
     }
 }
-export const FloatingWindowManager = {
-    createFloatingWindow,
-    HideAllFloatingWindows,
-    ShowAllFloatingWindows,
-    toogleFloatingWindowVisible,
-};
+export const FloatingWindowManager = { createFloatingWindow, HideAllFloatingWindows, ShowAllFloatingWindows, toogleFloatingWindowVisible };

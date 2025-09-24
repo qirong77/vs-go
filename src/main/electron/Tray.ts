@@ -54,6 +54,14 @@ function createBrowserSettingWindow() {
       { hash: "browser-setting" },
     );
   }
+  
+  // 添加快捷键支持
+  browserSettingWindow.webContents.on("before-input-event", (_event, input) => {
+        if (input.modifiers.includes("meta") && input.modifiers.includes("control") && input.key.toLowerCase() === "i") {
+            browserSettingWindow?.webContents.toggleDevTools();
+        }
+    });
+
   browserSettingWindow.on("closed", () => {
     browserSettingWindow = null;
   });
