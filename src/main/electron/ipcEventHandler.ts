@@ -72,6 +72,7 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_UPDATE, async (event, arg) => {
 
 ipcMain.on(VS_GO_EVENT.CREATE_FLOATING_WINDOW, (e, arg: BrowserItem) => {
   FloatingWindowManager.createFloatingWindow(arg.url);
+  MainWindowManager.hide();
 });
 ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_OPEN_URL, (e, arg: string) => {
   console.log(arg);

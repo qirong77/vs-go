@@ -55,7 +55,6 @@ function toogleIsShowMainWindow() {
     _mainWindow.hide();
   } else {
     showWindowOnCurrentDesktop();
-    FloatingWindowManager.ShowAllFloatingWindows();
   }
 }
 function toogleDevTools() {
@@ -80,4 +79,3 @@ export const MainWindowManager = {
   hide,
   setWindowSize,
 };
-import { FloatingWindowManager } from "../FloateWindow";
