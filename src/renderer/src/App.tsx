@@ -24,6 +24,7 @@ function App() {
   // const [browserItem, setBrowserItem] = useState<any>();
   // 搜索框为空时的默认展示,Vscode已打开的文件和打开的文件
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    setActive(0);
     if (e.key === "ArrowUp") {
       e.preventDefault();
       e.metaKey ? setActive(0) : setActive(active - 1 < 0 ? showFiles.length - 1 : active - 1);
