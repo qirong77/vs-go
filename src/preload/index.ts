@@ -300,6 +300,10 @@ class VsGoNavigationBar extends HTMLElement {
     // 回车键导航和键盘导航
     this.urlInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
+        if (this.isHistoryVisible && this.selectCurrentHistoryItem()) {
+          // 选择了历史记录项，不做其他操作
+          return;
+        }
         this.hideHistory();
         this.navigateToUrl();
       } else if (e.key === "Escape") {
@@ -452,12 +456,22 @@ class VsGoNavigationBar extends HTMLElement {
 
     const selectedItem = items[newIndex] as HTMLElement;
     selectedItem.classList.add("selected");
-    
-    // 更新输入框的值
-    const urlElement = selectedItem.querySelector(".history-item-url");
-    if (urlElement) {
-      this.urlInput.value = urlElement.textContent || "";
+  }
+
+  private selectCurrentHistoryItem(): boolean {
+    if (!this.isHistoryVisible) return false;
+
+    const selectedItem = this.historyContainer.querySelector(".history-item.selected");
+    if (selectedItem) {
+      const urlElement = selectedItem.querySelector(".history-item-url");
+      if (urlElement) {
+        this.urlInput.value = urlElement.textContent || "";
+        this.hideHistory();
+        this.navigateToUrl();
+        return true;
+      }
     }
+    return false;
   }
 
   private updateNavigationState() {
@@ -918,6 +932,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
     // 添加历史记录项
     displayHistory.forEach(item => {
       const historyItem = document.createElement("div");
+      historyItem.className = "fallback-history-item";
       historyItem.style.cssText = `
         padding: 12px 16px;
         border-bottom: 1px solid #f1f3f4;
@@ -976,7 +991,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
   function navigateHistoryItems(direction: number) {
     if (!isHistoryVisible) return;
 
-    const items = historyContainer.querySelectorAll("div");
+    const items = historyContainer.querySelectorAll(".fallback-history-item");
     if (items.length === 0) return;
 
     let currentIndex = -1;
@@ -984,7 +999,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
       if (item.classList.contains("selected")) {
         currentIndex = index;
         item.classList.remove("selected");
-        item.style.background = "";
+        (item as HTMLElement).style.background = "";
       }
     });
 
@@ -995,12 +1010,22 @@ function setupFallbackEvents(navBar: HTMLElement) {
     const selectedItem = items[newIndex] as HTMLElement;
     selectedItem.classList.add("selected");
     selectedItem.style.background = "#e8f0fe";
-    
-    // 更新输入框的值
-    const urlElement = selectedItem.querySelector("div > div");
-    if (urlElement) {
-      urlInput.value = urlElement.textContent || "";
+  }
+
+  function selectCurrentHistoryItem(): boolean {
+    if (!isHistoryVisible) return false;
+
+    const selectedItem = historyContainer.querySelector(".fallback-history-item.selected");
+    if (selectedItem) {
+      const urlElement = selectedItem.querySelector("div > div");
+      if (urlElement) {
+        urlInput.value = urlElement.textContent || "";
+        hideHistory();
+        navigateToUrl();
+        return true;
+      }
     }
+    return false;
   }
 
   // 更新导航状态
@@ -1087,6 +1112,10 @@ function setupFallbackEvents(navBar: HTMLElement) {
   // 键盘事件处理
   urlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
+      if (isHistoryVisible && selectCurrentHistoryItem()) {
+        // 选择了历史记录项，不做其他操作
+        return;
+      }
       hideHistory();
       navigateToUrl();
     } else if (e.key === "Escape") {
