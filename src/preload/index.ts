@@ -402,6 +402,8 @@ class VsGoNavigationBar extends HTMLElement {
     displayHistory.forEach(item => {
       const historyItem = document.createElement("div");
       historyItem.className = "history-item";
+      // 添加 data-url 属性存储 URL 数据
+      historyItem.dataset.url = item.url || "";
       
       historyItem.innerHTML = `
         <div style="flex: 1; min-width: 0;">
@@ -412,7 +414,7 @@ class VsGoNavigationBar extends HTMLElement {
 
       // 点击事件
       historyItem.addEventListener("click", () => {
-        this.urlInput.value = item.url || "";
+        this.urlInput.value = historyItem.dataset.url || "";
         this.hideHistory();
         this.navigateToUrl();
       });
@@ -467,15 +469,12 @@ class VsGoNavigationBar extends HTMLElement {
   private selectCurrentHistoryItem(): boolean {
     if (!this.isHistoryVisible) return false;
 
-    const selectedItem = this.historyContainer.querySelector(".history-item.selected");
-    if (selectedItem) {
-      const urlElement = selectedItem.querySelector(".history-item-url");
-      if (urlElement) {
-        this.urlInput.value = urlElement.textContent || "";
-        this.hideHistory();
-        this.navigateToUrl();
-        return true;
-      }
+    const selectedItem = this.historyContainer.querySelector(".history-item.selected") as HTMLElement;
+    if (selectedItem && selectedItem.dataset.url) {
+      this.urlInput.value = selectedItem.dataset.url;
+      this.hideHistory();
+      this.navigateToUrl();
+      return true;
     }
     return false;
   }
@@ -939,6 +938,8 @@ function setupFallbackEvents(navBar: HTMLElement) {
     displayHistory.forEach(item => {
       const historyItem = document.createElement("div");
       historyItem.className = "fallback-history-item";
+      // 添加 data-url 属性存储 URL 数据
+      historyItem.dataset.url = item.url || "";
       historyItem.style.cssText = `
         padding: 12px 16px;
         border-bottom: 1px solid #f1f3f4;
@@ -970,7 +971,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
 
       // 点击事件
       historyItem.addEventListener("click", () => {
-        urlInput.value = item.url || "";
+        urlInput.value = historyItem.dataset.url || "";
         hideHistory();
         navigateToUrl();
       });
@@ -1027,15 +1028,12 @@ function setupFallbackEvents(navBar: HTMLElement) {
   function selectCurrentHistoryItem(): boolean {
     if (!isHistoryVisible) return false;
 
-    const selectedItem = historyContainer.querySelector(".fallback-history-item.selected");
-    if (selectedItem) {
-      const urlElement = selectedItem.querySelector("div > div");
-      if (urlElement) {
-        urlInput.value = urlElement.textContent || "";
-        hideHistory();
-        navigateToUrl();
-        return true;
-      }
+    const selectedItem = historyContainer.querySelector(".fallback-history-item.selected") as HTMLElement;
+    if (selectedItem && selectedItem.dataset.url) {
+      urlInput.value = selectedItem.dataset.url;
+      hideHistory();
+      navigateToUrl();
+      return true;
     }
     return false;
   }
@@ -1196,6 +1194,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
 
 // 监听页面完全加载
 window.addEventListener("DOMContentLoaded", () => {
+  console.log(document)
   if (window.location.href.startsWith("file://")) {
     return;
   }
