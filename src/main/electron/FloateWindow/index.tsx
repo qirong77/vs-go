@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, shell } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { BrowserItem, vsgoStore } from "../store";
@@ -43,6 +43,11 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   });
   floatingWindow.loadURL(url);
   floatingWindows.push(floatingWindow);
+  // 处理新窗口请求，在外部浏览器中打开链接
+  floatingWindow.webContents.setWindowOpenHandler(({ url: newUrl }) => {
+    createFloatingWindow(newUrl);
+    return { action: "deny" };
+  });
   floatingWindow.webContents.on("before-input-event", (_event, input) => {
     if (
       input.modifiers.includes("meta") &&
@@ -52,7 +57,6 @@ function createFloatingWindow(url = "https://www.baidu.com") {
       floatingWindow.webContents.toggleDevTools();
     }
   });
-
   floatingWindow.on("closed", () => {
     const index = floatingWindows.indexOf(floatingWindow);
     if (index > -1) {
