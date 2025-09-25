@@ -1124,6 +1124,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
   // 键盘事件处理
   urlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
+      e.preventDefault();
       if (isHistoryVisible && selectCurrentHistoryItem()) {
         // 选择了历史记录项，不做其他操作
         return;

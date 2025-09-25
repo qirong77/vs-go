@@ -16,7 +16,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   const floatingWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     webPreferences: {
       sandbox: false,
       preload: path.join(__dirname, "../preload/index.js"),
