@@ -456,6 +456,12 @@ class VsGoNavigationBar extends HTMLElement {
 
     const selectedItem = items[newIndex] as HTMLElement;
     selectedItem.classList.add("selected");
+    
+    // 滚动到可见位置
+    selectedItem.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest'
+    });
   }
 
   private selectCurrentHistoryItem(): boolean {
@@ -1010,6 +1016,12 @@ function setupFallbackEvents(navBar: HTMLElement) {
     const selectedItem = items[newIndex] as HTMLElement;
     selectedItem.classList.add("selected");
     selectedItem.style.background = "#e8f0fe";
+    
+    // 滚动到可见位置
+    selectedItem.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest'
+    });
   }
 
   function selectCurrentHistoryItem(): boolean {

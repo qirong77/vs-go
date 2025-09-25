@@ -149,7 +149,6 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_IMPORT_BOOKMARKS, async (_event, bookmarks: B
 });
 
 ipcMain.handle(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, async (_event, searchWord = "") => {
-  console.log('searchWord', searchWord);
   const browserList = vsgoStore.get("browserList", []) as BrowserItem[];
   if (!searchWord) {
     return browserList;
