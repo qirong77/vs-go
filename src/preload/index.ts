@@ -835,7 +835,7 @@ navBar.innerHTML = `
         font-weight: 500;
         box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         font-family: inherit;
-        color: '#000' !important;
+        color: #000;
       ">←</button>
       <button id="fallback-forward-btn" title="前进" style="
         background: linear-gradient(to bottom, #ffffff 0%, #f1f3f4 100%);
@@ -851,7 +851,7 @@ navBar.innerHTML = `
         justify-content: center;
         transition: all 0.2s ease;
         font-weight: 500;
-        color: '#000' !important;
+        color: #000;
         box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         font-family: inherit;
       ">→</button>
@@ -868,7 +868,7 @@ navBar.innerHTML = `
         align-items: center;
         justify-content: center;
         transition: all 0.2s ease;
-        color: '#000' !important;
+        color: #000;
         font-weight: 500;
         box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         font-family: inherit;

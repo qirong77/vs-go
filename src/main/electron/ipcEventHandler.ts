@@ -41,13 +41,17 @@ ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, (_e, arg) => {
   !is.dev && MainWindowManager.setWindowSize(650, Math.floor(arg));
 });
 ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
-  MainWindowManager.hide();
   const filePath = file.filePath;
   if (!existsSync(filePath)) {
     dialog.showErrorBox("文件不存在", `${filePath} 不存在`);
     return;
   }
-  // const isApp = file.filePath.includes('Applications')
+  const isApp = file.filePath.includes('Applications')
+  if (isApp) {
+    const command = `open ${file.filePath}`;
+    execSync(command);
+    return;
+  }
   const isOpenFileByVsCode = file.useAppBase64 === vscodeBase64;
   if (isOpenFileByVsCode) {
     openFileByVscode(filePath);
