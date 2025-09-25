@@ -1,5 +1,7 @@
-import { contextBridge } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
+import { VS_GO_EVENT } from "../common/EVENT";
+import { debounce } from "../common/debounce";
 
 // 定义 Web Component - VsGo 导航栏
 class VsGoNavigationBar extends HTMLElement {
@@ -309,7 +311,11 @@ class VsGoNavigationBar extends HTMLElement {
   private setupKeyboardShortcuts() {
     document.addEventListener("keydown", (e) => {
       // 检查是否存在导航栏（Web Component 或降级版本）
-      if (!document.querySelector("vsgo-navigation-bar") && !document.getElementById('vsgo-navigation-bar-fallback')) return;
+      if (
+        !document.querySelector("vsgo-navigation-bar") &&
+        !document.getElementById("vsgo-navigation-bar-fallback")
+      )
+        return;
 
       // Cmd/Ctrl + 左箭头 = 后退
       if ((e.metaKey || e.ctrlKey) && e.key === "ArrowLeft") {
@@ -378,8 +384,8 @@ const api = {
   navigation: {
     toggleNavigationBar: () => {
       const webComponentNavBar = document.querySelector("vsgo-navigation-bar");
-      const fallbackNavBar = document.getElementById('vsgo-navigation-bar-fallback');
-      
+      const fallbackNavBar = document.getElementById("vsgo-navigation-bar-fallback");
+
       if (webComponentNavBar || fallbackNavBar) {
         // 隐藏导航栏
         if (webComponentNavBar) {
@@ -387,8 +393,8 @@ const api = {
         }
         if (fallbackNavBar) {
           fallbackNavBar.remove();
-          document.body.style.removeProperty('margin-top');
-          document.body.style.removeProperty('transition');
+          document.body.style.removeProperty("margin-top");
+          document.body.style.removeProperty("transition");
         }
       } else {
         // 显示导航栏
@@ -445,18 +451,18 @@ if (process.contextIsolated) {
 // 注册 Web Component - 确保在全局作用域中注册
 function registerWebComponent() {
   // 检查浏览器是否支持 Web Components
-  if (typeof window.customElements === 'undefined' || window.customElements === null) {
-    console.warn('此环境不支持 Web Components，将使用传统方式创建导航栏');
+  if (typeof window.customElements === "undefined" || window.customElements === null) {
+    console.warn("此环境不支持 Web Components，将使用传统方式创建导航栏");
     return false;
   }
-  
+
   // 检查是否已经注册过
-  if (!window.customElements.get('vsgo-navigation-bar')) {
+  if (!window.customElements.get("vsgo-navigation-bar")) {
     try {
-      window.customElements.define('vsgo-navigation-bar', VsGoNavigationBar);
+      window.customElements.define("vsgo-navigation-bar", VsGoNavigationBar);
       return true;
     } catch (error) {
-      console.error('注册 Web Component 失败:', error);
+      console.error("注册 Web Component 失败:", error);
       return false;
     }
   }
@@ -483,16 +489,16 @@ function createNavigationBar() {
 
 // 传统方式创建导航栏（降级方案）
 function createFallbackNavigationBar() {
-  console.log('使用传统方式创建导航栏');
-  
+  console.log("使用传统方式创建导航栏");
+
   // 检查是否已存在导航栏
-  if (document.getElementById('vsgo-navigation-bar-fallback')) {
+  if (document.getElementById("vsgo-navigation-bar-fallback")) {
     return;
   }
 
   // 创建导航栏容器
-  const navBar = document.createElement('div');
-  navBar.id = 'vsgo-navigation-bar-fallback';
+  const navBar = document.createElement("div");
+  navBar.id = "vsgo-navigation-bar-fallback";
   navBar.style.cssText = `
     position: fixed;
     top: 0;
@@ -506,7 +512,7 @@ function createFallbackNavigationBar() {
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   `;
-  
+
   navBar.innerHTML = `
     <div style="
       display: flex;
@@ -621,117 +627,133 @@ function createFallbackNavigationBar() {
       ">×</button>
     </div>
   `;
-  
+
   // 添加到页面
   document.body.insertBefore(navBar, document.body.firstChild);
-  
+
   // 调整页面边距
-  document.body.style.setProperty('margin-top', '48px', 'important');
-  document.body.style.setProperty('transition', 'margin-top 0.3s ease', 'important');
-  
+  document.body.style.setProperty("margin-top", "48px", "important");
+  document.body.style.setProperty("transition", "margin-top 0.3s ease", "important");
+
   // 绑定事件
   setupFallbackEvents(navBar);
 }
-
+const debounceUpdateHistory = debounce(() => {
+  return ipcRenderer.invoke(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, "").then((response) => {
+    return response;
+  });
+}, 200);
 // 为降级方案绑定事件
 function setupFallbackEvents(navBar: HTMLElement) {
-  const backBtn = navBar.querySelector('#fallback-back-btn') as HTMLButtonElement;
-  const forwardBtn = navBar.querySelector('#fallback-forward-btn') as HTMLButtonElement;
-  const refreshBtn = navBar.querySelector('#fallback-refresh-btn') as HTMLButtonElement;
-  const urlInput = navBar.querySelector('#fallback-url-input') as HTMLInputElement;
-  const goBtn = navBar.querySelector('#fallback-go-btn') as HTMLButtonElement;
-  const closeBtn = navBar.querySelector('#fallback-close-btn') as HTMLButtonElement;
-  
+  const backBtn = navBar.querySelector("#fallback-back-btn") as HTMLButtonElement;
+  const forwardBtn = navBar.querySelector("#fallback-forward-btn") as HTMLButtonElement;
+  const refreshBtn = navBar.querySelector("#fallback-refresh-btn") as HTMLButtonElement;
+  const urlInput = navBar.querySelector("#fallback-url-input") as HTMLInputElement;
+  const goBtn = navBar.querySelector("#fallback-go-btn") as HTMLButtonElement;
+  const closeBtn = navBar.querySelector("#fallback-close-btn") as HTMLButtonElement;
+
   // 更新导航状态
   function updateNavigationState() {
     backBtn.disabled = window.history.length <= 1;
     forwardBtn.disabled = false;
     urlInput.value = window.location.href;
-    
+
     const title = document.title;
     if (title) {
-      urlInput.placeholder = title.length > 50 ? title.substring(0, 50) + '...' : title;
+      urlInput.placeholder = title.length > 50 ? title.substring(0, 50) + "..." : title;
     }
   }
-  
+
   // 导航到URL
   function navigateToUrl() {
     let url = urlInput.value.trim();
     if (!url) return;
-    
+
     const originalUrl = url;
-    
-    if (url.startsWith('/') || url.startsWith('file://')) {
+
+    if (url.startsWith("/") || url.startsWith("file://")) {
       // 保持本地文件路径不变
-    } else if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('ftp://')) {
-      const isSearch = url.includes(' ') || (!url.includes('.') && !url.includes(':')) || (url.includes('.') && url.split('.').length < 2);
-      
+    } else if (
+      !url.startsWith("http://") &&
+      !url.startsWith("https://") &&
+      !url.startsWith("ftp://")
+    ) {
+      const isSearch =
+        url.includes(" ") ||
+        (!url.includes(".") && !url.includes(":")) ||
+        (url.includes(".") && url.split(".").length < 2);
+
       if (isSearch) {
         url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
       } else {
         url = `https://${url}`;
       }
     }
-    
+
     const originalText = goBtn.textContent;
-    goBtn.textContent = '...';
+    goBtn.textContent = "...";
     goBtn.disabled = true;
     urlInput.disabled = true;
-    
+
     try {
       window.location.href = url;
     } catch (e) {
-      console.error('导航失败:', e);
+      console.error("导航失败:", e);
       alert(`无法导航到: ${originalUrl}\n请检查网址是否正确。`);
-      
+
       goBtn.textContent = originalText;
       goBtn.disabled = false;
       urlInput.disabled = false;
       urlInput.value = window.location.href;
     }
   }
-  
+
   // 绑定事件
-  backBtn.addEventListener('click', () => {
+  backBtn.addEventListener("click", () => {
     try {
       window.history.back();
       setTimeout(updateNavigationState, 100);
     } catch (e) {
-      console.warn('无法后退:', e);
+      console.warn("无法后退:", e);
     }
   });
-  
-  forwardBtn.addEventListener('click', () => {
+
+  forwardBtn.addEventListener("click", () => {
     try {
       window.history.forward();
       setTimeout(updateNavigationState, 100);
     } catch (e) {
-      console.warn('无法前进:', e);
+      console.warn("无法前进:", e);
     }
   });
-  
-  refreshBtn.addEventListener('click', () => {
+
+  refreshBtn.addEventListener("click", () => {
     window.location.reload();
   });
-  
-  goBtn.addEventListener('click', navigateToUrl);
-  
-  urlInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
+
+  goBtn.addEventListener("click", navigateToUrl);
+
+  urlInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
       navigateToUrl();
+      return
     }
+    debounceUpdateHistory().then((response) => {
   });
-  
-  closeBtn.addEventListener('click', () => {
+  urlInput.addEventListener("focus", () => {
+    debounceUpdateHistory().then((response) => {
+    });
+  });
+  closeBtn.addEventListener("click", () => {
     navBar.remove();
-    document.body.style.removeProperty('margin-top');
-    document.body.style.removeProperty('transition');
+    document.body.style.removeProperty("margin-top");
+    document.body.style.removeProperty("transition");
   });
-  
+
   // 监听页面变化
-  window.addEventListener('popstate', updateNavigationState);
-  window.addEventListener('load', updateNavigationState);
-  
+  window.addEventListener("popstate", updateNavigationState);
+  window.addEventListener("load", updateNavigationState);
+
   // 定期更新URL
   let lastUrl = window.location.href;
   setInterval(() => {
@@ -740,7 +762,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
       updateNavigationState();
     }
   }, 500);
-  
+
   // 初始化状态
   updateNavigationState();
 }
@@ -756,9 +778,14 @@ window.addEventListener("DOMContentLoaded", () => {
   ) {
     return;
   }
-  
   // 确保导航栏存在
-  if (!document.querySelector("vsgo-navigation-bar") && !document.getElementById('vsgo-navigation-bar-fallback')) {
+  if (
+    !document.querySelector("vsgo-navigation-bar") &&
+    !document.getElementById("vsgo-navigation-bar-fallback")
+  ) {
     createNavigationBar();
   }
+  window.electron.ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, "").then((response) => {
+    console.log(response);
+  });
 });
