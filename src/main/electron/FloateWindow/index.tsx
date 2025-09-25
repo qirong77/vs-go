@@ -56,6 +56,18 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     ) {
       floatingWindow.webContents.toggleDevTools();
     }
+    // 添加快捷键 Cmd+Shift+N 来切换导航栏
+    if (
+      input.modifiers.includes("meta") &&
+      input.modifiers.includes("shift") &&
+      input.key.toLowerCase() === "n"
+    ) {
+      floatingWindow.webContents.executeJavaScript(`
+        if (window.api && window.api.navigation) {
+          window.api.navigation.toggleNavigationBar();
+        }
+      `);
+    }
   });
   floatingWindow.on("closed", () => {
     const index = floatingWindows.indexOf(floatingWindow);
