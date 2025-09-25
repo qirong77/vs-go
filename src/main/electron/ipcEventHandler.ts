@@ -156,10 +156,12 @@ ipcMain.handle(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, async (_event, searchWord
   if (!searchWord) {
     return browserList;
   }
-  const filteredList = browserList.filter(
-    (item) =>
-      item.name.toLowerCase().includes(searchWord.toLowerCase()) ||
-      item.url.toLowerCase().includes(searchWord.toLowerCase())
-  );
+  const filteredList = browserList
+    .filter((item) => item.name.toLowerCase().includes(searchWord.toLowerCase()))
+    .sort((f1, f2) => {
+      const f1Score = 100 - (f1.name.toLowerCase().indexOf(searchWord.toLowerCase()) + 1);
+      const f2Score = 100 - (f2.name.toLowerCase().indexOf(searchWord.toLowerCase()) + 1);
+      return f2Score - f1Score;
+    });
   return filteredList;
 });
