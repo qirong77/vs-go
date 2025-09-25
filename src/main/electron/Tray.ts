@@ -52,7 +52,7 @@ function createBrowserSettingWindow() {
   browserSettingWindow.webContents.on("before-input-event", (_event, input) => {
     if (
       input.modifiers.includes("meta") &&
-      input.modifiers.includes("control") &&
+      input.modifiers.includes("alt") &&
       input.key.toLowerCase() === "i"
     ) {
       browserSettingWindow?.webContents.toggleDevTools();
