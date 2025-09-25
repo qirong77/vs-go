@@ -1,4 +1,4 @@
-import { BrowserWindow, shell } from "electron";
+import { BrowserWindow } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { BrowserItem, vsgoStore } from "../store";
@@ -25,8 +25,12 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   floatingWindow.setVisibleOnAllWorkspaces(true, {
     visibleOnFullScreen: true, // 允许在全屏应用上显示
   });
+  const isBookMarkUrl = (vsgoStore.get("browserList", []) as BrowserItem[]).some(
+    (item) => item.url === url && item.type === "bookmark"
+  );
   // floatingWindow.setAlwaysOnTop(true, "floating", 0);
   floatingWindow.on("page-title-updated", (_event) => {
+    if (isBookMarkUrl) return;
     const title = floatingWindow.webContents.getTitle();
     if (!title) return;
     const CACHE_SIZE = 100;

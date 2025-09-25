@@ -29,6 +29,7 @@ function createBrowserSettingWindow() {
     browserSettingWindow.focus();
     return;
   }
+  MainWindowManager.hide();
   browserSettingWindow = new BrowserWindow({
     width: 800,
     height: 600,

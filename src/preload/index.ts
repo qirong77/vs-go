@@ -582,7 +582,6 @@ function navigateHistoryItems(direction: number) {
 // 选择当前历史记录项
 function selectCurrentHistoryItem(): boolean {
   if (!isHistoryVisible || !historyContainer) return false;
-
   const selectedItem = historyContainer.querySelector(".history-item.selected") as HTMLElement;
   if (selectedItem && selectedItem.dataset.url) {
     urlInput.value = selectedItem.dataset.url;
@@ -1049,7 +1048,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
     return div.innerHTML;
   }
 
-  function navigateHistoryItems(direction: number) {
+  function navigateHistoryItems(direction: number, targetNumber?: number) {
     if (!isHistoryVisible) return;
 
     const items = historyContainer.querySelectorAll(".fallback-history-item");
@@ -1067,7 +1066,9 @@ function setupFallbackEvents(navBar: HTMLElement) {
     let newIndex = currentIndex + direction;
     if (newIndex < 0) newIndex = items.length - 1;
     if (newIndex >= items.length) newIndex = 0;
-
+    if (targetNumber !== undefined) {
+      newIndex = targetNumber;
+    }
     const selectedItem = items[newIndex] as HTMLElement;
     selectedItem.classList.add("selected");
     selectedItem.style.background = "#e8f0fe";
@@ -1190,7 +1191,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       navigateHistoryItems(e.key === "ArrowDown" ? 1 : -1);
-    }
+    } else navigateHistoryItems(1,0)
   });
 
   // 输入事件

@@ -46,19 +46,22 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
     dialog.showErrorBox("文件不存在", `${filePath} 不存在`);
     return;
   }
-  const isApp = file.filePath.includes('Applications')
+  const isApp = file.filePath.includes("Applications");
   if (isApp) {
     const command = `open ${file.filePath}`;
     execSync(command);
+    MainWindowManager.hide();
     return;
   }
   const isOpenFileByVsCode = file.useAppBase64 === vscodeBase64;
   if (isOpenFileByVsCode) {
+    MainWindowManager.hide();
     openFileByVscode(filePath);
     return;
   }
   const command = `open -R ${file.filePath}`;
   execSync(command);
+  MainWindowManager.hide();
   return;
 });
 ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, async () => {
@@ -78,9 +81,6 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_ADD, async (_event, arg) => {
 });
 ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE, async (_event, url) => {
   const browserList = vsgoStore.get("browserList", []) as BrowserItem[];
-  browserList.forEach((item) => {
-    console.log(item.name);
-  });
   const index = browserList.findIndex((item) => item.url == url);
   if (index !== -1) {
     browserList.splice(index, 1);
