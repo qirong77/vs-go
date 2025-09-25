@@ -147,3 +147,16 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_IMPORT_BOOKMARKS, async (_event, bookmarks: B
     total: updatedList.length,
   };
 });
+
+ipcMain.handle(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, async (_event, searchWord = "") => {
+  const browserList = vsgoStore.get("browserList", []) as BrowserItem[];
+  if (!searchWord) {
+    return browserList;
+  }
+  const filteredList = browserList.filter(
+    (item) =>
+      item.name.toLowerCase().includes(searchWord.toLowerCase()) ||
+      item.url.toLowerCase().includes(searchWord.toLowerCase())
+  );
+  return filteredList;
+});
