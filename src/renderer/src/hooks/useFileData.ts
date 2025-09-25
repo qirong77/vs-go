@@ -35,7 +35,7 @@ export function useFileData(searchValue: string) {
       });
     setShowFiles(newShowFiles);
   }, [searchValue, allFiles]);
-  return { showFiles };
+  return { showFiles,updateAllFiles };
 }
 
 function normalizeStr(str = ""): string {

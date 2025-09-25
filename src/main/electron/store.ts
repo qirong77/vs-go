@@ -7,21 +7,10 @@ export type BrowserItem = {
   name: string;
   url: string;
   lastVisit?: number;
+  type: "bookmark" | "history";
 };
 const schema = {
   browserList: {
-    type: "array",
-    default: [],
-    items: {
-      type: "object",
-      properties: {
-        id: { type: "string" },
-        name: { type: "string" },
-        url: { type: "string" },
-      },
-    },
-  },
-  recentBrowserList: {
     type: "array",
     default: [],
     items: {

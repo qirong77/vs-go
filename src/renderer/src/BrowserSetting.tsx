@@ -48,8 +48,8 @@ function BrowserSetting() {
     fetchList();
   };
   // 删除
-  const handleRemove = async (id: string) => {
-    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, id).then(() => {
+  const handleRemove = async (url: string) => {
+    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, url).then(() => {
       fetchList();
     });
   };
@@ -181,7 +181,7 @@ function BrowserSetting() {
                     {item.url?.length > 30 ? item.url.slice(0, 30) + "..." : item.url}
                   </span>
                 </div>
-                <button className="text-red-500 px-2" onClick={() => handleRemove(item.id)}>
+                <button className="text-red-500 px-2" onClick={() => handleRemove(item.url)}>
                   删除
                 </button>
               </li>

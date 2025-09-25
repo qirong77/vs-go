@@ -29,6 +29,7 @@ function parseBookmarksHtml(htmlContent: string): BrowserItem[] {
         id: Math.random().toString(36).slice(2) + Date.now().toString(36),
         name: name.trim(),
         url: url.trim(),
+        type: "bookmark",
       });
     }
   }
@@ -71,10 +72,12 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_ADD, async (_event, arg) => {
   vsgoStore.set("browserList", browserList);
   return browserList;
 });
-ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE, async (_event, id) => {
+ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE, async (_event, url) => {
   const browserList = vsgoStore.get("browserList", []) as BrowserItem[];
-  const index = browserList.findIndex((item) => item.id == id);
-  console.log(index);
+  browserList.forEach((item) => {
+    console.log(item.name);
+  });
+  const index = browserList.findIndex((item) => item.url == url);
   if (index !== -1) {
     browserList.splice(index, 1);
     vsgoStore.set("browserList", browserList);

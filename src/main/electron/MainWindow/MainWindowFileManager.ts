@@ -14,18 +14,7 @@ export async function getMainWindowFiles() {
   const _browserList = browserList.map((item) => {
     return { fileName: item.name, filePath: item.url, browser: { ...item } };
   });
-  const recentBrowserList = vsgoStore.get("recentBrowserList") as BrowserItem[];
-  const _recentBrowserList = recentBrowserList.map((item) => {
-    return { fileName: item.name, filePath: item.url, browser: { ...item } };
-  });
-  const files = [
-    ...getWorkSpaceFiles(),
-    ...getZshFile(),
-    ...terminal,
-    ...app,
-    ..._browserList,
-    ..._recentBrowserList,
-  ];
+  const files = [...getWorkSpaceFiles(), ...getZshFile(), ...terminal, ...app, ..._browserList];
   return files;
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { ArrowRight, SearchIcon } from "./icon";
+import { ArrowRight, SearchIcon, DeleteIcon } from "./icon";
 import { VS_GO_EVENT } from "../../common/EVENT";
 import { useFileData } from "./hooks/useFileData";
 function App() {
@@ -9,7 +9,18 @@ function App() {
   const ulRef = useRef<HTMLUListElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { showFiles } = useFileData(input);
+  const { showFiles, updateAllFiles } = useFileData(input);
+
+  // 删除浏览器记录
+  const handleDeleteBrowser = async (e: React.MouseEvent, browserUrl: string) => {
+    e.stopPropagation();
+    try {
+      await window.electron.ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, browserUrl);
+      updateAllFiles();
+    } catch (error) {
+      console.error("删除浏览器记录失败:", error);
+    }
+  };
   // const [browserItem, setBrowserItem] = useState<any>();
   // 搜索框为空时的默认展示,Vscode已打开的文件和打开的文件
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -88,7 +99,7 @@ function App() {
           {showFiles.map((file, i) => {
             return (
               <li
-                className={`flex [&>svg]:mx-[6px] [&>svg]:w-[18px] [&>svg]:h-[18px] items-center  pl-1 h-[34px]
+                className={`flex [&>svg]:mx-[6px] [&>svg]:w-[18px] [&>svg]:h-[18px] items-center  pl-1 h-[34px] group
                   ${i === active ? "active-li" : ""}
                   `}
                 key={file.filePath + i}
@@ -109,7 +120,19 @@ function App() {
                   />
                 )}
                 {file.browser && <span className="ml-1 text-lg">🌐</span>}
-                <span className="text-lg pl-[8px]">{file.fileName.replace(".app", "")} </span>
+                <span className="text-lg pl-[8px] flex-1">
+                  {file.fileName.replace(".app", "")}{" "}
+                </span>
+                {/* 删除按钮，只对浏览器记录显示 */}
+                {file.browser && (
+                  <button
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all duration-200 mr-2"
+                    onClick={(e) => handleDeleteBrowser(e, file.browser!.url)}
+                    title="删除浏览器记录"
+                  >
+                    <DeleteIcon className="w-4 h-4 text-red-500 hover:text-red-700" />
+                  </button>
+                )}
               </li>
             );
           })}
