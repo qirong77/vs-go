@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 import { VS_GO_EVENT } from "../common/EVENT";
 import { debounce } from "../common/debounce";
+import { BrowserItem } from "../main/electron/store";
 
 // 定义 Web Component - VsGo 导航栏
 class VsGoNavigationBar extends HTMLElement {
@@ -12,7 +13,10 @@ class VsGoNavigationBar extends HTMLElement {
   private urlInput!: HTMLInputElement;
   private goBtn!: HTMLButtonElement;
   private closeBtn!: HTMLButtonElement;
+  private historyContainer!: HTMLDivElement;
   private updateInterval: number | null = null;
+  private isHistoryVisible = false;
+  private currentHistoryData: any[] = [];
 
   constructor() {
     super();
@@ -146,6 +150,76 @@ class VsGoNavigationBar extends HTMLElement {
           box-shadow: 0 2px 8px rgba(234, 67, 53, 0.3) !important;
         }
         
+        /* 历史记录容器样式 */
+        .history-container {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: white;
+          border: 1px solid #dadce0;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          max-height: 240px;
+          overflow-y: auto;
+          z-index: 1000;
+          display: none;
+          margin-top: 2px;
+        }
+        
+        .history-container.visible {
+          display: block;
+        }
+        
+        .history-item {
+          padding: 12px 16px;
+          border-bottom: 1px solid #f1f3f4;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+          font-size: 14px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .history-item:last-child {
+          border-bottom: none;
+        }
+        
+        .history-item:hover {
+          background: #f8f9fa;
+        }
+        
+        .history-item:active {
+          background: #e8f0fe;
+        }
+        
+        .history-item.selected {
+          background: #e8f0fe;
+        }
+        
+        .history-item-url {
+          color: #1a73e8;
+          font-weight: 500;
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        
+        .history-item-title {
+          color: #5f6368;
+          font-size: 13px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        
+        .url-input-container {
+          position: relative;
+          flex: 1;
+        }
+        
         /* 响应式设计 */
         @media (max-width: 768px) {
           .nav-container {
@@ -173,7 +247,12 @@ class VsGoNavigationBar extends HTMLElement {
         <button class="back-btn" title="后退">←</button>
         <button class="forward-btn" title="前进">→</button>
         <button class="refresh-btn" title="刷新">⟳</button>
-        <input class="url-input" type="text" placeholder="输入网址或使用google搜索..." />
+        <div class="url-input-container">
+          <input class="url-input" type="text" placeholder="输入网址或使用google搜索..." />
+          <div class="history-container">
+            <!-- 历史记录项将动态添加到这里 -->
+          </div>
+        </div>
         <button class="go-btn" title="转到">Go</button>
         <button class="close-btn" title="关闭导航栏">×</button>
       </div>
@@ -186,6 +265,7 @@ class VsGoNavigationBar extends HTMLElement {
     this.urlInput = this.shadowRoot.querySelector(".url-input") as HTMLInputElement;
     this.goBtn = this.shadowRoot.querySelector(".go-btn") as HTMLButtonElement;
     this.closeBtn = this.shadowRoot.querySelector(".close-btn") as HTMLButtonElement;
+    this.historyContainer = this.shadowRoot.querySelector(".history-container") as HTMLDivElement;
   }
 
   private setupEventListeners() {
@@ -217,10 +297,16 @@ class VsGoNavigationBar extends HTMLElement {
     // Go按钮点击
     this.goBtn.addEventListener("click", () => this.navigateToUrl());
 
-    // 回车键导航
-    this.urlInput.addEventListener("keypress", (e) => {
+    // 回车键导航和键盘导航
+    this.urlInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
+        this.hideHistory();
         this.navigateToUrl();
+      } else if (e.key === "Escape") {
+        this.hideHistory();
+      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        this.navigateHistoryItems(e.key === "ArrowDown" ? 1 : -1);
       }
     });
 
@@ -247,6 +333,131 @@ class VsGoNavigationBar extends HTMLElement {
 
     // 初始化状态
     this.updateNavigationState();
+
+    // 添加历史记录相关事件
+    this.setupHistoryEventListeners();
+  }
+
+  private setupHistoryEventListeners() {
+    // 输入框输入事件
+    this.urlInput.addEventListener("input", () => {
+      const query = this.urlInput.value.trim();
+      debounceUpdateHistory((response) => {
+        this.showHistory(response, query);
+      });
+    });
+
+    // 输入框聚焦事件
+    this.urlInput.addEventListener("focus", () => {
+      const query = this.urlInput.value.trim();
+      debounceUpdateHistory((response) => {
+        this.showHistory(response, query);
+      });
+    });
+
+    // 输入框失焦事件
+    this.urlInput.addEventListener("blur", () => {
+      // 延迟隐藏，以便点击历史记录项
+      setTimeout(() => {
+        this.hideHistory();
+      }, 150);
+    });
+
+    // 点击其他地方隐藏历史记录
+    document.addEventListener("click", (e) => {
+      const target = e.target as Element;
+      if (!target.closest(".url-input-container")) {
+        this.hideHistory();
+      }
+    });
+  }
+
+  private showHistory(historyData: any[], query: string = "") {
+    this.currentHistoryData = historyData || [];
+    
+    // 过滤历史记录
+    const filteredHistory = query 
+      ? this.currentHistoryData.filter(item => 
+          (item.url && item.url.toLowerCase().includes(query.toLowerCase())) ||
+          (item.title && item.title.toLowerCase().includes(query.toLowerCase()))
+        )
+      : this.currentHistoryData;
+
+    // 限制显示数量
+    const displayHistory = filteredHistory.slice(0, 10);
+
+    // 清空现有内容
+    this.historyContainer.innerHTML = "";
+
+    if (displayHistory.length === 0) {
+      this.hideHistory();
+      return;
+    }
+
+    // 添加历史记录项
+    displayHistory.forEach(item => {
+      const historyItem = document.createElement("div");
+      historyItem.className = "history-item";
+      
+      historyItem.innerHTML = `
+        <div style="flex: 1; min-width: 0;">
+          <div class="history-item-url">${this.escapeHtml(item.url || "")}</div>
+          ${item.title ? `<div class="history-item-title">${this.escapeHtml(item.title)}</div>` : ""}
+        </div>
+      `;
+
+      // 点击事件
+      historyItem.addEventListener("click", () => {
+        this.urlInput.value = item.url || "";
+        this.hideHistory();
+        this.navigateToUrl();
+      });
+
+      this.historyContainer.appendChild(historyItem);
+    });
+
+    // 显示历史记录容器
+    this.historyContainer.classList.add("visible");
+    this.isHistoryVisible = true;
+  }
+
+  private hideHistory() {
+    this.historyContainer.classList.remove("visible");
+    this.isHistoryVisible = false;
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  private navigateHistoryItems(direction: number) {
+    if (!this.isHistoryVisible) return;
+
+    const items = this.historyContainer.querySelectorAll(".history-item");
+    if (items.length === 0) return;
+
+    let currentIndex = -1;
+    items.forEach((item, index) => {
+      if (item.classList.contains("selected")) {
+        currentIndex = index;
+        item.classList.remove("selected");
+      }
+    });
+
+    let newIndex = currentIndex + direction;
+    if (newIndex < 0) newIndex = items.length - 1;
+    if (newIndex >= items.length) newIndex = 0;
+
+    const selectedItem = items[newIndex] as HTMLElement;
+    selectedItem.classList.add("selected");
+    
+    // 更新输入框的值
+    const urlElement = selectedItem.querySelector(".history-item-url");
+    if (urlElement) {
+      this.urlInput.value = urlElement.textContent || "";
+    }
   }
 
   private updateNavigationState() {
@@ -576,19 +787,41 @@ function createFallbackNavigationBar() {
         font-family: inherit;
         padding-bottom: 10px;
       ">⟳</button>
-      <input id="fallback-url-input" type="text" placeholder="输入网址或使用google搜索..." style="
+      <div style="
         flex: 1;
-        padding: 8px 16px;
-        border: 1px solid #dadce0;
-        border-radius: 24px;
-        font-size: 14px;
-        height: 32px;
-        box-sizing: border-box;
-        background: #fff;
-        transition: all 0.2s ease;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        font-family: inherit;
-      " />
+        position: relative;
+      ">
+        <input id="fallback-url-input" type="text" placeholder="输入网址或使用google搜索..." style="
+          width: 100%;
+          padding: 8px 16px;
+          border: 1px solid #dadce0;
+          border-radius: 24px;
+          font-size: 14px;
+          height: 32px;
+          box-sizing: border-box;
+          background: #fff;
+          transition: all 0.2s ease;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+          font-family: inherit;
+        " />
+        <div id="fallback-history-container" style="
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: white;
+          border: 1px solid #dadce0;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          max-height: 240px;
+          overflow-y: auto;
+          z-index: 1000;
+          display: none;
+          margin-top: 2px;
+        ">
+          <!-- 历史记录项将动态添加到这里 -->
+        </div>
+      </div>
       <button id="fallback-go-btn" title="转到" style="
         background: linear-gradient(to bottom, #1a73e8 0%, #1557b0 100%);
         color: white;
@@ -638,9 +871,11 @@ function createFallbackNavigationBar() {
   // 绑定事件
   setupFallbackEvents(navBar);
 }
-const debounceUpdateHistory = debounce(() => {
-  return ipcRenderer.invoke(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, "").then((response) => {
-    return response;
+const debounceUpdateHistory = debounce((callback?: (response: any) => void) => {
+  ipcRenderer.invoke(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, "").then((response) => {
+    if (callback) {
+      callback(response);
+    }
   });
 }, 200);
 // 为降级方案绑定事件
@@ -651,6 +886,122 @@ function setupFallbackEvents(navBar: HTMLElement) {
   const urlInput = navBar.querySelector("#fallback-url-input") as HTMLInputElement;
   const goBtn = navBar.querySelector("#fallback-go-btn") as HTMLButtonElement;
   const closeBtn = navBar.querySelector("#fallback-close-btn") as HTMLButtonElement;
+  const historyContainer = navBar.querySelector("#fallback-history-container") as HTMLDivElement;
+
+  // 历史记录状态
+  let isHistoryVisible = false;
+  let currentHistoryData: BrowserItem[] = [];
+
+  // 历史记录相关函数
+  function showHistory(historyData: BrowserItem[], query: string = "") {
+    currentHistoryData = historyData || [];
+    
+    // 过滤历史记录
+    const filteredHistory = query 
+      ? currentHistoryData.filter(item => 
+          (item.url && item.url.toLowerCase().includes(query.toLowerCase())) ||
+          (item.name && item.name.toLowerCase().includes(query.toLowerCase()))
+        )
+      : currentHistoryData;
+
+    // 限制显示数量
+    const displayHistory = filteredHistory.slice(0, 10);
+
+    // 清空现有内容
+    historyContainer.innerHTML = "";
+
+    if (displayHistory.length === 0) {
+      hideHistory();
+      return;
+    }
+
+    // 添加历史记录项
+    displayHistory.forEach(item => {
+      const historyItem = document.createElement("div");
+      historyItem.style.cssText = `
+        padding: 12px 16px;
+        border-bottom: 1px solid #f1f3f4;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      `;
+      
+      historyItem.innerHTML = `
+        <div style="flex: 1; min-width: 0;">
+          <div style="color: #1a73e8; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.url || "")}</div>
+          ${item.name ? `<div style="color: #5f6368; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.name)}</div>` : ""}
+        </div>
+      `;
+
+      // 悬停效果
+      historyItem.addEventListener("mouseenter", () => {
+        historyItem.style.background = "#f8f9fa";
+      });
+      
+      historyItem.addEventListener("mouseleave", () => {
+        if (!historyItem.classList.contains("selected")) {
+          historyItem.style.background = "";
+        }
+      });
+
+      // 点击事件
+      historyItem.addEventListener("click", () => {
+        urlInput.value = item.url || "";
+        hideHistory();
+        navigateToUrl();
+      });
+
+      historyContainer.appendChild(historyItem);
+    });
+
+    // 显示历史记录容器
+    historyContainer.style.display = "block";
+    isHistoryVisible = true;
+  }
+
+  function hideHistory() {
+    historyContainer.style.display = "none";
+    isHistoryVisible = false;
+  }
+
+  function escapeHtml(text: string): string {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function navigateHistoryItems(direction: number) {
+    if (!isHistoryVisible) return;
+
+    const items = historyContainer.querySelectorAll("div");
+    if (items.length === 0) return;
+
+    let currentIndex = -1;
+    items.forEach((item, index) => {
+      if (item.classList.contains("selected")) {
+        currentIndex = index;
+        item.classList.remove("selected");
+        item.style.background = "";
+      }
+    });
+
+    let newIndex = currentIndex + direction;
+    if (newIndex < 0) newIndex = items.length - 1;
+    if (newIndex >= items.length) newIndex = 0;
+
+    const selectedItem = items[newIndex] as HTMLElement;
+    selectedItem.classList.add("selected");
+    selectedItem.style.background = "#e8f0fe";
+    
+    // 更新输入框的值
+    const urlElement = selectedItem.querySelector("div > div");
+    if (urlElement) {
+      urlInput.value = urlElement.textContent || "";
+    }
+  }
 
   // 更新导航状态
   function updateNavigationState() {
@@ -733,17 +1084,51 @@ function setupFallbackEvents(navBar: HTMLElement) {
 
   goBtn.addEventListener("click", navigateToUrl);
 
-  urlInput.addEventListener("keypress", (e) => {
+  // 键盘事件处理
+  urlInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
+      hideHistory();
       navigateToUrl();
-      return
+    } else if (e.key === "Escape") {
+      hideHistory();
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      navigateHistoryItems(e.key === "ArrowDown" ? 1 : -1);
     }
-    debounceUpdateHistory().then((response) => {
   });
-  urlInput.addEventListener("focus", () => {
-    debounceUpdateHistory().then((response) => {
+
+  // 输入事件
+  urlInput.addEventListener("input", () => {
+    const query = urlInput.value.trim();
+    debounceUpdateHistory((response) => {
+      showHistory(response, query);
     });
   });
+
+  // 聚焦事件
+  urlInput.addEventListener("focus", () => {
+    const query = urlInput.value.trim();
+    debounceUpdateHistory((response) => {
+      showHistory(response, query);
+    });
+  });
+
+  // 失焦事件
+  urlInput.addEventListener("blur", () => {
+    // 延迟隐藏，以便点击历史记录项
+    setTimeout(() => {
+      hideHistory();
+    }, 150);
+  });
+
+  // 点击其他地方隐藏历史记录
+  document.addEventListener("click", (e) => {
+    const target = e.target as Element;
+    if (!target.closest("#vsgo-navigation-bar-fallback")) {
+      hideHistory();
+    }
+  });
+
   closeBtn.addEventListener("click", () => {
     navBar.remove();
     document.body.style.removeProperty("margin-top");
@@ -785,7 +1170,7 @@ window.addEventListener("DOMContentLoaded", () => {
   ) {
     createNavigationBar();
   }
-  window.electron.ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, "").then((response) => {
+  ipcRenderer.invoke(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, "").then((response) => {
     console.log(response);
   });
 });
