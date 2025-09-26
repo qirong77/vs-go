@@ -958,9 +958,17 @@ function setupFallbackEvents(navBar: HTMLElement) {
   const goBtn = navBar.querySelector("#fallback-go-btn") as HTMLButtonElement;
   const closeBtn = navBar.querySelector("#fallback-close-btn") as HTMLButtonElement;
   const historyContainer = navBar.querySelector("#fallback-history-container") as HTMLDivElement;
-  setTimeout(() => {
-    urlInput.focus();
-  }, 1000 * 3);
+  window.addEventListener("load", () => {
+    setTimeout(() => {
+      urlInput.autofocus = true;
+      urlInput.focus();
+    });
+    ipcRenderer.on(VS_GO_EVENT.FLOATING_WINDOW_FOCUS_INPUT, () => {
+      console.log(VS_GO_EVENT.FLOATING_WINDOW_FOCUS_INPUT)
+      // urlInput.autofocus = true;
+      // urlInput.focus();
+    });
+  });
   // 历史记录状态
   let isHistoryVisible = false;
   let currentHistoryData: BrowserItem[] = [];
@@ -1252,7 +1260,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
 }
 
 // 监听页面完全加载
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("load", () => {
   if (window.location.href.startsWith("file://")) {
     return;
   }

@@ -2,6 +2,7 @@ import { BrowserWindow } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { BrowserItem, vsgoStore } from "../store";
+import { VS_GO_EVENT } from "../../../common/EVENT";
 const floatingWindows: BrowserWindow[] = [];
 function createFloatingWindow(url = "https://www.baidu.com") {
   const oldWindow = floatingWindows.find(
@@ -98,6 +99,9 @@ function ShowAllFloatingWindows() {
       win.showInactive();
     }
   });
+  const lastWindow = floatingWindows[floatingWindows.length - 1];
+  lastWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_FOCUS_INPUT);
+  lastWindow.show()
 }
 function toggleFloatingWindowVisible() {
   const isVisible = floatingWindows.some((win) => !win.isDestroyed() && win?.isVisible());
