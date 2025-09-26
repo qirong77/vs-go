@@ -958,7 +958,9 @@ function setupFallbackEvents(navBar: HTMLElement) {
   const goBtn = navBar.querySelector("#fallback-go-btn") as HTMLButtonElement;
   const closeBtn = navBar.querySelector("#fallback-close-btn") as HTMLButtonElement;
   const historyContainer = navBar.querySelector("#fallback-history-container") as HTMLDivElement;
-
+  setTimeout(() => {
+    urlInput.focus();
+  }, 1000 * 3);
   // 历史记录状态
   let isHistoryVisible = false;
   let currentHistoryData: BrowserItem[] = [];
@@ -1191,7 +1193,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       navigateHistoryItems(e.key === "ArrowDown" ? 1 : -1);
-    } else navigateHistoryItems(1,0)
+    } else navigateHistoryItems(1, 0);
   });
 
   // 输入事件
@@ -1262,7 +1264,6 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   // 添加到页面
   document.body.insertBefore(navBar, document.body.firstChild);
-
   // 调整页面边距
   document.body.style.setProperty("margin-top", "48px", "important");
   document.body.style.setProperty("transition", "margin-top 0.3s ease", "important");
