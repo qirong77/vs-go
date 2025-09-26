@@ -29,9 +29,7 @@ export function useFileData(searchValue: string) {
         const f2Name = normalizeStr(file2.fileName);
         const f1NameScore = 100 - f1Name.indexOf(searchValue);
         const f2NameScore = 100 - f2Name.indexOf(searchValue);
-        const f1Score = f1NameScore + (file1.browser ? 20 : 0);
-        const f2Score = f2NameScore + (file2.browser ? 20 : 0);
-        return f2Score - f1Score;
+        return f2NameScore - f1NameScore;
       });
     setShowFiles(newShowFiles);
   }, [searchValue, allFiles]);
