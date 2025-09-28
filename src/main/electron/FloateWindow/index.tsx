@@ -3,6 +3,7 @@ import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { BrowserItem, vsgoStore } from "../store";
 import { VS_GO_EVENT } from "../../../common/EVENT";
+import { ipcMain } from "electron";
 const floatingWindows: BrowserWindow[] = [];
 function createFloatingWindow(url = "https://www.baidu.com") {
   const oldWindow = floatingWindows.find(
@@ -59,12 +60,8 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     createFloatingWindow(newUrl);
     return { action: "deny" };
   });
-  floatingWindow.webContents.on("before-input-event", (_event, input) => {
-    if (
-      input.modifiers.includes("meta") &&
-      input.modifiers.includes("alt") &&
-      input.key.toLowerCase() === "i"
-    ) {
+  ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_TOGGLE_DEVTOOLS, (event) => {
+    if (event.sender === floatingWindow.webContents) {
       floatingWindow.webContents.toggleDevTools();
     }
   });
@@ -101,7 +98,7 @@ function ShowAllFloatingWindows() {
   });
   const lastWindow = floatingWindows[floatingWindows.length - 1];
   lastWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_FOCUS_INPUT);
-  lastWindow.show()
+  lastWindow.show();
 }
 function toggleFloatingWindowVisible() {
   const isVisible = floatingWindows.some((win) => !win.isDestroyed() && win?.isVisible());

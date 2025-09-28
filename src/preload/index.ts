@@ -51,7 +51,9 @@ const api = {
     },
   },
 };
-
+const toggleDevtools = () => {
+  ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_TOGGLE_DEVTOOLS);
+};
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
 // just add to the DOM global.
@@ -964,7 +966,7 @@ function setupFallbackEvents(navBar: HTMLElement) {
       urlInput.focus();
     });
     ipcRenderer.on(VS_GO_EVENT.FLOATING_WINDOW_FOCUS_INPUT, () => {
-      console.log(VS_GO_EVENT.FLOATING_WINDOW_FOCUS_INPUT)
+      console.log(VS_GO_EVENT.FLOATING_WINDOW_FOCUS_INPUT);
       // urlInput.autofocus = true;
       // urlInput.focus();
     });
@@ -1275,6 +1277,9 @@ window.addEventListener("load", () => {
   // 调整页面边距
   document.body.style.setProperty("margin-top", "48px", "important");
   document.body.style.setProperty("transition", "margin-top 0.3s ease", "important");
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "F12") toggleDevtools();
+  });
   // 确保导航栏存在
   // if (!isNavigationBarVisible) {
   //   createNavigationBar();
