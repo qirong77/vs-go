@@ -21,8 +21,7 @@ const PreLoadComponent: React.FC = () => {
   const [currentUrl, setCurrentUrl] = useState<string>(window.location.href);
   const [showPreloadComponent, setShowPreloadComponent] = useState<boolean>(true);
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
-  // 无法直接判断是否可以前进
-  const [canGoForward, setCanGoForward] = useState<boolean>(true);
+  const [canGoForward, setCanGoForward] = useState<boolean>(false);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   const searchHistory = useCallback(
     debounce((value = "") => {
@@ -71,21 +70,8 @@ const PreLoadComponent: React.FC = () => {
   }, [searchHistory]);
 
   const handleNavigation = useCallback((action: "back" | "forward" | "refresh") => {
-    switch (action) {
-      case "back":
-        if (canGoBack) {
-          window.history.back();
-        }
-        break;
-      case "forward":
-        if (canGoForward) {
-          window.history.forward();
-        }
-        break;
-      case "refresh":
-        window.location.reload();
-        break;
-    }
+    // 使用IPC通信来处理导航，而不是直接操作window.history
+    ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_NAVIGATION, action);
   }, []);
 
   const handleUrlSearch = useCallback(
@@ -97,10 +83,18 @@ const PreLoadComponent: React.FC = () => {
   useEffect(() => {
     ipcRenderer.on(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, (_event, url: string) => {
       setCurrentUrl(url);
-      setCanGoBack(window.history.length > 1);
-      // 无法直接判断是否可以前进
-      setCanGoForward(true);
     });
+    
+    // 监听导航状态变化
+    ipcRenderer.on('navigation-state-changed', (_event, { canGoBack, canGoForward }: { canGoBack: boolean, canGoForward: boolean }) => {
+      setCanGoBack(canGoBack);
+      setCanGoForward(canGoForward);
+    });
+
+    return () => {
+      ipcRenderer.removeAllListeners(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL);
+      ipcRenderer.removeAllListeners('navigation-state-changed');
+    };
   }, []);
   return (
     <div

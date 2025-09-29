@@ -55,6 +55,25 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   });
   floatingWindow.webContents.on('did-navigate-in-page', (_event, url) => {
     floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, url);
+    // 发送更新后的导航状态
+    const canGoBack = floatingWindow.webContents.navigationHistory.goBack();
+    const canGoForward = floatingWindow.webContents.navigationHistory.goForward();
+    floatingWindow.webContents.send('navigation-state-changed', { canGoBack, canGoForward });
+  });
+  
+  // 监听页面完全加载完成事件
+  floatingWindow.webContents.on('did-finish-load', () => {
+    const canGoBack = floatingWindow.webContents.navigationHistory.goBack();
+    const canGoForward = floatingWindow.webContents.navigationHistory.goForward();
+    floatingWindow.webContents.send('navigation-state-changed', { canGoBack, canGoForward });
+  });
+
+  // 监听普通导航事件
+  floatingWindow.webContents.on('did-navigate', (_event, url) => {
+    floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, url);
+    const canGoBack = floatingWindow.webContents.navigationHistory.goBack();
+    const canGoForward = floatingWindow.webContents.navigationHistory.goForward();
+    floatingWindow.webContents.send('navigation-state-changed', { canGoBack, canGoForward });
   });
   floatingWindow.loadURL(url);
   floatingWindows.push(floatingWindow);
@@ -66,6 +85,32 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_TOGGLE_DEVTOOLS, (event) => {
     if (event.sender === floatingWindow.webContents) {
       floatingWindow.webContents.toggleDevTools();
+    }
+  });
+  
+  // 处理导航事件（后退、前进、刷新）
+  ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_NAVIGATION, (event, action: "back" | "forward" | "refresh") => {
+    if (event.sender === floatingWindow.webContents) {
+      switch (action) {
+        case "back":
+          if (floatingWindow.webContents.canGoBack()) {
+            floatingWindow.webContents.goBack();
+          }
+          break;
+        case "forward":
+          if (floatingWindow.webContents.canGoForward()) {
+            floatingWindow.webContents.goForward();
+          }
+          break;
+        case "refresh":
+          floatingWindow.webContents.reload();
+          break;
+      }
+      // 发送导航状态更新
+      const canGoBack = floatingWindow.webContents.canGoBack();
+      const canGoForward = floatingWindow.webContents.canGoForward();
+      floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, floatingWindow.webContents.getURL());
+      floatingWindow.webContents.send('navigation-state-changed', { canGoBack, canGoForward });
     }
   });
   floatingWindow.on("closed", () => {
