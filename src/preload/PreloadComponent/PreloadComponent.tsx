@@ -54,6 +54,7 @@ const PreLoadComponent: React.FC = () => {
   const handleUrlChange = useCallback((url: string) => {
     setCurrentUrl(url);
     ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
+    document.querySelector(`#history-dropdown-item-${url}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
   const handleUrlSearch = useCallback(
@@ -347,6 +348,7 @@ function HistoryDropdownItem({
   return (
     <div
       style={getItemStyle()}
+      id={`history-dropdown-item-${item.url}`}
       onClick={() => onSelect(item.url)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setIsHovered(false)}
