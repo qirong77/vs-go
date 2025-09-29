@@ -12,6 +12,9 @@ import {
   UrlToolBarProps,
 } from "./PreloadComponentType";
 const INPUT_ID = 'preload-component-input"'
+const MAX_DROPDOWN_ITEMS = 20; // 最大显示的下拉项数
+
+// 主预加载组件
 const PreLoadComponent: React.FC = () => {
   const [historyList, setHistoryList] = React.useState<BrowserItem[]>([]);
   const [currentUrl, setCurrentUrl] = useState<string>(window.location.href);
@@ -28,7 +31,7 @@ const PreLoadComponent: React.FC = () => {
         .then((response: BrowserItem[]) => {
           setHistoryList(response.sort((a, b) => (b?.lastVisit ?? 0) - (a?.lastVisit ?? 0)) || []);
         });
-    }, 10),
+    }, 100),
     []
   );
 
@@ -298,7 +301,7 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
           item.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
           (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase()))
       )
-      .slice(0, 8);
+      .slice(0, MAX_DROPDOWN_ITEMS); // 限制最大显示项数
 
     if (e.key === "Enter") {
       if (selectedIndex >= 0 && selectedIndex < filteredHistory.length && isFocused) {
@@ -407,7 +410,7 @@ function HistoryDropdown({
         item.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase()))
     )
-    .slice(0, 8); // 最多显示8条
+    .slice(0, MAX_DROPDOWN_ITEMS); 
 
   return (
     <div style={styles.dropdown}>
