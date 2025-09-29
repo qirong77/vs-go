@@ -18,11 +18,10 @@ const MAX_DROPDOWN_ITEMS = 20; // 最大显示的下拉项数
 const PreLoadComponent: React.FC = () => {
   const [historyList, setHistoryList] = React.useState<BrowserItem[]>([]);
   const [currentUrl, setCurrentUrl] = useState<string>(window.location.href);
-  const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
-  const [currentHistoryIndex, setCurrentHistoryIndex] = useState<number>(-1);
-  const [canGoBack, setCanGoBack] = useState<boolean>(false);
-  const [canGoForward, setCanGoForward] = useState<boolean>(false);
   const [showPreloadComponent, setShowPreloadComponent] = useState<boolean>(true);
+  const [canGoBack, setCanGoBack] = useState<boolean>(false);
+   // 无法直接判断是否可以前进
+  const [canGoForward, setCanGoForward] = useState<boolean>(true);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   const searchHistory = useCallback(
     debounce((value = "") => {
@@ -39,37 +38,6 @@ const PreLoadComponent: React.FC = () => {
       setCurrentUrl(historyList[0].url);
     }
   }, [historyList]);
-  // 更新导航按钮状态的辅助函数
-  const updateNavigationState = useCallback((history: string[], index: number) => {
-    setCanGoBack(index > 0);
-    setCanGoForward(index < history.length - 1);
-  }, []);
-
-  // 添加URL到导航历史
-  const addToNavigationHistory = useCallback(
-    (url: string) => {
-      setNavigationHistory((prevHistory) => {
-        const newHistory = [...prevHistory];
-        const newIndex = currentHistoryIndex + 1;
-
-        // 如果我们不在历史的末尾，删除前进历史
-        if (newIndex < newHistory.length) {
-          newHistory.splice(newIndex);
-        }
-
-        // 如果新URL与当前URL不同，才添加到历史中
-        if (newHistory[newIndex - 1] !== url) {
-          newHistory.push(url);
-          setCurrentHistoryIndex(newIndex);
-          updateNavigationState(newHistory, newIndex);
-          return newHistory;
-        }
-
-        return prevHistory;
-      });
-    },
-    [currentHistoryIndex, updateNavigationState]
-  );
 
   useEffect(() => {
     const handleDevToolsShortKey = (e: KeyboardEvent) => {
@@ -106,46 +74,23 @@ const PreLoadComponent: React.FC = () => {
     };
   }, [searchHistory]);
 
-  const handleNavigation = useCallback(
-    (action: "back" | "forward" | "refresh") => {
-      switch (action) {
-        case "back":
-          if (canGoBack && currentHistoryIndex > 0) {
-            const newIndex = currentHistoryIndex - 1;
-            const url = navigationHistory[newIndex];
-            setCurrentUrl(url);
-            setCurrentHistoryIndex(newIndex);
-            updateNavigationState(navigationHistory, newIndex);
-            ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
-          }
-          break;
-        case "forward":
-          if (canGoForward && currentHistoryIndex < navigationHistory.length - 1) {
-            const newIndex = currentHistoryIndex + 1;
-            const url = navigationHistory[newIndex];
-            setCurrentUrl(url);
-            setCurrentHistoryIndex(newIndex);
-            updateNavigationState(navigationHistory, newIndex);
-            ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
-          }
-          break;
-        case "refresh":
-          window.location.reload();
-          break;
-      }
-    },
-    [canGoBack, canGoForward, currentHistoryIndex, navigationHistory, updateNavigationState]
-  );
-
-  const handleUrlChange = useCallback(
-    (url: string) => {
-      setCurrentUrl(url);
-      addToNavigationHistory(url);
-      ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
-      // 移除滚动逻辑，因为这里不需要滚动到特定元素
-    },
-    [addToNavigationHistory]
-  );
+  const handleNavigation = useCallback((action: "back" | "forward" | "refresh") => {
+    switch (action) {
+      case "back":
+        if (canGoBack) {
+          window.history.back();
+        }
+        break;
+      case "forward":
+        if (canGoForward) {
+          window.history.forward();
+        }
+        break;
+      case "refresh":
+        window.location.reload();
+        break;
+    }
+  }, []);
 
   const handleUrlSearch = useCallback(
     (searchTerm: string) => {
@@ -153,7 +98,17 @@ const PreLoadComponent: React.FC = () => {
     },
     [searchHistory]
   );
-
+  useEffect(() => {
+    // 监听哈希变化
+    window.addEventListener("hashchange", (event) => {
+      setCurrentUrl(window.location.href);
+      setCanGoBack(window.history.length > 1);
+    });
+    window.addEventListener("popstate", (event) => {
+      setCurrentUrl(window.location.href);
+      setCanGoBack(window.history.length > 1);
+    });
+  }, []);
   return (
     <div
       style={{
@@ -171,10 +126,10 @@ const PreLoadComponent: React.FC = () => {
     >
       <UrlToolBar
         canGoBack={canGoBack}
+        onUrlChange={setCurrentUrl}
         canGoForward={canGoForward}
         onNavigation={handleNavigation}
         currentUrl={currentUrl}
-        onUrlChange={handleUrlChange}
         onUrlSearch={handleUrlSearch}
         historyList={historyList}
       />
@@ -188,9 +143,9 @@ function UrlToolBar({
   canGoForward,
   onNavigation,
   currentUrl,
-  onUrlChange,
   onUrlSearch,
   historyList,
+  onUrlChange,
 }: UrlToolBarProps) {
   return (
     <div style={styles.toolbar}>
@@ -216,7 +171,9 @@ function UrlToolBar({
       <div style={styles.inputContainer}>
         <UrlInput
           value={currentUrl}
-          onChange={onUrlChange}
+          onChange={(url) => {
+            onUrlChange(url);
+          }}
           onSearch={onUrlSearch}
           historyList={historyList}
         />
@@ -341,6 +298,7 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
     setTimeout(() => {
       setIsFocused(false);
       setSelectedIndex(-1);
+      setInputValue(window.location.href);
     }, 150);
   };
 
