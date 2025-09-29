@@ -4,6 +4,7 @@ import { VS_GO_EVENT } from "../../common/EVENT";
 import { ipcRenderer } from "electron";
 import { BrowserItem } from "../../main/electron/store";
 import { styles } from "./PreloadComponentStyle";
+import { BackIcon, ForwardIcon, RefreshIcon } from "./Icon";
 import {
   HistoryDropdownProps,
   NavigationButtonProps,
@@ -13,7 +14,7 @@ import {
 const INPUT_ID = 'preload-component-input"'
 const PreLoadComponent: React.FC = () => {
   const [historyList, setHistoryList] = React.useState<BrowserItem[]>([]);
-  const [currentUrl, setCurrentUrl] = useState<string>("");
+  const [currentUrl, setCurrentUrl] = useState<string>(window.location.href);
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState<number>(-1);
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
@@ -175,22 +176,19 @@ function UrlToolBar({
         <NavigationButton
           onClick={() => onNavigation("back")}
           disabled={!canGoBack}
-          icon="←"
+          icon={<BackIcon size={16} />}
           title="后退"
         />
         <NavigationButton
           onClick={() => onNavigation("forward")}
           disabled={!canGoForward}
-          icon="→"
+          icon={<ForwardIcon size={16} />}
           title="前进"
         />
         <NavigationButton
           onClick={() => onNavigation("refresh")}
-          icon="↻"
+          icon={<RefreshIcon size={16} />}
           title="刷新"
-          style={{
-            fontSize: "20px",
-          }}
         />
       </div>
       <div style={styles.inputContainer}>

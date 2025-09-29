@@ -18,7 +18,7 @@ export interface UrlToolBarProps {
 export interface NavigationButtonProps extends ReactComponentBasicProps {
   onClick: () => void;
   disabled?: boolean;
-  icon: string;
+  icon: string | React.ReactElement;
   title: string;
 }
 
