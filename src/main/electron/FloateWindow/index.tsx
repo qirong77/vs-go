@@ -53,6 +53,9 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     const uniqueList = newBrowserList.slice(0, CACHE_SIZE);
     vsgoStore.set("browserList", uniqueList);
   });
+  floatingWindow.webContents.on('did-navigate-in-page', (_event, url) => {
+    floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, url);
+  });
   floatingWindow.loadURL(url);
   floatingWindows.push(floatingWindow);
   // 处理新窗口请求，在外部浏览器中打开链接

@@ -36,7 +36,7 @@ window.addEventListener("load", () => {
   // 添加到页面
   const root = document.createElement("div") as HTMLElement;
   root.id = "preload-root";
-  
+
   // 为root元素添加样式，使用fixed定位确保始终在顶部
   root.style.cssText = `
     position: sticky;
@@ -44,8 +44,7 @@ window.addEventListener("load", () => {
     z-index: 9999;
   `;
   document.body.insertBefore(root, document.body.firstChild);
-  document.body.style.height = 'auto';
+  document.body.style.height = "auto";
   const rootInstance = ReactDOM.createRoot(root);
   rootInstance.render(<PreLoadComponent />);
-
 });

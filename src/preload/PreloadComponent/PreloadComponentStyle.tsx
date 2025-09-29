@@ -13,6 +13,7 @@ export const styles: { [key: string]: CSSProperties } = {
     transition: "all 0.2s ease-in-out",
     pointerEvents: "auto",
     boxSizing: "border-box",
+    margin: '10px 0'
   },
 
   toolbar: {

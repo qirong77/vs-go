@@ -17,10 +17,11 @@ const MAX_DROPDOWN_ITEMS = 20; // 最大显示的下拉项数
 // 主预加载组件
 const PreLoadComponent: React.FC = () => {
   const [historyList, setHistoryList] = React.useState<BrowserItem[]>([]);
+  console.log(window.location.href, "PreLoadComponent");
   const [currentUrl, setCurrentUrl] = useState<string>(window.location.href);
   const [showPreloadComponent, setShowPreloadComponent] = useState<boolean>(true);
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
-   // 无法直接判断是否可以前进
+  // 无法直接判断是否可以前进
   const [canGoForward, setCanGoForward] = useState<boolean>(true);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
   const searchHistory = useCallback(
@@ -33,11 +34,6 @@ const PreLoadComponent: React.FC = () => {
     }, 100),
     []
   );
-  useEffect(() => {
-    if (historyList.length) {
-      setCurrentUrl(historyList[0].url);
-    }
-  }, [historyList]);
 
   useEffect(() => {
     const handleDevToolsShortKey = (e: KeyboardEvent) => {
@@ -99,14 +95,11 @@ const PreLoadComponent: React.FC = () => {
     [searchHistory]
   );
   useEffect(() => {
-    // 监听哈希变化
-    window.addEventListener("hashchange", (event) => {
-      setCurrentUrl(window.location.href);
+    ipcRenderer.on(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, (_event, url: string) => {
+      setCurrentUrl(url);
       setCanGoBack(window.history.length > 1);
-    });
-    window.addEventListener("popstate", (event) => {
-      setCurrentUrl(window.location.href);
-      setCanGoBack(window.history.length > 1);
+      // 无法直接判断是否可以前进
+      setCanGoForward(true);
     });
   }, []);
   return (
@@ -242,7 +235,9 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
   useEffect(() => {
     setInputValue(value);
   }, [value]);
-
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [historyList]);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setInputValue(newValue);
@@ -264,8 +259,9 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
       if (selectedIndex >= 0 && selectedIndex < filteredHistory.length && isFocused) {
         // 如果有选中的历史记录，使用选中的URL
         const selectedUrl = filteredHistory[selectedIndex].url;
-        setInputValue(selectedUrl);
-        onChange(selectedUrl);
+        // ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, { url: selectedUrl });
+        window.location.href = selectedUrl;
+        onChange(window.location.href);
       } else {
         // 否则使用当前输入值
         onChange(inputValue);
@@ -297,8 +293,7 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
     // 延迟关闭下拉列表，允许点击选择
     setTimeout(() => {
       setIsFocused(false);
-      setSelectedIndex(-1);
-      setInputValue(window.location.href);
+      setSelectedIndex(0);
     }, 150);
   };
 
@@ -306,7 +301,8 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
     setInputValue(url);
     onChange(url);
     setIsFocused(false);
-    setSelectedIndex(-1);
+    setSelectedIndex(0);
+    window.location.href = url;
   };
 
   const handleSelectedIndexChange = (index: number) => {
