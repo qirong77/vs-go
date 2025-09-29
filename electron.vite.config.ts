@@ -14,7 +14,12 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin(), react()],
+    build: {
+      lib: {
+        entry: resolve(__dirname, 'src/preload/index.tsx')
+      }
+    }
   },
   renderer: {
     resolve: {
