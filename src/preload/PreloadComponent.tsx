@@ -3,6 +3,7 @@ import { debounce } from "../common/debounce";
 import { VS_GO_EVENT } from "../common/EVENT";
 import { ipcRenderer } from "electron";
 import { BrowserItem } from "../main/electron/store";
+import { Button } from "antd";
 
 const PreLoadComponent: React.FC = () => {
   const [historyList, setHistoryList] = React.useState<BrowserItem[]>([]);
