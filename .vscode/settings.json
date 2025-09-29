@@ -1,3 +1,4 @@
 {
-  "css.lint.unknownAtRules": "ignore"
+  "css.lint.unknownAtRules": "ignore",
+  "compile-hero.disable-compile-files-on-did-save-code": false
 }

@@ -1,7 +1,7 @@
 import { contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import ReactDOM from "react-dom/client"
-import PreLoadComponent from './PreloadComponent'
+import PreLoadComponent from './PreloadComponent/PreloadComponent'
 
 // Custom APIs for renderer
 const api = {}
