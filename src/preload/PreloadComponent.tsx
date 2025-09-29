@@ -1,9 +1,9 @@
+import "@ant-design/v5-patch-for-react-19";
 import React, { useCallback, useEffect } from "react";
 import { debounce } from "../common/debounce";
 import { VS_GO_EVENT } from "../common/EVENT";
 import { ipcRenderer } from "electron";
 import { BrowserItem } from "../main/electron/store";
-import { Button } from "antd";
 
 const PreLoadComponent: React.FC = () => {
   const [historyList, setHistoryList] = React.useState<BrowserItem[]>([]);
@@ -22,5 +22,8 @@ const PreLoadComponent: React.FC = () => {
   }, []);
   return <h1>Preload Component</h1>;
 };
+function UrlToolBar() {}
+function UrlSelect(props: { options: { key: string; value: string }[] }) {}
+function UrlInput() {}
 
 export default PreLoadComponent;

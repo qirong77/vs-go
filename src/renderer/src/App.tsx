@@ -3,6 +3,20 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, SearchIcon, DeleteIcon } from "./icon";
 import { VS_GO_EVENT } from "../../common/EVENT";
 import { useFileData } from "./hooks/useFileData";
+
+declare global {
+  interface Window {
+    electron: {
+      ipcRenderer: {
+        send: (channel: string, ...args: any[]) => void;
+        on: (channel: string, func: (...args: any[]) => void) => void;
+        removeAllListeners: (channel: string) => void;
+        invoke: (channel: string, ...args: any[]) => Promise<any>;
+      };
+    };
+  }
+}
+
 function App() {
   const [active, setActive] = useState(0);
   const [input, setInput] = useState("");

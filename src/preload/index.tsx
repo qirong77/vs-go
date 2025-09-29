@@ -25,8 +25,7 @@ if (process.contextIsolated) {
 
 window.addEventListener('load', () => {
   const root = document.createElement('div') as HTMLElement;
-  document.body.appendChild(root);
-  if (root) {
-    ReactDOM.createRoot(root).render(<PreLoadComponent />);
-  }
+  root.id = 'preload-root';
+  document.body.insertBefore(root, document.body.firstChild);
+  ReactDOM.createRoot(root).render(<PreLoadComponent />);
 })
