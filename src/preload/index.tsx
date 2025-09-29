@@ -36,6 +36,44 @@ window.addEventListener("load", () => {
   // 添加到页面
   const root = document.createElement("div") as HTMLElement;
   root.id = "preload-root";
+  
+  // 为root元素添加样式，使用fixed定位确保始终在顶部
+  root.style.cssText = `
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 999999 !important;
+    pointer-events: none !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  `;
+  
   document.body.insertBefore(root, document.body.firstChild);
-  ReactDOM.createRoot(root).render(<PreLoadComponent />);
+  
+  const rootInstance = ReactDOM.createRoot(root);
+  rootInstance.render(<PreLoadComponent />);
+  
+  // 等待渲染完成后调整body padding
+  setTimeout(() => {
+    const toolbarHeight = root.offsetHeight;
+    if (toolbarHeight > 0) {
+      const originalBodyStyle = document.body.style.paddingTop;
+      document.body.style.paddingTop = `${toolbarHeight}px`;
+      
+      // 当组件卸载时恢复原始样式
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList') {
+            const removedNodes = Array.from(mutation.removedNodes);
+            if (removedNodes.some(node => node === root)) {
+              document.body.style.paddingTop = originalBodyStyle;
+              observer.disconnect();
+            }
+          }
+        });
+      });
+      observer.observe(document.body, { childList: true });
+    }
+  }, 100);
 });

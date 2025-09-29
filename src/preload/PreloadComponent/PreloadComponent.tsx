@@ -20,6 +20,7 @@ const PreLoadComponent: React.FC = () => {
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
   const [canGoForward, setCanGoForward] = useState<boolean>(false);
   const [showPreloadComponent, setShowPreloadComponent] = useState<boolean>(true);
+  const [isScrolled, setIsScrolled] = useState<boolean>(false);
   const searchHistory = useCallback(
     debounce((value = "") => {
       ipcRenderer
@@ -82,13 +83,21 @@ const PreLoadComponent: React.FC = () => {
         });
       }
     };
+
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      setIsScrolled(scrollTop > 0);
+    };
+
     document.addEventListener("keydown", handleDevToolsShortKey);
+    window.addEventListener("scroll", handleScroll);
 
     // 初始化搜索历史
     searchHistory();
 
     return () => {
       document.removeEventListener("keydown", handleDevToolsShortKey);
+      window.removeEventListener("scroll", handleScroll);
     };
   }, [searchHistory]);
 
@@ -145,6 +154,16 @@ const PreLoadComponent: React.FC = () => {
       style={{
         ...styles.container,
         display: showPreloadComponent ? "block" : "none",
+        boxShadow: isScrolled 
+          ? "0 4px 12px 0 rgb(0 0 0 / 0.15)" 
+          : "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        // 添加CSS重置，防止被宿主页面样式干扰
+        margin: 0,
+        padding: 0,
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        fontSize: "14px",
+        lineHeight: "1.5",
+        color: "#374151",
       }}
     >
       <UrlToolBar

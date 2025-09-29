@@ -3,10 +3,16 @@ import { CSSProperties } from "react";
 // 样式常量定义
 export const styles: { [key: string]: CSSProperties } = {
   container: {
+    position: "relative",
     width: "100%",
-    backgroundColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
     borderBottom: "1px solid #e5e7eb",
     boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+    backdropFilter: "blur(8px)",
+    WebkitBackdropFilter: "blur(8px)",
+    transition: "all 0.2s ease-in-out",
+    pointerEvents: "auto",
+    boxSizing: "border-box",
   },
 
   toolbar: {
