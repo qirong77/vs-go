@@ -102,7 +102,7 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_UPDATE, async (_event, arg) => {
   return browserList;
 });
 
-ipcMain.on(VS_GO_EVENT.CREATE_FLOATING_WINDOW, (_e, arg: BrowserItem) => {
+ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_CREATE, (_e, arg: BrowserItem) => {
   FloatingWindowManager.createFloatingWindow(arg.url);
   MainWindowManager.hide();
 });

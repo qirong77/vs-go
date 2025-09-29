@@ -40,18 +40,20 @@ const PreLoadComponent: React.FC = () => {
   }, [searchHistory]);
 
   const handleNavigation = useCallback((action: "back" | "forward" | "refresh") => {
-    // 这里应该调用相应的 IPC 事件来控制浏览器导航
-    console.log(`Navigation action: ${action}`);
-    // 示例 IPC 调用
-    // ipcRenderer.send(VS_GO_EVENT.BROWSER_NAVIGATE, action);
+    switch(action) {
+      case 'back':
+        break;
+      case 'forward':
+        break;
+      case 'refresh':
+        window.location.reload()
+        break;
+    }
   }, []);
 
   const handleUrlChange = useCallback((url: string) => {
     setCurrentUrl(url);
-    // 这里应该调用相应的 IPC 事件来导航到新 URL
-    console.log(`Navigate to: ${url}`);
-    // 示例 IPC 调用
-    // ipcRenderer.send(VS_GO_EVENT.BROWSER_LOAD_URL, url);
+    ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
   }, []);
 
   const handleUrlSearch = useCallback(
@@ -329,7 +331,7 @@ function HistoryDropdownItem({
   const getItemStyle = () => {
     let itemStyle = { ...styles.dropdownItem };
     if (isLast) {
-      itemStyle.borderBottom = "none";
+      itemStyle = { ...itemStyle, ...styles.dropdownItemLast };
     }
     if (isSelected || isHovered) {
       itemStyle = { ...itemStyle, ...styles.dropdownItemHover };

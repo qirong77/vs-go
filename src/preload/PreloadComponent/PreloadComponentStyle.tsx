@@ -35,12 +35,13 @@ export const styles: { [key: string]: CSSProperties } = {
     borderRadius: "6px",
     fontSize: "16px",
     fontWeight: "400",
-    border: "none",
+    borderWidth: "0",
+    borderStyle: "none",
     cursor: "pointer",
     transition: "all 0.2s",
     color: "#374151",
     backgroundColor: "transparent",
-  },
+  } as CSSProperties,
 
   buttonHover: {
     color: "#111827",
@@ -60,17 +61,19 @@ export const styles: { [key: string]: CSSProperties } = {
     width: "100%",
     padding: "6px 12px",
     fontSize: "14px",
-    border: "1px solid #d1d5db",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "#d1d5db",
     borderRadius: "6px",
     outline: "none",
     backgroundColor: "#ffffff",
     transition: "all 0.2s",
-  },
+  } as CSSProperties,
 
   inputFocused: {
     borderColor: "#3b82f6",
     boxShadow: "0 0 0 2px rgb(59 130 246 / 0.5)",
-  },
+  } as CSSProperties,
 
   dropdown: {
     position: "absolute",
@@ -79,24 +82,32 @@ export const styles: { [key: string]: CSSProperties } = {
     right: "0",
     marginTop: "4px",
     backgroundColor: "#ffffff",
-    border: "1px solid #e5e7eb",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "#e5e7eb",
     borderRadius: "6px",
     boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05)",
-    zIndex: 50,
+    zIndex: 9999999,
     maxHeight: "256px",
     overflowY: "auto",
-  },
+  } as CSSProperties,
 
   dropdownItem: {
     padding: "8px 12px",
     cursor: "pointer",
-    borderBottom: "1px solid #f3f4f6",
+    borderBottomWidth: "1px",
+    borderBottomStyle: "solid",
+    borderBottomColor: "#f3f4f6",
     transition: "background-color 0.15s",
-  },
+  } as CSSProperties,
+
+  dropdownItemLast: {
+    borderBottomWidth: "0",
+  } as CSSProperties,
 
   dropdownItemHover: {
     backgroundColor: "#f3f4f6",
-  },
+  } as CSSProperties,
 
   dropdownItemContent: {
     display: "flex",

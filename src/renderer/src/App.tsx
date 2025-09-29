@@ -52,7 +52,7 @@ function App() {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       const targetItem = showFiles[active];
       if (targetItem?.browser) {
-        window.electron.ipcRenderer.send(VS_GO_EVENT.CREATE_FLOATING_WINDOW, targetItem.browser);
+        window.electron.ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, targetItem.browser);
         return;
       }
       if (targetItem) {
@@ -63,7 +63,7 @@ function App() {
       }
       const isUrl = /^(http|https):\/\/[^ "]+$/.test(input);
       if (isUrl) {
-        window.electron.ipcRenderer.send(VS_GO_EVENT.CREATE_FLOATING_WINDOW, {
+        window.electron.ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, {
           url: input.trim(),
           name: input.trim(),
           id: new Date().getTime() + "",
