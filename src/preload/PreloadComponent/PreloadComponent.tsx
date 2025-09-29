@@ -11,7 +11,7 @@ import {
   UrlInputProps,
   UrlToolBarProps,
 } from "./PreloadComponentType";
-const INPUT_ID = 'preload-component-input"'
+const INPUT_ID = 'preload-component-input"';
 const MAX_DROPDOWN_ITEMS = 20; // 最大显示的下拉项数
 
 // 主预加载组件
@@ -34,7 +34,11 @@ const PreLoadComponent: React.FC = () => {
     }, 100),
     []
   );
-
+  useEffect(() => {
+    if (historyList.length) {
+      setCurrentUrl(historyList[0].url);
+    }
+  }, [historyList]);
   // 更新导航按钮状态的辅助函数
   const updateNavigationState = useCallback((history: string[], index: number) => {
     setCanGoBack(index > 0);
@@ -76,9 +80,7 @@ const PreLoadComponent: React.FC = () => {
         setShowPreloadComponent((pre) => {
           if (!pre) {
             setTimeout(() => {
-              const inputElement = document.getElementById(
-                INPUT_ID
-              ) as HTMLInputElement | null;
+              const inputElement = document.getElementById(INPUT_ID) as HTMLInputElement | null;
               inputElement?.focus();
             }, 100);
           }
@@ -157,9 +159,7 @@ const PreLoadComponent: React.FC = () => {
       style={{
         ...styles.container,
         display: showPreloadComponent ? "block" : "none",
-        boxShadow: isScrolled 
-          ? "0 4px 12px 0 rgb(0 0 0 / 0.15)" 
-          : "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        boxShadow: isScrolled ? "0 4px 12px 0 rgb(0 0 0 / 0.15)" : "0 1px 2px 0 rgb(0 0 0 / 0.05)",
         // 添加CSS重置，防止被宿主页面样式干扰
         margin: 0,
         padding: 0,
@@ -410,7 +410,7 @@ function HistoryDropdown({
         item.url.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase()))
     )
-    .slice(0, MAX_DROPDOWN_ITEMS); 
+    .slice(0, MAX_DROPDOWN_ITEMS);
 
   return (
     <div style={styles.dropdown}>
