@@ -10,7 +10,7 @@ import {
   UrlInputProps,
   UrlToolBarProps,
 } from "./PreloadComponentType";
-
+const INPUT_ID = 'preload-component-input"'
 const PreLoadComponent: React.FC = () => {
   const [historyList, setHistoryList] = React.useState<BrowserItem[]>([]);
   const [currentUrl, setCurrentUrl] = useState<string>("");
@@ -18,14 +18,17 @@ const PreLoadComponent: React.FC = () => {
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState<number>(-1);
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
   const [canGoForward, setCanGoForward] = useState<boolean>(false);
-
-  const searchHistory = useCallback(debounce((value = "") => {
-    ipcRenderer.invoke(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, value).then((response: BrowserItem[]) => {
-      setHistoryList(
-        response.sort((a, b) => (b?.lastVisit ?? 0) - (a?.lastVisit ?? 0)) || []
-      );
-    });
-  }, 10), []);
+  const [showPreloadComponent, setShowPreloadComponent] = useState<boolean>(true);
+  const searchHistory = useCallback(
+    debounce((value = "") => {
+      ipcRenderer
+        .invoke(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, value)
+        .then((response: BrowserItem[]) => {
+          setHistoryList(response.sort((a, b) => (b?.lastVisit ?? 0) - (a?.lastVisit ?? 0)) || []);
+        });
+    }, 10),
+    []
+  );
 
   // 更新导航按钮状态的辅助函数
   const updateNavigationState = useCallback((history: string[], index: number) => {
@@ -34,32 +37,48 @@ const PreLoadComponent: React.FC = () => {
   }, []);
 
   // 添加URL到导航历史
-  const addToNavigationHistory = useCallback((url: string) => {
-    setNavigationHistory(prevHistory => {
-      const newHistory = [...prevHistory];
-      const newIndex = currentHistoryIndex + 1;
-      
-      // 如果我们不在历史的末尾，删除前进历史
-      if (newIndex < newHistory.length) {
-        newHistory.splice(newIndex);
-      }
-      
-      // 如果新URL与当前URL不同，才添加到历史中
-      if (newHistory[newIndex - 1] !== url) {
-        newHistory.push(url);
-        setCurrentHistoryIndex(newIndex);
-        updateNavigationState(newHistory, newIndex);
-        return newHistory;
-      }
-      
-      return prevHistory;
-    });
-  }, [currentHistoryIndex, updateNavigationState]);
+  const addToNavigationHistory = useCallback(
+    (url: string) => {
+      setNavigationHistory((prevHistory) => {
+        const newHistory = [...prevHistory];
+        const newIndex = currentHistoryIndex + 1;
+
+        // 如果我们不在历史的末尾，删除前进历史
+        if (newIndex < newHistory.length) {
+          newHistory.splice(newIndex);
+        }
+
+        // 如果新URL与当前URL不同，才添加到历史中
+        if (newHistory[newIndex - 1] !== url) {
+          newHistory.push(url);
+          setCurrentHistoryIndex(newIndex);
+          updateNavigationState(newHistory, newIndex);
+          return newHistory;
+        }
+
+        return prevHistory;
+      });
+    },
+    [currentHistoryIndex, updateNavigationState]
+  );
 
   useEffect(() => {
     const handleDevToolsShortKey = (e: KeyboardEvent) => {
       if (e.key === "F12" || (e.key === "I" && e.ctrlKey && e.altKey)) {
         ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_TOGGLE_DEVTOOLS);
+      }
+      if (e.key === "Escape") {
+        setShowPreloadComponent((pre) => {
+          if (!pre) {
+            setTimeout(() => {
+              const inputElement = document.getElementById(
+                INPUT_ID
+              ) as HTMLInputElement | null;
+              inputElement?.focus();
+            }, 100);
+          }
+          return !pre;
+        });
       }
     };
     document.addEventListener("keydown", handleDevToolsShortKey);
@@ -72,40 +91,46 @@ const PreLoadComponent: React.FC = () => {
     };
   }, [searchHistory]);
 
-  const handleNavigation = useCallback((action: "back" | "forward" | "refresh") => {
-    switch(action) {
-      case 'back':
-        if (canGoBack && currentHistoryIndex > 0) {
-          const newIndex = currentHistoryIndex - 1;
-          const url = navigationHistory[newIndex];
-          setCurrentUrl(url);
-          setCurrentHistoryIndex(newIndex);
-          updateNavigationState(navigationHistory, newIndex);
-          ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
-        }
-        break;
-      case 'forward':
-        if (canGoForward && currentHistoryIndex < navigationHistory.length - 1) {
-          const newIndex = currentHistoryIndex + 1;
-          const url = navigationHistory[newIndex];
-          setCurrentUrl(url);
-          setCurrentHistoryIndex(newIndex);
-          updateNavigationState(navigationHistory, newIndex);
-          ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
-        }
-        break;
-      case 'refresh':
-        window.location.reload();
-        break;
-    }
-  }, [canGoBack, canGoForward, currentHistoryIndex, navigationHistory, updateNavigationState]);
+  const handleNavigation = useCallback(
+    (action: "back" | "forward" | "refresh") => {
+      switch (action) {
+        case "back":
+          if (canGoBack && currentHistoryIndex > 0) {
+            const newIndex = currentHistoryIndex - 1;
+            const url = navigationHistory[newIndex];
+            setCurrentUrl(url);
+            setCurrentHistoryIndex(newIndex);
+            updateNavigationState(navigationHistory, newIndex);
+            ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
+          }
+          break;
+        case "forward":
+          if (canGoForward && currentHistoryIndex < navigationHistory.length - 1) {
+            const newIndex = currentHistoryIndex + 1;
+            const url = navigationHistory[newIndex];
+            setCurrentUrl(url);
+            setCurrentHistoryIndex(newIndex);
+            updateNavigationState(navigationHistory, newIndex);
+            ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
+          }
+          break;
+        case "refresh":
+          window.location.reload();
+          break;
+      }
+    },
+    [canGoBack, canGoForward, currentHistoryIndex, navigationHistory, updateNavigationState]
+  );
 
-  const handleUrlChange = useCallback((url: string) => {
-    setCurrentUrl(url);
-    addToNavigationHistory(url);
-    ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
-    // 移除滚动逻辑，因为这里不需要滚动到特定元素
-  }, [addToNavigationHistory]);
+  const handleUrlChange = useCallback(
+    (url: string) => {
+      setCurrentUrl(url);
+      addToNavigationHistory(url);
+      ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, url);
+      // 移除滚动逻辑，因为这里不需要滚动到特定元素
+    },
+    [addToNavigationHistory]
+  );
 
   const handleUrlSearch = useCallback(
     (searchTerm: string) => {
@@ -115,7 +140,12 @@ const PreLoadComponent: React.FC = () => {
   );
 
   return (
-    <div style={styles.container}>
+    <div
+      style={{
+        ...styles.container,
+        display: showPreloadComponent ? "block" : "none",
+      }}
+    >
       <UrlToolBar
         canGoBack={canGoBack}
         canGoForward={canGoForward}
@@ -154,9 +184,14 @@ function UrlToolBar({
           icon="→"
           title="前进"
         />
-        <NavigationButton onClick={() => onNavigation("refresh")} icon="↻" title="刷新" style={{
-          fontSize:'20px'
-        }}/>
+        <NavigationButton
+          onClick={() => onNavigation("refresh")}
+          icon="↻"
+          title="刷新"
+          style={{
+            fontSize: "20px",
+          }}
+        />
       </div>
       <div style={styles.inputContainer}>
         <UrlInput
@@ -171,7 +206,13 @@ function UrlToolBar({
 }
 
 // 导航按钮组件
-function NavigationButton({ onClick, disabled = false, icon, title,style }: NavigationButtonProps) {
+function NavigationButton({
+  onClick,
+  disabled = false,
+  icon,
+  title,
+  style,
+}: NavigationButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isActive, setIsActive] = useState(false);
 
@@ -307,6 +348,7 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
       <input
         ref={inputRef}
         type="text"
+        id={INPUT_ID}
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyPress}
@@ -328,7 +370,14 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
 }
 
 // 历史记录下拉列表组件
-function HistoryDropdown({ isVisible, historyList, onSelect, searchTerm, selectedIndex, onSelectedIndexChange }: HistoryDropdownProps) {
+function HistoryDropdown({
+  isVisible,
+  historyList,
+  onSelect,
+  searchTerm,
+  selectedIndex,
+  onSelectedIndexChange,
+}: HistoryDropdownProps) {
   if (!isVisible || !historyList.length) {
     return null;
   }
