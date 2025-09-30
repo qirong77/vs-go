@@ -26,3 +26,20 @@ export type SavedCookie = {
 export type CookieData = {
   cookies: SavedCookie[];
 };
+
+// 笔记相关类型定义
+export type NoteItem = {
+  id: string;
+  url: string;
+  domain: string;
+  title: string;
+  content: any[]; // Plate.js 的 Value 类型
+  createTime: number;
+  updateTime: number;
+  createTimeDisplay: string;
+  updateTimeDisplay: string;
+};
+
+export type NotesData = {
+  notes: NoteItem[];
+};

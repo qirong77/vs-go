@@ -1,5 +1,5 @@
 import Store from "electron-store";
-import { SavedCookie } from "../../common/type";
+import { SavedCookie, NoteItem } from "../../common/type";
 
 // Define or import BrowserItem type
 export type BrowserItem = {
@@ -44,6 +44,24 @@ const schema = {
       },
     },
   },
+  savedNotes: {
+    type: "array",
+    default: [],
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        url: { type: "string" },
+        domain: { type: "string" },
+        title: { type: "string" },
+        content: { type: "array" },
+        createTime: { type: "number" },
+        updateTime: { type: "number" },
+        createTimeDisplay: { type: "string" },
+        updateTimeDisplay: { type: "string" },
+      },
+    },
+  },
 };
 
 const store = new Store({ schema });
@@ -69,5 +87,51 @@ export const cookieStore = {
   
   clearAllCookies(): void {
     vsgoStore.set('savedCookies', []);
+  }
+};
+
+// 笔记存储相关方法
+export const noteStore = {
+  getAllNotes(): NoteItem[] {
+    return vsgoStore.get('savedNotes', []) as NoteItem[];
+  },
+  
+  getNoteByUrl(url: string): NoteItem | undefined {
+    const notes = this.getAllNotes();
+    return notes.find(note => note.url === url);
+  },
+  
+  saveNote(note: NoteItem): void {
+    const notes = this.getAllNotes();
+    const existingIndex = notes.findIndex(n => n.url === note.url);
+    
+    if (existingIndex >= 0) {
+      notes[existingIndex] = note;
+    } else {
+      notes.push(note);
+    }
+    
+    vsgoStore.set('savedNotes', notes);
+  },
+  
+  deleteNote(id: string): void {
+    const notes = this.getAllNotes();
+    const filteredNotes = notes.filter(note => note.id !== id);
+    vsgoStore.set('savedNotes', filteredNotes);
+  },
+  
+  searchNotes(query: string): NoteItem[] {
+    const notes = this.getAllNotes();
+    const lowerQuery = query.toLowerCase();
+    
+    return notes.filter(note => 
+      note.title.toLowerCase().includes(lowerQuery) ||
+      note.domain.toLowerCase().includes(lowerQuery) ||
+      JSON.stringify(note.content).toLowerCase().includes(lowerQuery)
+    );
+  },
+  
+  clearAllNotes(): void {
+    vsgoStore.set('savedNotes', []);
   }
 };

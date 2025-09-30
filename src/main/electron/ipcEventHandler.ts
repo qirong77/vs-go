@@ -243,3 +243,68 @@ ipcMain.handle(VS_GO_EVENT.COOKIE_APPLY, async (_event, cookie, targetUrl: strin
     return { success: false, error: error instanceof Error ? error.message : '未知错误' };
   }
 });
+
+// 笔记相关事件处理
+ipcMain.handle(VS_GO_EVENT.NOTE_GET_BY_URL, async (_event, url: string) => {
+  try {
+    const { noteStore } = await import('./store');
+    return noteStore.getNoteByUrl(url);
+  } catch (error) {
+    console.error('获取笔记失败:', error);
+    return null;
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.NOTE_SAVE, async (_event, noteData) => {
+  try {
+    const { noteStore } = await import('./store');
+    const now = new Date();
+    const isUpdate = noteData.id && noteData.createTime;
+    
+    const note = {
+      ...noteData,
+      id: noteData.id || Math.random().toString(36).slice(2) + Date.now().toString(36),
+      createTime: noteData.createTime || now.getTime(),
+      updateTime: now.getTime(),
+      createTimeDisplay: noteData.createTimeDisplay || now.toLocaleString('zh-CN'),
+      updateTimeDisplay: now.toLocaleString('zh-CN'),
+    };
+    
+    noteStore.saveNote(note);
+    return { success: true, note, isUpdate };
+  } catch (error) {
+    console.error('保存笔记失败:', error);
+    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.NOTE_GET_ALL, async () => {
+  try {
+    const { noteStore } = await import('./store');
+    return noteStore.getAllNotes();
+  } catch (error) {
+    console.error('获取所有笔记失败:', error);
+    return [];
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.NOTE_DELETE, async (_event, noteId: string) => {
+  try {
+    const { noteStore } = await import('./store');
+    noteStore.deleteNote(noteId);
+    return { success: true };
+  } catch (error) {
+    console.error('删除笔记失败:', error);
+    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.NOTE_SEARCH, async (_event, query: string) => {
+  try {
+    const { noteStore } = await import('./store');
+    return noteStore.searchNotes(query);
+  } catch (error) {
+    console.error('搜索笔记失败:', error);
+    return [];
+  }
+});
