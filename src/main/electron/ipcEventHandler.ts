@@ -7,7 +7,7 @@ import { execSync } from "child_process";
 import { getMainWindowFiles } from "./MainWindow/MainWindowFileManager";
 import { existsSync, readFileSync } from "fs";
 import { vscodeBase64 } from "../../common/vscodeBase64";
-import { BrowserItem, vsgoStore, cookieStore, cookieByUrlStore } from "./store";
+import { BrowserItem, vsgoStore, cookieStore, cookieByUrlStore, singleNoteStore } from "./store";
 import { FloatingWindowManager } from "./FloateWindow";
 import { MainWindowManager } from "./MainWindow/MainWindow";
 
@@ -431,5 +431,43 @@ ipcMain.handle(VS_GO_EVENT.NOTE_SEARCH, async (_event, query: string) => {
   } catch (error) {
     console.error('搜索笔记失败:', error);
     return [];
+  }
+});
+
+// 新的单个笔记事件处理
+ipcMain.handle(VS_GO_EVENT.SINGLE_NOTE_GET, async () => {
+  try {
+    return singleNoteStore.getNote();
+  } catch (error) {
+    console.error('获取笔记失败:', error);
+    return { title: "", content: "", updateTime: 0, updateTimeDisplay: "" };
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.SINGLE_NOTE_SAVE, async (_event, noteData) => {
+  try {
+    const now = new Date();
+    const note = {
+      title: noteData.title || "",
+      content: noteData.content || "",
+      updateTime: now.getTime(),
+      updateTimeDisplay: now.toLocaleString('zh-CN'),
+    };
+    
+    singleNoteStore.saveNote(note);
+    return { success: true, note };
+  } catch (error) {
+    console.error('保存笔记失败:', error);
+    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.SINGLE_NOTE_CLEAR, async () => {
+  try {
+    singleNoteStore.clearNote();
+    return { success: true };
+  } catch (error) {
+    console.error('清空笔记失败:', error);
+    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
   }
 });

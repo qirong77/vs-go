@@ -1,5 +1,5 @@
 import Store from "electron-store";
-import { SavedCookie, SavedCookieByUrl, NoteItem } from "../../common/type";
+import { SavedCookie, SavedCookieByUrl, NoteItem, SingleNote } from "../../common/type";
 
 // Define or import BrowserItem type
 export type BrowserItem = {
@@ -69,12 +69,27 @@ const schema = {
         url: { type: "string" },
         domain: { type: "string" },
         title: { type: "string" },
-        content: { type: "array" },
+        content: { type: "string" },
         createTime: { type: "number" },
         updateTime: { type: "number" },
         createTimeDisplay: { type: "string" },
         updateTimeDisplay: { type: "string" },
       },
+    },
+  },
+  singleNote: {
+    type: "object",
+    default: {
+      title: "",
+      content: "",
+      updateTime: 0,
+      updateTimeDisplay: ""
+    },
+    properties: {
+      title: { type: "string" },
+      content: { type: "string" },
+      updateTime: { type: "number" },
+      updateTimeDisplay: { type: "string" },
     },
   },
 };
@@ -176,11 +191,32 @@ export const noteStore = {
     return notes.filter(note => 
       note.title.toLowerCase().includes(lowerQuery) ||
       note.domain.toLowerCase().includes(lowerQuery) ||
-      JSON.stringify(note.content).toLowerCase().includes(lowerQuery)
+      note.content.toLowerCase().includes(lowerQuery)
     );
   },
   
   clearAllNotes(): void {
     vsgoStore.set('savedNotes', []);
+  }
+};
+
+// 新的单个笔记存储方法
+export const singleNoteStore = {
+  getNote(): SingleNote {
+    return vsgoStore.get('singleNote') as SingleNote;
+  },
+  
+  saveNote(note: SingleNote): void {
+    vsgoStore.set('singleNote', note);
+  },
+  
+  clearNote(): void {
+    const emptyNote: SingleNote = {
+      title: "",
+      content: "",
+      updateTime: 0,
+      updateTimeDisplay: ""
+    };
+    vsgoStore.set('singleNote', emptyNote);
   }
 };

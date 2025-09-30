@@ -29,7 +29,6 @@ const Style = (
     0 10px 20px -15px rgba(22, 23, 24, 0.2);
   padding: 16px;
   min-width: 240px;
-  max-width: 420px;
   opacity: 0;
   visibility: hidden;
   transform: translateY(-12px) scale(0.95);
@@ -298,13 +297,13 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {children}
+        <div>{children}</div>
         <div
           ref={contentContainerRef}
           className={`${CONTENT_CLASS_NAME} ${isVisible ? 'visible' : ''}`}
           style={{
             top: `${position.top}px`,
-            left: `${position.left}px`,
+            left: `${position.left - 30}px`,
           }}
           onMouseEnter={handleContentMouseEnter}
           onMouseLeave={handleContentMouseLeave}
