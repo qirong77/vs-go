@@ -230,6 +230,8 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
   };
 
   const handleMouseLeave = () => {
+    // 只有悬停触发时才在鼠标离开时隐藏
+    // 点击触发的popover应该保持显示，直到点击外部或离开内容区域
     if (trigger === 'hover') {
       handleHide();
     }
@@ -240,9 +242,14 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
   };
 
   const handleContentMouseLeave = () => {
-    if (trigger === 'click') {
-      handleHide();
-    }
+    // 对于悬停触发的popover，鼠标离开内容区域时隐藏
+    // 对于点击触发的popover，鼠标离开内容区域时也隐藏（用户体验更好）
+    handleHide();
+  };
+
+  const handleContentClick = (e: React.MouseEvent) => {
+    // 阻止点击事件冒泡到父容器，防止触发关闭逻辑
+    e.stopPropagation();
   };
 
   useEffect(() => {
@@ -301,6 +308,7 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
           }}
           onMouseEnter={handleContentMouseEnter}
           onMouseLeave={handleContentMouseLeave}
+          onClick={handleContentClick}
         >
           {content}
         </div>
