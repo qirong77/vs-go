@@ -181,14 +181,14 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
       }
 
       // 边界检测
-      if (newPosition.top < 8) newPosition.top = triggerRect.bottom + 8;
-      if (newPosition.top + contentRect.height > viewport.height - 8) {
-        newPosition.top = triggerRect.top - contentRect.height - 8;
-      }
-      if (newPosition.left < 8) newPosition.left = 8;
-      if (newPosition.left + contentRect.width > viewport.width - 8) {
-        newPosition.left = viewport.width - contentRect.width - 8;
-      }
+      // if (newPosition.top < 8) newPosition.top = triggerRect.bottom + 8;
+      // if (newPosition.top + contentRect.height > viewport.height - 8) {
+      //   newPosition.top = triggerRect.top - contentRect.height - 8;
+      // }
+      // if (newPosition.left < 8) newPosition.left = 8;
+      // if (newPosition.left + contentRect.width > viewport.width - 8) {
+      //   newPosition.left = viewport.width - contentRect.width - 8;
+      // }
 
       setPosition(newPosition);
     }

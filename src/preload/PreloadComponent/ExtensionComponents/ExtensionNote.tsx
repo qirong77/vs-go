@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { ExtensionPopover } from "./ExtensionPopover";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { ipcRenderer } from "electron";
+import { debounce } from "../../../common/debounce";
 
 interface ToastMessage {
   id: string;
@@ -11,8 +12,7 @@ interface ToastMessage {
 
 export const ExtensionNote: React.FC = () => {
   const [content, setContent] = useState('');
-  const [title, setTitle] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [lastUpdateTime, setLastUpdateTime] = useState('');
 
@@ -32,7 +32,6 @@ export const ExtensionNote: React.FC = () => {
     try {
       const note = await ipcRenderer.invoke(VS_GO_EVENT.SINGLE_NOTE_GET);
       if (note) {
-        setTitle(note.title);
         setContent(note.content);
         setLastUpdateTime(note.updateTimeDisplay);
       }
@@ -41,39 +40,47 @@ export const ExtensionNote: React.FC = () => {
     }
   };
 
-  // 保存笔记
-  const saveNote = async () => {
+  // 自动保存笔记
+  const saveNote = async (contentToSave: string) => {
+    if (!contentToSave.trim()) return; // 空内容不保存
+
     try {
-      setLoading(true);
+      setSaving(true);
       const noteData = {
-        title: title.trim(),
-        content: content.trim(),
+        title: '', // 不需要标题
+        content: contentToSave.trim(),
       };
 
       const result = await ipcRenderer.invoke(VS_GO_EVENT.SINGLE_NOTE_SAVE, noteData);
       
       if (result.success) {
         setLastUpdateTime(result.note.updateTimeDisplay);
-        showToast('笔记保存成功', 'success');
       } else {
         showToast(`保存失败: ${result.error}`, 'error');
       }
     } catch (error) {
       console.error('保存笔记失败:', error);
-      showToast('保存笔记失败，请稍后重试', 'error');
+      showToast('保存笔记失败', 'error');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  // 防抖保存函数
+  const debouncedSave = useCallback(
+    debounce((contentToSave: string) => {
+      saveNote(contentToSave);
+    }, 1000),
+    []
+  );
+
   // 清空笔记
   const clearNote = async () => {
-    if ((content.trim() || title.trim()) && !confirm('确定要清空笔记内容吗？')) return;
+    if (content.trim() && !confirm('确定要清空笔记内容吗？')) return;
     
     try {
       const result = await ipcRenderer.invoke(VS_GO_EVENT.SINGLE_NOTE_CLEAR);
       if (result.success) {
-        setTitle('');
         setContent('');
         setLastUpdateTime('');
         showToast('笔记已清空', 'info');
@@ -87,6 +94,8 @@ export const ExtensionNote: React.FC = () => {
   // 处理文本内容变化
   const handleContentChange = (value: string) => {
     setContent(value);
+    // 自动保存
+    debouncedSave(value);
   };
 
   // 组件加载时获取笔记
@@ -105,6 +114,16 @@ export const ExtensionNote: React.FC = () => {
           to {
             transform: translateX(0);
             opacity: 1;
+          }
+        }
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.5;
+            transform: scale(0.8);
           }
         }
         .note-item:hover {
@@ -156,38 +175,11 @@ export const ExtensionNote: React.FC = () => {
 
         {/* 笔记编辑视图 */}
         <div>
-          {/* 标题输入 */}
-          <div style={{ marginBottom: '12px' }}>
-            <input
-              type="text"
-              placeholder="笔记标题..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontWeight: 500,
-                outline: 'none'
-              }}
-            />
-          </div>
 
           {/* 文本编辑器 */}
           <textarea
             value={content}
             onChange={(e) => handleContentChange(e.target.value)}
-            onKeyDown={(e) => {
-              // 处理快捷键
-              if (e.ctrlKey || e.metaKey) {
-                if (e.key === 's') {
-                  e.preventDefault();
-                  saveNote();
-                }
-              }
-            }}
             placeholder="在此输入笔记内容..."
             style={{
               width: '100%',
@@ -207,7 +199,7 @@ export const ExtensionNote: React.FC = () => {
             onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
           />
 
-          {/* 底部操作栏 */}
+          {/* 底部状态栏 */}
           <div style={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
@@ -215,12 +207,27 @@ export const ExtensionNote: React.FC = () => {
             marginTop: '12px',
             padding: '8px 0'
           }}>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>
-              {lastUpdateTime && (
+            <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {saving && (
+                <span style={{ color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ 
+                    width: '8px', 
+                    height: '8px', 
+                    backgroundColor: '#3b82f6', 
+                    borderRadius: '50%',
+                    animation: 'pulse 1.5s infinite'
+                  }}></span>
+                  正在保存...
+                </span>
+              )}
+              {lastUpdateTime && !saving && (
                 <span>上次更新: {lastUpdateTime}</span>
               )}
+              {!lastUpdateTime && !saving && (
+                <span style={{ color: '#9ca3af' }}>自动保存已开启</span>
+              )}
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div>
               <button 
                 onClick={clearNote}
                 style={{
@@ -230,25 +237,13 @@ export const ExtensionNote: React.FC = () => {
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '12px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease'
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#374151'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
               >
                 清空
-              </button>
-              <button 
-                onClick={saveNote}
-                disabled={loading}
-                style={{
-                  padding: '6px 12px',
-                  background: loading ? '#9ca3af' : '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  cursor: loading ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {loading ? '保存中...' : '保存笔记'}
               </button>
             </div>
           </div>
