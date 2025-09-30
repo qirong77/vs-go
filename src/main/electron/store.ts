@@ -1,5 +1,5 @@
 import Store from "electron-store";
-import { SavedCookie, NoteItem } from "../../common/type";
+import { SavedCookie, SavedCookieByUrl, NoteItem } from "../../common/type";
 
 // Define or import BrowserItem type
 export type BrowserItem = {
@@ -39,6 +39,21 @@ const schema = {
         httpOnly: { type: "boolean" },
         expirationDate: { type: "number" },
         sameSite: { type: "string" },
+        saveTime: { type: "number" },
+        saveTimeDisplay: { type: "string" },
+      },
+    },
+  },
+  savedCookiesByUrl: {
+    type: "array",
+    default: [],
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        url: { type: "string" },
+        domain: { type: "string" },
+        cookieString: { type: "string" },
         saveTime: { type: "number" },
         saveTimeDisplay: { type: "string" },
       },
@@ -87,6 +102,40 @@ export const cookieStore = {
   
   clearAllCookies(): void {
     vsgoStore.set('savedCookies', []);
+  }
+};
+
+// 新的基于URL的Cookie存储方法
+export const cookieByUrlStore = {
+  getSavedCookiesByUrl(): SavedCookieByUrl[] {
+    return vsgoStore.get('savedCookiesByUrl', []) as SavedCookieByUrl[];
+  },
+  
+  saveCookieByUrl(cookieData: SavedCookieByUrl): void {
+    const cookies = this.getSavedCookiesByUrl();
+    // 如果同一个URL已存在，则更新；否则添加新记录
+    const existingIndex = cookies.findIndex(cookie => cookie.url === cookieData.url);
+    if (existingIndex >= 0) {
+      cookies[existingIndex] = cookieData;
+    } else {
+      cookies.push(cookieData);
+    }
+    vsgoStore.set('savedCookiesByUrl', cookies);
+  },
+  
+  deleteCookieByUrl(id: string): void {
+    const cookies = this.getSavedCookiesByUrl();
+    const filteredCookies = cookies.filter(cookie => cookie.id !== id);
+    vsgoStore.set('savedCookiesByUrl', filteredCookies);
+  },
+  
+  getCookieByUrl(url: string): SavedCookieByUrl | undefined {
+    const cookies = this.getSavedCookiesByUrl();
+    return cookies.find(cookie => cookie.url === url);
+  },
+  
+  clearAllCookiesByUrl(): void {
+    vsgoStore.set('savedCookiesByUrl', []);
   }
 };
 
