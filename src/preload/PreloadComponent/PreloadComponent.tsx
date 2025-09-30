@@ -156,16 +156,14 @@ function UrlToolBar({
           title="刷新"
         />
       </div>
-      <div style={styles.inputContainer}>
-        <UrlInput
-          value={currentUrl}
-          onChange={(url) => {
-            onUrlChange(url);
-          }}
-          onSearch={onUrlSearch}
-          historyList={historyList}
-        />
-      </div>
+      <UrlInput
+        value={currentUrl}
+        onChange={(url) => {
+          onUrlChange(url);
+        }}
+        onSearch={onUrlSearch}
+        historyList={historyList}
+      />
       <div style={styles.extensionContainer}>
         <ExtensionCookie />
         <ExtensionNote />
@@ -220,6 +218,7 @@ function NavigationButton({
 function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
   const [inputValue, setInputValue] = useState<string>(value);
   const [isFocused, setIsFocused] = useState<boolean>(false);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -312,32 +311,48 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
     let inputStyle = { ...styles.input };
     if (isFocused) {
       inputStyle = { ...inputStyle, ...styles.inputFocused };
+    } else if (isHovered) {
+      inputStyle = { ...inputStyle, ...styles.inputHover };
     }
     return inputStyle;
   };
 
+  const getInputContainerStyle = () => {
+    let containerStyle = { ...styles.inputContainer };
+    if (isHovered && !isFocused) {
+      containerStyle = { ...containerStyle, ...styles.inputContainerHover };
+    }
+    return containerStyle;
+  };
+
   return (
-    <div style={styles.inputWrapper}>
-      <input
-        ref={inputRef}
-        type="text"
-        id={INPUT_ID}
-        value={inputValue}
-        onChange={handleInputChange}
-        onKeyDown={handleKeyPress}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        placeholder="输入网址或搜索..."
-        style={getInputStyle()}
-      />
-      <HistoryDropdown
-        isVisible={isFocused}
-        historyList={historyList}
-        onSelect={handleHistorySelect}
-        searchTerm={searchTerm}
-        selectedIndex={selectedIndex}
-        onSelectedIndexChange={handleSelectedIndexChange}
-      />
+    <div 
+      style={getInputContainerStyle()}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div style={styles.inputWrapper}>
+        <input
+          ref={inputRef}
+          type="text"
+          id={INPUT_ID}
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyPress}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholder="输入网址或搜索..."
+          style={getInputStyle()}
+        />
+        <HistoryDropdown
+          isVisible={isFocused}
+          historyList={historyList}
+          onSelect={handleHistorySelect}
+          searchTerm={searchTerm}
+          selectedIndex={selectedIndex}
+          onSelectedIndexChange={handleSelectedIndexChange}
+        />
+      </div>
     </div>
   );
 }

@@ -270,7 +270,6 @@ export const ExtensionNote: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: '6px',
-        fontSize: '14px',
         transition: 'background-color 0.2s ease',
         cursor: 'pointer'
       }}>

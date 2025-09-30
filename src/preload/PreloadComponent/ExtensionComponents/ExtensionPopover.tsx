@@ -297,13 +297,13 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div>{children}</div>
+        <div style={{fontSize:'18px'}}>{children}</div>
         <div
           ref={contentContainerRef}
           className={`${CONTENT_CLASS_NAME} ${isVisible ? 'visible' : ''}`}
           style={{
             top: `${position.top}px`,
-            left: `${position.left - 30}px`,
+            left: `${position.left - 10}px`,
           }}
           onMouseEnter={handleContentMouseEnter}
           onMouseLeave={handleContentMouseLeave}

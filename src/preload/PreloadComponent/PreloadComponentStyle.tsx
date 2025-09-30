@@ -31,6 +31,17 @@ export const styles: { [key: string]: CSSProperties } = {
 
   inputContainer: {
     flex: "1",
+    position: "relative",
+    borderRadius: "8px",
+    padding: "4px",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    background: "transparent",
+  },
+
+  inputContainerHover: {
+    background: "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)",
+    boxShadow: "0 0 0 1px rgba(59, 130, 246, 0.1), 0 2px 8px -2px rgba(59, 130, 246, 0.15)",
+    transform: "translateY(-1px)",
   },
 
   button: {
@@ -66,7 +77,7 @@ export const styles: { [key: string]: CSSProperties } = {
 
   input: {
     width: "100%",
-    padding: "6px 12px",
+    padding: "8px 14px",
     fontSize: "14px",
     borderWidth: "1px",
     borderStyle: "solid",
@@ -74,12 +85,20 @@ export const styles: { [key: string]: CSSProperties } = {
     borderRadius: "6px",
     outline: "none",
     backgroundColor: "#ffffff",
-    transition: "all 0.2s",
+    transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+  } as CSSProperties,
+
+  inputHover: {
+    borderColor: "#a3a3a3",
+    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(59, 130, 246, 0.1)",
+    transform: "translateY(-0.5px)",
   } as CSSProperties,
 
   inputFocused: {
     borderColor: "#3b82f6",
-    boxShadow: "0 0 0 2px rgb(59 130 246 / 0.5)",
+    boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(59, 130, 246, 0.15)",
+    transform: "translateY(-1px)",
   } as CSSProperties,
 
   dropdown: {
@@ -100,12 +119,14 @@ export const styles: { [key: string]: CSSProperties } = {
   } as CSSProperties,
 
   dropdownItem: {
-    padding: "8px 12px",
+    padding: "10px 12px",
     cursor: "pointer",
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
     borderBottomColor: "#f3f4f6",
-    transition: "background-color 0.15s",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    borderRadius: "4px",
+    margin: "2px 4px",
   } as CSSProperties,
 
   dropdownItemLast: {
@@ -113,7 +134,11 @@ export const styles: { [key: string]: CSSProperties } = {
   } as CSSProperties,
 
   dropdownItemHover: {
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)",
+    borderRadius: "4px",
+    margin: "2px 4px",
+    transform: "translateX(2px)",
+    boxShadow: "0 2px 4px rgba(59, 130, 246, 0.1)",
   } as CSSProperties,
 
   dropdownItemContent: {
