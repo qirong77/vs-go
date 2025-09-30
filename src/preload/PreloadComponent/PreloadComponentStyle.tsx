@@ -165,4 +165,10 @@ export const styles: { [key: string]: CSSProperties } = {
   inputWrapper: {
     position: "relative",
   },
+  extensionContainer: {
+    marginLeft: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
 };

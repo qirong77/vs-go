@@ -11,6 +11,8 @@ import {
   UrlInputProps,
   UrlToolBarProps,
 } from "./PreloadComponentType";
+import { ExtensionCookie } from "./ExtensionComponents/ExtensionCookie";
+import { ExtensionNote } from "./ExtensionComponents/ExtensionNote";
 const INPUT_ID = 'preload-component-input"';
 const MAX_DROPDOWN_ITEMS = 20; // 最大显示的下拉项数
 
@@ -163,6 +165,10 @@ function UrlToolBar({
           onSearch={onUrlSearch}
           historyList={historyList}
         />
+      </div>
+      <div style={styles.extensionContainer}>
+        <ExtensionCookie />
+        <ExtensionNote />
       </div>
     </div>
   );
