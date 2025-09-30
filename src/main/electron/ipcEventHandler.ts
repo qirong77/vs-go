@@ -169,3 +169,77 @@ ipcMain.handle(VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL, async (_event, searchWord
     });
   return filteredList;
 });
+
+// Cookie 相关事件处理
+ipcMain.handle(VS_GO_EVENT.COOKIE_GET_CURRENT, async (_event, url: string) => {
+  try {
+    const { session } = require('electron');
+    const cookies = await session.defaultSession.cookies.get({ url });
+    return cookies;
+  } catch (error) {
+    console.error('获取当前页面 Cookie 失败:', error);
+    return [];
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.COOKIE_SAVE, async (_event, cookieData) => {
+  try {
+    const { cookieStore } = await import('./store');
+    const now = new Date();
+    const savedCookie = {
+      ...cookieData,
+      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+      saveTime: now.getTime(),
+      saveTimeDisplay: now.toLocaleString('zh-CN'),
+    };
+    cookieStore.saveCookie(savedCookie);
+    return { success: true, cookie: savedCookie };
+  } catch (error) {
+    console.error('保存 Cookie 失败:', error);
+    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.COOKIE_GET_SAVED_LIST, async () => {
+  try {
+    const { cookieStore } = await import('./store');
+    return cookieStore.getSavedCookies();
+  } catch (error) {
+    console.error('获取已保存 Cookie 列表失败:', error);
+    return [];
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.COOKIE_DELETE, async (_event, cookieId: string) => {
+  try {
+    const { cookieStore } = await import('./store');
+    cookieStore.deleteCookie(cookieId);
+    return { success: true };
+  } catch (error) {
+    console.error('删除 Cookie 失败:', error);
+    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.COOKIE_APPLY, async (_event, cookie, targetUrl: string) => {
+  try {
+    const { session } = require('electron');
+    const cookieDetails = {
+      url: targetUrl,
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain,
+      path: cookie.path || '/',
+      secure: cookie.secure || false,
+      httpOnly: cookie.httpOnly || false,
+      expirationDate: cookie.expirationDate,
+      sameSite: cookie.sameSite || 'unspecified'
+    };
+    
+    await session.defaultSession.cookies.set(cookieDetails);
+    return { success: true };
+  } catch (error) {
+    console.error('应用 Cookie 失败:', error);
+    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+  }
+});
