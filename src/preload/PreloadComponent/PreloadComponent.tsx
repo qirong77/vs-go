@@ -17,7 +17,6 @@ const MAX_DROPDOWN_ITEMS = 20; // 最大显示的下拉项数
 // 主预加载组件
 const PreLoadComponent: React.FC = () => {
   const [historyList, setHistoryList] = React.useState<BrowserItem[]>([]);
-  console.log(window.location.href, "PreLoadComponent");
   const [currentUrl, setCurrentUrl] = useState<string>(window.location.href);
   const [showPreloadComponent, setShowPreloadComponent] = useState<boolean>(true);
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
@@ -292,11 +291,11 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
   };
 
   const handleHistorySelect = (url: string) => {
-    setInputValue(url);
-    onChange(url);
+    // setInputValue(url);
+    // onChange(url);
     setIsFocused(false);
     setSelectedIndex(0);
-    window.location.href = url;
+    ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, { url });
   };
 
   const handleSelectedIndexChange = (index: number) => {
