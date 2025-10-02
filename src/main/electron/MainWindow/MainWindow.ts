@@ -17,6 +17,9 @@ function createMainWindow() {
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: is.dev ? false : true, // Allow cross-origin in development only
     },
   });
   // HMR for renderer base on electron-vite cli.
@@ -27,11 +30,16 @@ function createMainWindow() {
     window.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "/main-window" });
   }
 
-  // 添加快捷键支持
+  // 添加跨平台快捷键支持
   window.webContents.on("before-input-event", (_event, input) => {
+    // macOS: Command+Option+I, Windows/Linux: Ctrl+Shift+I
     if (
-      input.modifiers.includes("meta") &&
-      input.modifiers.includes("alt") &&
+      ((process.platform === "darwin" && 
+        input.modifiers.includes("meta") && 
+        input.modifiers.includes("alt")) ||
+       (process.platform !== "darwin" && 
+        input.modifiers.includes("control") && 
+        input.modifiers.includes("shift"))) &&
       input.key.toLowerCase() === "i"
     ) {
       window.webContents.toggleDevTools();

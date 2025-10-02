@@ -37,8 +37,11 @@ function createBrowserSettingWindow() {
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false, // Allow cross-origin in development
     },
-    autoHideMenuBar: true,
+    autoHideMenuBar: false, // Enable menu bar to support right-click context menus
     resizable: true,
   });
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
@@ -49,11 +52,16 @@ function createBrowserSettingWindow() {
     });
   }
 
-  // 添加快捷键支持
+  // 添加跨平台快捷键支持
   browserSettingWindow.webContents.on("before-input-event", (_event, input) => {
+    // macOS: Command+Option+I, Windows/Linux: Ctrl+Shift+I
     if (
-      input.modifiers.includes("meta") &&
-      input.modifiers.includes("alt") &&
+      ((process.platform === "darwin" && 
+        input.modifiers.includes("meta") && 
+        input.modifiers.includes("alt")) ||
+       (process.platform !== "darwin" && 
+        input.modifiers.includes("control") && 
+        input.modifiers.includes("shift"))) &&
       input.key.toLowerCase() === "i"
     ) {
       browserSettingWindow?.webContents.toggleDevTools();
