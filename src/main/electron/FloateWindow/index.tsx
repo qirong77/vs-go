@@ -53,27 +53,30 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     const uniqueList = newBrowserList.slice(0, CACHE_SIZE);
     vsgoStore.set("browserList", uniqueList);
   });
+  // floatingWindow.webContents.on('update-target-url', (_event, url) => {
+  //   floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, url);
+  // });
+  // 监听页面内导航事件
   floatingWindow.webContents.on("did-navigate-in-page", (_event, url) => {
-    floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, url);
-    // 发送更新后的导航状态
-    const canGoBack = floatingWindow.webContents.navigationHistory.goBack();
-    const canGoForward = floatingWindow.webContents.navigationHistory.goForward();
-    floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward });
+    console.log("in-page navigated to:", url);
+    const canGoBack = floatingWindow.webContents.navigationHistory.canGoBack();
+    const canGoForward = floatingWindow.webContents.navigationHistory.canGoForward();
+    floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward, url });
   });
 
-  // 监听页面完全加载完成事件
+  // // 监听页面完全加载完成事件
   floatingWindow.webContents.on("did-finish-load", () => {
-    const canGoBack = floatingWindow.webContents.navigationHistory.goBack();
-    const canGoForward = floatingWindow.webContents.navigationHistory.goForward();
-    floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward });
+    const canGoBack = floatingWindow.webContents.navigationHistory.canGoBack();
+    const canGoForward = floatingWindow.webContents.navigationHistory.canGoForward();
+    floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward, url });
   });
 
   // 监听普通导航事件
   floatingWindow.webContents.on("did-navigate", (_event, url) => {
-    floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, url);
-    const canGoBack = floatingWindow.webContents.navigationHistory.goBack();
-    const canGoForward = floatingWindow.webContents.navigationHistory.goForward();
-    floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward });
+    console.log("navigated to:", url);
+    const canGoBack = floatingWindow.webContents.navigationHistory.canGoBack();
+    const canGoForward = floatingWindow.webContents.navigationHistory.canGoForward();
+    floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward, url });
   });
   floatingWindow.loadURL(url);
   floatingWindows.push(floatingWindow);

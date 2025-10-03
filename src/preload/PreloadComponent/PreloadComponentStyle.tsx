@@ -194,6 +194,7 @@ export const styles: { [key: string]: CSSProperties } = {
   },
   extensionContainer: {
     marginLeft: "8px",
+    marginRight: "20px",
     display: "flex",
     alignItems: "center",
     gap: "8px",

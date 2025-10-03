@@ -89,7 +89,8 @@ const PreLoadComponent: React.FC = () => {
     // 监听导航状态变化
     ipcRenderer.on(
       "navigation-state-changed",
-      (_event, { canGoBack, canGoForward }: { canGoBack: boolean; canGoForward: boolean }) => {
+      (_event, { canGoBack, canGoForward, url }: { canGoBack: boolean; canGoForward: boolean; url: string }) => {
+        setCurrentUrl(url);
         setCanGoBack(canGoBack);
         setCanGoForward(canGoForward);
       }
