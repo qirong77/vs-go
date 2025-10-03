@@ -118,7 +118,7 @@ export const ExtensionNote: React.FC = () => {
           transition: all 0.2s ease;
         }
       `}</style>
-      <div style={{ width: "600px", maxHeight: "480px", overflow: "hidden", position: "relative" }}>
+      <div style={{ width: "480px", overflow: "hidden", position: "relative" }}>
         {/* Toast 消息 */}
         {toasts.map((toast) => (
           <div
@@ -171,7 +171,7 @@ export const ExtensionNote: React.FC = () => {
             style={{
               width: "100%",
               minHeight: "200px",
-              maxHeight: "300px",
+              height: "600px",
               padding: "12px",
               border: "1px solid #d1d5db",
               borderRadius: "6px",
