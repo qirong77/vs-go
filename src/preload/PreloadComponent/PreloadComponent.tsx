@@ -70,9 +70,8 @@ const PreLoadComponent: React.FC = () => {
     };
   }, [searchHistory]);
 
-  const handleNavigation = useCallback((action: "back" | "forward" | "refresh") => {
+  const handleNavigation = useCallback((action: "back" | "forward") => {
     window.location.reload()
-    return
     // 使用IPC通信来处理导航，而不是直接操作window.history
     ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_NAVIGATION, action);
   }, []);
@@ -156,7 +155,9 @@ function UrlToolBar({
           title="前进"
         />
         <NavigationButton
-          onClick={() => onNavigation("refresh")}
+          onClick={() => {
+            window.location.reload();
+          }}
           icon={<RefreshIcon size={16} />}
           title="刷新"
         />
