@@ -71,6 +71,8 @@ const PreLoadComponent: React.FC = () => {
   }, [searchHistory]);
 
   const handleNavigation = useCallback((action: "back" | "forward" | "refresh") => {
+    window.location.reload()
+    return
     // 使用IPC通信来处理导航，而不是直接操作window.history
     ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_NAVIGATION, action);
   }, []);
@@ -85,16 +87,19 @@ const PreLoadComponent: React.FC = () => {
     ipcRenderer.on(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, (_event, url: string) => {
       setCurrentUrl(url);
     });
-    
+
     // 监听导航状态变化
-    ipcRenderer.on('navigation-state-changed', (_event, { canGoBack, canGoForward }: { canGoBack: boolean, canGoForward: boolean }) => {
-      setCanGoBack(canGoBack);
-      setCanGoForward(canGoForward);
-    });
+    ipcRenderer.on(
+      "navigation-state-changed",
+      (_event, { canGoBack, canGoForward }: { canGoBack: boolean; canGoForward: boolean }) => {
+        setCanGoBack(canGoBack);
+        setCanGoForward(canGoForward);
+      }
+    );
 
     return () => {
       ipcRenderer.removeAllListeners(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL);
-      ipcRenderer.removeAllListeners('navigation-state-changed');
+      ipcRenderer.removeAllListeners("navigation-state-changed");
     };
   }, []);
   return (
@@ -257,27 +262,45 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
       if (selectedIndex >= 0 && selectedIndex < filteredHistory.length && isFocused) {
         // 如果有选中的历史记录，使用选中的URL
         const selectedUrl = filteredHistory[selectedIndex].url;
-        // ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, { url: selectedUrl });
-        window.location.href = selectedUrl;
-        onChange(window.location.href);
-      } else {
-        // 否则使用当前输入值
-        onChange(inputValue);
+        ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, { url: selectedUrl });
+        return
+      } 
+      if (inputValue.trim()) {
+        ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, { url: inputValue.trim() });
+        setIsFocused(false);
+        setSelectedIndex(-1);
+        return
       }
-      setIsFocused(false);
-      setSelectedIndex(-1);
-    } else if (e.key === "Escape") {
+    } 
+    if (e.key === "Escape") {
       setIsFocused(false);
       setInputValue(value);
       setSelectedIndex(-1);
-    } else if (e.key === "ArrowDown" && isFocused) {
+      return
+    } 
+    if (e.key === "ArrowDown" && isFocused) {
       e.preventDefault();
       const newIndex = selectedIndex < filteredHistory.length - 1 ? selectedIndex + 1 : 0;
       setSelectedIndex(newIndex);
-    } else if (e.key === "ArrowUp" && isFocused) {
+      return
+    } 
+    if (e.key === "ArrowUp" && isFocused) {
       e.preventDefault();
       const newIndex = selectedIndex > 0 ? selectedIndex - 1 : filteredHistory.length - 1;
       setSelectedIndex(newIndex);
+      return
+    } 
+    if(e.metaKey && e.key === 'a') {
+      // macOS 下的 Command + A 全选
+      e.preventDefault();
+      inputRef.current?.select();
+      return
+    }
+    if(e.ctrlKey && e.key === 'a') {
+      // Windows/Linux 下的 Ctrl + A 全选
+      e.preventDefault();
+      inputRef.current?.select();
+      return
     }
   };
 
@@ -326,7 +349,7 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
   };
 
   return (
-    <div 
+    <div
       style={getInputContainerStyle()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

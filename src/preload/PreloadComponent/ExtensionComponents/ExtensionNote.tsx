@@ -134,7 +134,7 @@ export const ExtensionNote: React.FC = () => {
           transition: all 0.2s ease;
         }
       `}</style>
-      <div style={{ width: '400px', maxHeight: '500px', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ width: '600px', maxHeight: '480px', overflow: 'hidden', position: 'relative' }}>
         {/* Toast 消息 */}
         {toasts.map(toast => (
           <div
@@ -160,7 +160,7 @@ export const ExtensionNote: React.FC = () => {
         ))}
 
         {/* 标题栏 */}
-        <div style={{ 
+        {/* <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
@@ -171,7 +171,7 @@ export const ExtensionNote: React.FC = () => {
           <h3 style={{ margin: '0', fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
             笔记
           </h3>
-        </div>
+        </div> */}
 
         {/* 笔记编辑视图 */}
         <div>

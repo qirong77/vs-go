@@ -8,7 +8,7 @@ export interface PreloadComponentProps extends ReactComponentBasicProps {}
 export interface UrlToolBarProps {
   canGoBack: boolean;
   canGoForward: boolean;
-  onNavigation: (action: 'back' | 'forward' | 'refresh') => void;
+  onNavigation: (action: 'back' | 'forward') => void;
   currentUrl: string;
   onUrlChange: (url: string) => void;
   onUrlSearch: (searchTerm: string) => void;
