@@ -302,6 +302,7 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
       inputRef.current?.select();
       return;
     }
+    onChange(inputValue);
   };
 
   const handleFocus = () => {
