@@ -3,8 +3,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 interface ExtensionPopoverProps {
   children?: React.ReactNode;
   content?: React.ReactNode;
-  trigger?: 'click' | 'hover';
-  placement?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  trigger?: "click" | "hover";
+  placement?: "bottom-right" | "bottom-left" | "top-right" | "top-left";
 }
 
 const CLASS_NAME = "preload-component-extension-popover";
@@ -126,11 +126,11 @@ const Style = (
 `}</style>
 );
 
-export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({ 
-  children, 
-  content, 
-  trigger = 'click',
-  placement = 'bottom-right' 
+export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
+  children,
+  content,
+  trigger = "click",
+  placement = "bottom-right",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentContainerRef = useRef<HTMLDivElement>(null);
@@ -144,38 +144,38 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
       const contentRect = contentContainerRef.current.getBoundingClientRect();
       const viewport = {
         width: window.innerWidth,
-        height: window.innerHeight
+        height: window.innerHeight,
       };
 
       let newPosition = { top: 0, left: 0, right: 0 };
 
       switch (placement) {
-        case 'bottom-right':
+        case "bottom-right":
           newPosition = {
             top: triggerRect.bottom + 8,
             left: triggerRect.right - contentRect.width,
-            right: viewport.width - triggerRect.right
+            right: viewport.width - triggerRect.right,
           };
           break;
-        case 'bottom-left':
+        case "bottom-left":
           newPosition = {
             top: triggerRect.bottom + 8,
             left: triggerRect.left,
-            right: viewport.width - triggerRect.left - contentRect.width
+            right: viewport.width - triggerRect.left - contentRect.width,
           };
           break;
-        case 'top-right':
+        case "top-right":
           newPosition = {
             top: triggerRect.top - contentRect.height - 8,
             left: triggerRect.right - contentRect.width,
-            right: viewport.width - triggerRect.right
+            right: viewport.width - triggerRect.right,
           };
           break;
-        case 'top-left':
+        case "top-left":
           newPosition = {
             top: triggerRect.top - contentRect.height - 8,
             left: triggerRect.left,
-            right: viewport.width - triggerRect.left - contentRect.width
+            right: viewport.width - triggerRect.left - contentRect.width,
           };
           break;
       }
@@ -213,7 +213,7 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
   };
 
   const handleClick = () => {
-    if (trigger === 'click') {
+    if (trigger === "click") {
       if (isVisible) {
         setIsVisible(false);
       } else {
@@ -223,7 +223,7 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
   };
 
   const handleMouseEnter = () => {
-    if (trigger === 'hover') {
+    if (trigger === "hover") {
       handleShow();
     }
   };
@@ -231,7 +231,7 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
   const handleMouseLeave = () => {
     // 只有悬停触发时才在鼠标离开时隐藏
     // 点击触发的popover应该保持显示，直到点击外部或离开内容区域
-    if (trigger === 'hover') {
+    if (trigger === "hover") {
       handleHide();
     }
   };
@@ -254,30 +254,32 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
   useEffect(() => {
     if (isVisible) {
       updatePosition();
-      
+
       const handleResize = () => updatePosition();
       const handleScroll = () => updatePosition();
       const handleClickOutside = (e: MouseEvent) => {
-        if (trigger === 'click' && 
-            containerRef.current && 
-            contentContainerRef.current &&
-            !containerRef.current.contains(e.target as Node) &&
-            !contentContainerRef.current.contains(e.target as Node)) {
+        if (
+          trigger === "click" &&
+          containerRef.current &&
+          contentContainerRef.current &&
+          !containerRef.current.contains(e.target as Node) &&
+          !contentContainerRef.current.contains(e.target as Node)
+        ) {
           setIsVisible(false);
         }
       };
 
-      window.addEventListener('resize', handleResize);
-      window.addEventListener('scroll', handleScroll, true);
-      document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener("resize", handleResize);
+      window.addEventListener("scroll", handleScroll, true);
+      document.addEventListener("mousedown", handleClickOutside);
 
       return () => {
-        window.removeEventListener('resize', handleResize);
-        window.removeEventListener('scroll', handleScroll, true);
-        document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener("resize", handleResize);
+        window.removeEventListener("scroll", handleScroll, true);
+        document.removeEventListener("mousedown", handleClickOutside);
       };
     }
-    
+
     return undefined;
   }, [isVisible, updatePosition, trigger]);
 
@@ -290,17 +292,17 @@ export const ExtensionPopover: React.FC<ExtensionPopoverProps> = ({
   return (
     <>
       {Style}
-      <div 
+      <div
         ref={containerRef}
         className={CLASS_NAME}
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div style={{fontSize:'18px'}}>{children}</div>
+        <div style={{ fontSize: "18px" }}>{children}</div>
         <div
           ref={contentContainerRef}
-          className={`${CONTENT_CLASS_NAME} ${isVisible ? 'visible' : ''}`}
+          className={`${CONTENT_CLASS_NAME} ${isVisible ? "visible" : ""}`}
           style={{
             top: `${position.top}px`,
             left: `${position.left - 10}px`,

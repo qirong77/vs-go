@@ -176,26 +176,25 @@ ipcMain.handle(VS_GO_EVENT.COOKIE_GET_CURRENT, async (_event, url: string) => {
     const cookies = await session.defaultSession.cookies.get({ url });
     return cookies;
   } catch (error) {
-    console.error('获取当前页面 Cookie 失败:', error);
+    console.error("获取当前页面 Cookie 失败:", error);
     return [];
   }
 });
 
 ipcMain.handle(VS_GO_EVENT.COOKIE_SAVE, async (_event, cookieData) => {
   try {
-
     const now = new Date();
     const savedCookie = {
       ...cookieData,
       id: Math.random().toString(36).slice(2) + Date.now().toString(36),
       saveTime: now.getTime(),
-      saveTimeDisplay: now.toLocaleString('zh-CN'),
+      saveTimeDisplay: now.toLocaleString("zh-CN"),
     };
     cookieStore.saveCookie(savedCookie);
     return { success: true, cookie: savedCookie };
   } catch (error) {
-    console.error('保存 Cookie 失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("保存 Cookie 失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
 
@@ -203,7 +202,7 @@ ipcMain.handle(VS_GO_EVENT.COOKIE_GET_SAVED_LIST, async () => {
   try {
     return cookieStore.getSavedCookies();
   } catch (error) {
-    console.error('获取已保存 Cookie 列表失败:', error);
+    console.error("获取已保存 Cookie 列表失败:", error);
     return [];
   }
 });
@@ -213,31 +212,31 @@ ipcMain.handle(VS_GO_EVENT.COOKIE_DELETE, async (_event, cookieId: string) => {
     cookieStore.deleteCookie(cookieId);
     return { success: true };
   } catch (error) {
-    console.error('删除 Cookie 失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("删除 Cookie 失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
 
 ipcMain.handle(VS_GO_EVENT.COOKIE_APPLY, async (_event, cookie, targetUrl: string) => {
   try {
-    const { session } = require('electron');
+    const { session } = require("electron");
     const cookieDetails = {
       url: targetUrl,
       name: cookie.name,
       value: cookie.value,
       domain: cookie.domain,
-      path: cookie.path || '/',
+      path: cookie.path || "/",
       secure: cookie.secure || false,
       httpOnly: cookie.httpOnly || false,
       expirationDate: cookie.expirationDate,
-      sameSite: cookie.sameSite || 'unspecified'
+      sameSite: cookie.sameSite || "unspecified",
     };
-    
+
     await session.defaultSession.cookies.set(cookieDetails);
     return { success: true };
   } catch (error) {
-    console.error('应用 Cookie 失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("应用 Cookie 失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
 
@@ -246,26 +245,28 @@ ipcMain.handle(VS_GO_EVENT.COOKIE_SAVE_BY_URL, async (_event, url: string) => {
   try {
     // 获取当前页面的所有cookie
     const cookies = await session.defaultSession.cookies.get({ url });
-    
+
     if (cookies.length === 0) {
-      return { success: false, error: '当前页面没有cookie可保存' };
+      return { success: false, error: "当前页面没有cookie可保存" };
     }
-    
+
     // 将cookie转换为字符串格式
-    const cookieString = cookies.map(cookie => {
-      let cookieStr = `${cookie.name}=${cookie.value}`;
-      if (cookie.domain) cookieStr += `; Domain=${cookie.domain}`;
-      if (cookie.path) cookieStr += `; Path=${cookie.path}`;
-      if (cookie.secure) cookieStr += `; Secure`;
-      if (cookie.httpOnly) cookieStr += `; HttpOnly`;
-      if (cookie.expirationDate) {
-        const expiryDate = new Date(cookie.expirationDate * 1000);
-        cookieStr += `; Expires=${expiryDate.toUTCString()}`;
-      }
-      if (cookie.sameSite) cookieStr += `; SameSite=${cookie.sameSite}`;
-      return cookieStr;
-    }).join('; ');
-    
+    const cookieString = cookies
+      .map((cookie) => {
+        let cookieStr = `${cookie.name}=${cookie.value}`;
+        if (cookie.domain) cookieStr += `; Domain=${cookie.domain}`;
+        if (cookie.path) cookieStr += `; Path=${cookie.path}`;
+        if (cookie.secure) cookieStr += `; Secure`;
+        if (cookie.httpOnly) cookieStr += `; HttpOnly`;
+        if (cookie.expirationDate) {
+          const expiryDate = new Date(cookie.expirationDate * 1000);
+          cookieStr += `; Expires=${expiryDate.toUTCString()}`;
+        }
+        if (cookie.sameSite) cookieStr += `; SameSite=${cookie.sameSite}`;
+        return cookieStr;
+      })
+      .join("; ");
+
     const now = new Date();
     const domain = new URL(url).hostname;
     const savedCookie = {
@@ -274,14 +275,14 @@ ipcMain.handle(VS_GO_EVENT.COOKIE_SAVE_BY_URL, async (_event, url: string) => {
       domain,
       cookieString,
       saveTime: now.getTime(),
-      saveTimeDisplay: now.toLocaleString('zh-CN'),
+      saveTimeDisplay: now.toLocaleString("zh-CN"),
     };
-    
+
     cookieByUrlStore.saveCookieByUrl(savedCookie);
     return { success: true, cookie: savedCookie };
   } catch (error) {
-    console.error('保存Cookie失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("保存Cookie失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
 
@@ -289,7 +290,7 @@ ipcMain.handle(VS_GO_EVENT.COOKIE_GET_SAVED_LIST_BY_URL, async () => {
   try {
     return cookieByUrlStore.getSavedCookiesByUrl();
   } catch (error) {
-    console.error('获取已保存Cookie列表失败:', error);
+    console.error("获取已保存Cookie列表失败:", error);
     return [];
   }
 });
@@ -299,137 +300,137 @@ ipcMain.handle(VS_GO_EVENT.COOKIE_DELETE_BY_URL, async (_event, cookieId: string
     cookieByUrlStore.deleteCookieByUrl(cookieId);
     return { success: true };
   } catch (error) {
-    console.error('删除Cookie失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("删除Cookie失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
 
 ipcMain.handle(VS_GO_EVENT.COOKIE_APPLY_BY_URL, async (_event, cookieData, targetUrl: string) => {
   try {
     // 解析cookie字符串并应用到目标URL
-    const cookieEntries = cookieData.cookieString.split('; ');
+    const cookieEntries = cookieData.cookieString.split("; ");
     const cookiesToSet: any[] = [];
-    
+
     for (const entry of cookieEntries) {
-      if (!entry.includes('=')) continue;
-      
-      const [nameValue, ...attributes] = entry.split(';');
-      const [name, value] = nameValue.split('=');
-      
+      if (!entry.includes("=")) continue;
+
+      const [nameValue, ...attributes] = entry.split(";");
+      const [name, value] = nameValue.split("=");
+
       if (!name || value === undefined) continue;
-      
+
       const cookieDetails: any = {
         url: targetUrl,
         name: name.trim(),
         value: value.trim(),
         domain: new URL(targetUrl).hostname,
-        path: '/',
+        path: "/",
         secure: false,
         httpOnly: false,
-        sameSite: 'unspecified'
+        sameSite: "unspecified",
       };
-      
+
       // 解析属性
       for (const attr of attributes) {
         const attrTrimmed = attr.trim();
-        if (attrTrimmed.toLowerCase().startsWith('domain=')) {
+        if (attrTrimmed.toLowerCase().startsWith("domain=")) {
           cookieDetails.domain = attrTrimmed.substring(7);
-        } else if (attrTrimmed.toLowerCase().startsWith('path=')) {
+        } else if (attrTrimmed.toLowerCase().startsWith("path=")) {
           cookieDetails.path = attrTrimmed.substring(5);
-        } else if (attrTrimmed.toLowerCase() === 'secure') {
+        } else if (attrTrimmed.toLowerCase() === "secure") {
           cookieDetails.secure = true;
-        } else if (attrTrimmed.toLowerCase() === 'httponly') {
+        } else if (attrTrimmed.toLowerCase() === "httponly") {
           cookieDetails.httpOnly = true;
-        } else if (attrTrimmed.toLowerCase().startsWith('expires=')) {
+        } else if (attrTrimmed.toLowerCase().startsWith("expires=")) {
           const expiryStr = attrTrimmed.substring(8);
           const expiryDate = new Date(expiryStr);
           if (!isNaN(expiryDate.getTime())) {
             cookieDetails.expirationDate = expiryDate.getTime() / 1000;
           }
-        } else if (attrTrimmed.toLowerCase().startsWith('samesite=')) {
+        } else if (attrTrimmed.toLowerCase().startsWith("samesite=")) {
           const sameSiteValue = attrTrimmed.substring(9).toLowerCase();
-          if (['unspecified', 'no_restriction', 'lax', 'strict'].includes(sameSiteValue)) {
+          if (["unspecified", "no_restriction", "lax", "strict"].includes(sameSiteValue)) {
             cookieDetails.sameSite = sameSiteValue;
           }
         }
       }
-      
+
       cookiesToSet.push(cookieDetails);
     }
-    
+
     // 设置所有cookie
     for (const cookieDetails of cookiesToSet) {
       await session.defaultSession.cookies.set(cookieDetails);
     }
-    
+
     return { success: true, count: cookiesToSet.length };
   } catch (error) {
-    console.error('应用Cookie失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("应用Cookie失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
 
 // 笔记相关事件处理
 ipcMain.handle(VS_GO_EVENT.NOTE_GET_BY_URL, async (_event, url: string) => {
   try {
-    const { noteStore } = await import('./store');
+    const { noteStore } = await import("./store");
     return noteStore.getNoteByUrl(url);
   } catch (error) {
-    console.error('获取笔记失败:', error);
+    console.error("获取笔记失败:", error);
     return null;
   }
 });
 
 ipcMain.handle(VS_GO_EVENT.NOTE_SAVE, async (_event, noteData) => {
   try {
-    const { noteStore } = await import('./store');
+    const { noteStore } = await import("./store");
     const now = new Date();
     const isUpdate = noteData.id && noteData.createTime;
-    
+
     const note = {
       ...noteData,
       id: noteData.id || Math.random().toString(36).slice(2) + Date.now().toString(36),
       createTime: noteData.createTime || now.getTime(),
       updateTime: now.getTime(),
-      createTimeDisplay: noteData.createTimeDisplay || now.toLocaleString('zh-CN'),
-      updateTimeDisplay: now.toLocaleString('zh-CN'),
+      createTimeDisplay: noteData.createTimeDisplay || now.toLocaleString("zh-CN"),
+      updateTimeDisplay: now.toLocaleString("zh-CN"),
     };
-    
+
     noteStore.saveNote(note);
     return { success: true, note, isUpdate };
   } catch (error) {
-    console.error('保存笔记失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("保存笔记失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
 
 ipcMain.handle(VS_GO_EVENT.NOTE_GET_ALL, async () => {
   try {
-    const { noteStore } = await import('./store');
+    const { noteStore } = await import("./store");
     return noteStore.getAllNotes();
   } catch (error) {
-    console.error('获取所有笔记失败:', error);
+    console.error("获取所有笔记失败:", error);
     return [];
   }
 });
 
 ipcMain.handle(VS_GO_EVENT.NOTE_DELETE, async (_event, noteId: string) => {
   try {
-    const { noteStore } = await import('./store');
+    const { noteStore } = await import("./store");
     noteStore.deleteNote(noteId);
     return { success: true };
   } catch (error) {
-    console.error('删除笔记失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("删除笔记失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
 
 ipcMain.handle(VS_GO_EVENT.NOTE_SEARCH, async (_event, query: string) => {
   try {
-    const { noteStore } = await import('./store');
+    const { noteStore } = await import("./store");
     return noteStore.searchNotes(query);
   } catch (error) {
-    console.error('搜索笔记失败:', error);
+    console.error("搜索笔记失败:", error);
     return [];
   }
 });
@@ -439,7 +440,7 @@ ipcMain.handle(VS_GO_EVENT.SINGLE_NOTE_GET, async () => {
   try {
     return singleNoteStore.getNote();
   } catch (error) {
-    console.error('获取笔记失败:', error);
+    console.error("获取笔记失败:", error);
     return { title: "", content: "", updateTime: 0, updateTimeDisplay: "" };
   }
 });
@@ -451,14 +452,14 @@ ipcMain.handle(VS_GO_EVENT.SINGLE_NOTE_SAVE, async (_event, noteData) => {
       title: noteData.title || "",
       content: noteData.content || "",
       updateTime: now.getTime(),
-      updateTimeDisplay: now.toLocaleString('zh-CN'),
+      updateTimeDisplay: now.toLocaleString("zh-CN"),
     };
-    
+
     singleNoteStore.saveNote(note);
     return { success: true, note };
   } catch (error) {
-    console.error('保存笔记失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("保存笔记失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
 
@@ -467,7 +468,7 @@ ipcMain.handle(VS_GO_EVENT.SINGLE_NOTE_CLEAR, async () => {
     singleNoteStore.clearNote();
     return { success: true };
   } catch (error) {
-    console.error('清空笔记失败:', error);
-    return { success: false, error: error instanceof Error ? error.message : '未知错误' };
+    console.error("清空笔记失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });

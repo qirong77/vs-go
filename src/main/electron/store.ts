@@ -83,7 +83,7 @@ const schema = {
       title: "",
       content: "",
       updateTime: 0,
-      updateTimeDisplay: ""
+      updateTimeDisplay: "",
     },
     properties: {
       title: { type: "string" },
@@ -100,123 +100,124 @@ export const vsgoStore = store;
 // Cookie 存储相关方法
 export const cookieStore = {
   getSavedCookies(): SavedCookie[] {
-    return vsgoStore.get('savedCookies', []) as SavedCookie[];
+    return vsgoStore.get("savedCookies", []) as SavedCookie[];
   },
-  
+
   saveCookie(cookie: SavedCookie): void {
     const cookies = this.getSavedCookies();
     cookies.push(cookie);
-    vsgoStore.set('savedCookies', cookies);
+    vsgoStore.set("savedCookies", cookies);
   },
-  
+
   deleteCookie(id: string): void {
     const cookies = this.getSavedCookies();
-    const filteredCookies = cookies.filter(cookie => cookie.id !== id);
-    vsgoStore.set('savedCookies', filteredCookies);
+    const filteredCookies = cookies.filter((cookie) => cookie.id !== id);
+    vsgoStore.set("savedCookies", filteredCookies);
   },
-  
+
   clearAllCookies(): void {
-    vsgoStore.set('savedCookies', []);
-  }
+    vsgoStore.set("savedCookies", []);
+  },
 };
 
 // 新的基于URL的Cookie存储方法
 export const cookieByUrlStore = {
   getSavedCookiesByUrl(): SavedCookieByUrl[] {
-    return vsgoStore.get('savedCookiesByUrl', []) as SavedCookieByUrl[];
+    return vsgoStore.get("savedCookiesByUrl", []) as SavedCookieByUrl[];
   },
-  
+
   saveCookieByUrl(cookieData: SavedCookieByUrl): void {
     const cookies = this.getSavedCookiesByUrl();
     // 如果同一个URL已存在，则更新；否则添加新记录
-    const existingIndex = cookies.findIndex(cookie => cookie.url === cookieData.url);
+    const existingIndex = cookies.findIndex((cookie) => cookie.url === cookieData.url);
     if (existingIndex >= 0) {
       cookies[existingIndex] = cookieData;
     } else {
       cookies.push(cookieData);
     }
-    vsgoStore.set('savedCookiesByUrl', cookies);
+    vsgoStore.set("savedCookiesByUrl", cookies);
   },
-  
+
   deleteCookieByUrl(id: string): void {
     const cookies = this.getSavedCookiesByUrl();
-    const filteredCookies = cookies.filter(cookie => cookie.id !== id);
-    vsgoStore.set('savedCookiesByUrl', filteredCookies);
+    const filteredCookies = cookies.filter((cookie) => cookie.id !== id);
+    vsgoStore.set("savedCookiesByUrl", filteredCookies);
   },
-  
+
   getCookieByUrl(url: string): SavedCookieByUrl | undefined {
     const cookies = this.getSavedCookiesByUrl();
-    return cookies.find(cookie => cookie.url === url);
+    return cookies.find((cookie) => cookie.url === url);
   },
-  
+
   clearAllCookiesByUrl(): void {
-    vsgoStore.set('savedCookiesByUrl', []);
-  }
+    vsgoStore.set("savedCookiesByUrl", []);
+  },
 };
 
 // 笔记存储相关方法
 export const noteStore = {
   getAllNotes(): NoteItem[] {
-    return vsgoStore.get('savedNotes', []) as NoteItem[];
+    return vsgoStore.get("savedNotes", []) as NoteItem[];
   },
-  
+
   getNoteByUrl(url: string): NoteItem | undefined {
     const notes = this.getAllNotes();
-    return notes.find(note => note.url === url);
+    return notes.find((note) => note.url === url);
   },
-  
+
   saveNote(note: NoteItem): void {
     const notes = this.getAllNotes();
-    const existingIndex = notes.findIndex(n => n.url === note.url);
-    
+    const existingIndex = notes.findIndex((n) => n.url === note.url);
+
     if (existingIndex >= 0) {
       notes[existingIndex] = note;
     } else {
       notes.push(note);
     }
-    
-    vsgoStore.set('savedNotes', notes);
+
+    vsgoStore.set("savedNotes", notes);
   },
-  
+
   deleteNote(id: string): void {
     const notes = this.getAllNotes();
-    const filteredNotes = notes.filter(note => note.id !== id);
-    vsgoStore.set('savedNotes', filteredNotes);
+    const filteredNotes = notes.filter((note) => note.id !== id);
+    vsgoStore.set("savedNotes", filteredNotes);
   },
-  
+
   searchNotes(query: string): NoteItem[] {
     const notes = this.getAllNotes();
     const lowerQuery = query.toLowerCase();
-    
-    return notes.filter(note => 
-      note.title.toLowerCase().includes(lowerQuery) ||
-      note.domain.toLowerCase().includes(lowerQuery) ||
-      note.content.toLowerCase().includes(lowerQuery)
+
+    return notes.filter(
+      (note) =>
+        note.title.toLowerCase().includes(lowerQuery) ||
+        note.domain.toLowerCase().includes(lowerQuery) ||
+        note.content.toLowerCase().includes(lowerQuery)
     );
   },
-  
+
   clearAllNotes(): void {
-    vsgoStore.set('savedNotes', []);
-  }
+    vsgoStore.set("savedNotes", []);
+  },
 };
 
 // 新的单个笔记存储方法
 export const singleNoteStore = {
   getNote(): SingleNote {
-    return vsgoStore.get('singleNote') as SingleNote;
+    return vsgoStore.get("singleNote") as SingleNote;
   },
-  
+
   saveNote(note: SingleNote): void {
-    vsgoStore.set('singleNote', note);
+    vsgoStore.set("singleNote", note);
   },
-  
+
   clearNote(): void {
     const emptyNote: SingleNote = {
       title: "",
       content: "",
       updateTime: 0,
-      updateTimeDisplay: ""
+      updateTimeDisplay: "",
     };
-    vsgoStore.set('singleNote', emptyNote);
-  }
+    vsgoStore.set("singleNote", emptyNote);
+  },
 };

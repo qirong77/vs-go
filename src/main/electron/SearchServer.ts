@@ -1,3 +1,1 @@
-export const createSearchServer = (items: any[]) => {
-    
-};
+export const createSearchServer = (items: any[]) => {};

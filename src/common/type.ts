@@ -28,7 +28,7 @@ export type SavedCookie = {
   secure?: boolean;
   httpOnly?: boolean;
   expirationDate?: number;
-  sameSite?: 'unspecified' | 'no_restriction' | 'lax' | 'strict';
+  sameSite?: "unspecified" | "no_restriction" | "lax" | "strict";
   saveTime: number; // 保存时间戳
   saveTimeDisplay: string; // 格式化的保存时间
 };

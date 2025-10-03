@@ -263,44 +263,44 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
         // 如果有选中的历史记录，使用选中的URL
         const selectedUrl = filteredHistory[selectedIndex].url;
         ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, { url: selectedUrl });
-        return
-      } 
+        return;
+      }
       if (inputValue.trim()) {
         ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, { url: inputValue.trim() });
         setIsFocused(false);
         setSelectedIndex(-1);
-        return
+        return;
       }
-    } 
+    }
     if (e.key === "Escape") {
       setIsFocused(false);
       setInputValue(value);
       setSelectedIndex(-1);
-      return
-    } 
+      return;
+    }
     if (e.key === "ArrowDown" && isFocused) {
       e.preventDefault();
       const newIndex = selectedIndex < filteredHistory.length - 1 ? selectedIndex + 1 : 0;
       setSelectedIndex(newIndex);
-      return
-    } 
+      return;
+    }
     if (e.key === "ArrowUp" && isFocused) {
       e.preventDefault();
       const newIndex = selectedIndex > 0 ? selectedIndex - 1 : filteredHistory.length - 1;
       setSelectedIndex(newIndex);
-      return
-    } 
-    if(e.metaKey && e.key === 'a') {
+      return;
+    }
+    if (e.metaKey && e.key === "a") {
       // macOS 下的 Command + A 全选
       e.preventDefault();
       inputRef.current?.select();
-      return
+      return;
     }
-    if(e.ctrlKey && e.key === 'a') {
+    if (e.ctrlKey && e.key === "a") {
       // Windows/Linux 下的 Ctrl + A 全选
       e.preventDefault();
       inputRef.current?.select();
-      return
+      return;
     }
   };
 

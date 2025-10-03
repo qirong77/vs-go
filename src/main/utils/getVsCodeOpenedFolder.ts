@@ -6,8 +6,8 @@
 //   const codeStatus = getExecString(`${vsGoConfig.codeCommandPath} -s`);
 //   return getWindowFiles(codeStatus) || [];
 // }
-// /* 
-// Workspace Stats: 
+// /*
+// Workspace Stats:
 // |  Window (kuaishou-frontend-idp)
 // |  Window (config.ts — qirong-extension)
 // |  Window (getVsCodeOpenedFolder.ts — vsgo)

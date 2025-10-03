@@ -13,7 +13,7 @@ export const styles: { [key: string]: CSSProperties } = {
     transition: "all 0.2s ease-in-out",
     pointerEvents: "auto",
     boxSizing: "border-box",
-    margin: '10px 0'
+    margin: "10px 0",
   },
 
   toolbar: {
@@ -39,7 +39,8 @@ export const styles: { [key: string]: CSSProperties } = {
   },
 
   inputContainerHover: {
-    background: "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)",
+    background:
+      "linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)",
     boxShadow: "0 0 0 1px rgba(59, 130, 246, 0.1), 0 2px 8px -2px rgba(59, 130, 246, 0.15)",
     transform: "translateY(-1px)",
   },
@@ -134,7 +135,8 @@ export const styles: { [key: string]: CSSProperties } = {
   } as CSSProperties,
 
   dropdownItemHover: {
-    backgroundColor: "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)",
+    backgroundColor:
+      "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)",
     borderRadius: "4px",
     margin: "2px 4px",
     transform: "translateX(2px)",
@@ -191,9 +193,9 @@ export const styles: { [key: string]: CSSProperties } = {
     position: "relative",
   },
   extensionContainer: {
-    marginLeft: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
+    marginLeft: "8px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
 };

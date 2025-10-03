@@ -33,7 +33,7 @@ export function useFileData(searchValue: string) {
       });
     setShowFiles(newShowFiles);
   }, [searchValue, allFiles]);
-  return { showFiles,updateAllFiles };
+  return { showFiles, updateAllFiles };
 }
 
 function normalizeStr(str = ""): string {

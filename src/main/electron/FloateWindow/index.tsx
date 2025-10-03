@@ -53,27 +53,27 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     const uniqueList = newBrowserList.slice(0, CACHE_SIZE);
     vsgoStore.set("browserList", uniqueList);
   });
-  floatingWindow.webContents.on('did-navigate-in-page', (_event, url) => {
+  floatingWindow.webContents.on("did-navigate-in-page", (_event, url) => {
     floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, url);
     // 发送更新后的导航状态
     const canGoBack = floatingWindow.webContents.navigationHistory.goBack();
     const canGoForward = floatingWindow.webContents.navigationHistory.goForward();
-    floatingWindow.webContents.send('navigation-state-changed', { canGoBack, canGoForward });
+    floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward });
   });
-  
+
   // 监听页面完全加载完成事件
-  floatingWindow.webContents.on('did-finish-load', () => {
+  floatingWindow.webContents.on("did-finish-load", () => {
     const canGoBack = floatingWindow.webContents.navigationHistory.goBack();
     const canGoForward = floatingWindow.webContents.navigationHistory.goForward();
-    floatingWindow.webContents.send('navigation-state-changed', { canGoBack, canGoForward });
+    floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward });
   });
 
   // 监听普通导航事件
-  floatingWindow.webContents.on('did-navigate', (_event, url) => {
+  floatingWindow.webContents.on("did-navigate", (_event, url) => {
     floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, url);
     const canGoBack = floatingWindow.webContents.navigationHistory.goBack();
     const canGoForward = floatingWindow.webContents.navigationHistory.goForward();
-    floatingWindow.webContents.send('navigation-state-changed', { canGoBack, canGoForward });
+    floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward });
   });
   floatingWindow.loadURL(url);
   floatingWindows.push(floatingWindow);
@@ -87,7 +87,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
       floatingWindow.webContents.toggleDevTools();
     }
   });
-  
+
   // 处理导航事件（后退、前进、刷新）
   ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_NAVIGATION, (event, action: "back" | "forward") => {
     if (event.sender === floatingWindow.webContents) {
@@ -106,8 +106,11 @@ function createFloatingWindow(url = "https://www.baidu.com") {
       // 发送导航状态更新
       const canGoBack = floatingWindow.webContents.navigationHistory.canGoBack();
       const canGoForward = floatingWindow.webContents.navigationHistory.canGoForward();
-      floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, floatingWindow.webContents.getURL());
-      floatingWindow.webContents.send('navigation-state-changed', { canGoBack, canGoForward });
+      floatingWindow.webContents.send(
+        VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL,
+        floatingWindow.webContents.getURL()
+      );
+      floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward });
     }
   });
   floatingWindow.on("closed", () => {
