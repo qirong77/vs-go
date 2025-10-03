@@ -125,9 +125,11 @@ export const styles: { [key: string]: CSSProperties } = {
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
     borderBottomColor: "#f3f4f6",
-    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    transition: "all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
     borderRadius: "4px",
     margin: "2px 4px",
+    borderLeft: "3px solid transparent",
+    position: "relative",
   } as CSSProperties,
 
   dropdownItemLast: {
@@ -136,11 +138,13 @@ export const styles: { [key: string]: CSSProperties } = {
 
   dropdownItemHover: {
     backgroundColor:
-      "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)",
-    borderRadius: "4px",
+      "linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(147, 51, 234, 0.15) 100%)",
+    borderRadius: "6px",
     margin: "2px 4px",
-    transform: "translateX(2px)",
-    boxShadow: "0 2px 4px rgba(59, 130, 246, 0.1)",
+    transform: "translateX(4px) translateY(-1px) scale(1.02)",
+    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.25), 0 2px 6px rgba(147, 51, 234, 0.15)",
+    borderLeft: "3px solid rgba(59, 130, 246, 0.4)",
+    transition: "all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
   } as CSSProperties,
 
   dropdownItemContent: {

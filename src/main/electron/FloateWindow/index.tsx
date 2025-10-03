@@ -53,9 +53,6 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     const uniqueList = newBrowserList.slice(0, CACHE_SIZE);
     vsgoStore.set("browserList", uniqueList);
   });
-  // floatingWindow.webContents.on('update-target-url', (_event, url) => {
-  //   floatingWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_UPDATE_TARGET_URL, url);
-  // });
   // 监听页面内导航事件
   floatingWindow.webContents.on("did-navigate-in-page", (_event, url) => {
     console.log("in-page navigated to:", url);
