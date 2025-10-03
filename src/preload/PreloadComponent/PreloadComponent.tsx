@@ -312,6 +312,7 @@ function UrlInput({ value, onChange, onSearch, historyList }: UrlInputProps) {
   };
 
   const handleBlur = () => {
+    onChange(window.location.href);
     // 延迟关闭下拉列表，允许点击选择
     setTimeout(() => {
       setIsFocused(false);
