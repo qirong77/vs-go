@@ -27,9 +27,40 @@ export function useFileData(searchValue: string) {
       .sort((file1, file2) => {
         const f1Name = normalizeStr(file1.fileName);
         const f2Name = normalizeStr(file2.fileName);
-        const f1NameScore = 100 - f1Name.indexOf(searchValue);
-        const f2NameScore = 100 - f2Name.indexOf(searchValue);
-        return f2NameScore - f1NameScore;
+        const normalizedSearch = searchValue.trim();
+        
+        // 如果没有搜索内容，仅按最后访问时间排序
+        if (!normalizedSearch) {
+          const f1AccessTime = file1.lastAccessTime || 0;
+          const f2AccessTime = file2.lastAccessTime || 0;
+          return f2AccessTime - f1AccessTime; // 最近访问的排在前面
+        }
+        
+        // 计算搜索匹配度分数
+        const f1Index = f1Name.indexOf(normalizedSearch);
+        const f2Index = f2Name.indexOf(normalizedSearch);
+        const f1NameScore = f1Index === -1 ? 0 : 100 - f1Index;
+        const f2NameScore = f2Index === -1 ? 0 : 100 - f2Index;
+        
+        // 计算访问时间权重（最近7天内的访问会获得额外加权）
+        const now = Date.now();
+        const oneWeek = 7 * 24 * 60 * 60 * 1000;
+        const f1AccessTime = file1.lastAccessTime || 0;
+        const f2AccessTime = file2.lastAccessTime || 0;
+        
+        const f1TimeBonus = f1AccessTime > 0 && (now - f1AccessTime) < oneWeek ? 20 : 0;
+        const f2TimeBonus = f2AccessTime > 0 && (now - f2AccessTime) < oneWeek ? 20 : 0;
+        
+        // 综合分数：搜索匹配度 + 时间加权
+        const f1TotalScore = f1NameScore + f1TimeBonus;
+        const f2TotalScore = f2NameScore + f2TimeBonus;
+        
+        // 如果综合分数相同，则按最后访问时间排序
+        if (f1TotalScore === f2TotalScore) {
+          return f2AccessTime - f1AccessTime;
+        }
+        
+        return f2TotalScore - f1TotalScore;
       });
     setShowFiles(newShowFiles);
   }, [searchValue, allFiles]);

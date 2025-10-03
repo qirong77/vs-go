@@ -7,7 +7,7 @@ import { execSync } from "child_process";
 import { getMainWindowFiles } from "./MainWindow/MainWindowFileManager";
 import { existsSync, readFileSync } from "fs";
 import { vscodeBase64 } from "../../common/vscodeBase64";
-import { BrowserItem, vsgoStore, cookieStore, cookieByUrlStore, singleNoteStore } from "./store";
+import { BrowserItem, vsgoStore, cookieStore, cookieByUrlStore, singleNoteStore, fileAccessStore } from "./store";
 import { FloatingWindowManager } from "./FloateWindow";
 import { MainWindowManager } from "./MainWindow/MainWindow";
 
@@ -46,6 +46,10 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
     dialog.showErrorBox("文件不存在", `${filePath} 不存在`);
     return;
   }
+  
+  // 记录文件访问时间
+  fileAccessStore.updateFileAccessTime(filePath);
+  
   const isApp = file.filePath.includes("Applications");
   if (isApp) {
     const command = `open ${file.filePath}`;
@@ -103,6 +107,9 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_UPDATE, async (_event, arg) => {
 });
 
 ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_CREATE, (_e, arg: BrowserItem) => {
+  // 记录浏览器访问时间
+  fileAccessStore.updateFileAccessTime(arg.url);
+  
   FloatingWindowManager.createFloatingWindow(arg.url);
   MainWindowManager.hide();
 });

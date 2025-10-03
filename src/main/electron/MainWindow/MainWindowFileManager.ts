@@ -6,7 +6,7 @@ import { IMainWindowFiles } from "../../../common/type";
 import { homedir } from "node:os";
 import { existsSync, mkdirSync } from "node:fs";
 import { getIconBuffers } from "../../utils/getIconPath";
-import { BrowserItem, vsgoStore } from "../store";
+import { BrowserItem, vsgoStore, fileAccessStore } from "../store";
 export async function getMainWindowFiles() {
   const terminal = await getTerminallPath();
   const app = await getApp();
@@ -15,7 +15,14 @@ export async function getMainWindowFiles() {
     return { fileName: item.name, filePath: item.url, browser: { ...item } };
   });
   const files = [...getWorkSpaceFiles(), ...getZshFile(), ...terminal, ...app, ..._browserList];
-  return files;
+  
+  // 为所有文件添加最后访问时间信息
+  const filesWithAccessTime = files.map(file => ({
+    ...file,
+    lastAccessTime: fileAccessStore.getFileAccessTime(file.filePath)
+  }));
+  
+  return filesWithAccessTime;
 }
 
 function getWorkSpaceFiles() {

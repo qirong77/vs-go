@@ -24,6 +24,13 @@ const schema = {
       },
     },
   },
+  fileAccessHistory: {
+    type: "object",
+    default: {},
+    additionalProperties: {
+      type: "number",
+    },
+  },
   savedCookies: {
     type: "array",
     default: [],
@@ -219,5 +226,27 @@ export const singleNoteStore = {
       updateTimeDisplay: "",
     };
     vsgoStore.set("singleNote", emptyNote);
+  },
+};
+
+// 文件访问历史存储方法
+export const fileAccessStore = {
+  getFileAccessHistory(): Record<string, number> {
+    return vsgoStore.get("fileAccessHistory", {}) as Record<string, number>;
+  },
+
+  updateFileAccessTime(filePath: string): void {
+    const history = this.getFileAccessHistory();
+    history[filePath] = Date.now();
+    vsgoStore.set("fileAccessHistory", history);
+  },
+
+  getFileAccessTime(filePath: string): number | undefined {
+    const history = this.getFileAccessHistory();
+    return history[filePath];
+  },
+
+  clearFileAccessHistory(): void {
+    vsgoStore.set("fileAccessHistory", {});
   },
 };

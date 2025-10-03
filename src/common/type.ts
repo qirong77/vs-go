@@ -5,6 +5,7 @@ export type IMainWindowFile = {
   filePath: string;
   fileName: string;
   browser?: BrowserItem;
+  lastAccessTime?: number;
 };
 export type IMainWindowFiles = IMainWindowFile[];
 

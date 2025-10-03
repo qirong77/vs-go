@@ -74,22 +74,6 @@ export const ExtensionNote: React.FC = () => {
     []
   );
 
-  // 清空笔记
-  const clearNote = async () => {
-    if (content.trim() && !confirm("确定要清空笔记内容吗？")) return;
-
-    try {
-      const result = await ipcRenderer.invoke(VS_GO_EVENT.SINGLE_NOTE_CLEAR);
-      if (result.success) {
-        setContent("");
-        setLastUpdateTime("");
-        showToast("笔记已清空", "info");
-      }
-    } catch (error) {
-      console.error("清空笔记失败:", error);
-      showToast("清空笔记失败", "error");
-    }
-  };
 
   // 处理文本内容变化
   const handleContentChange = (value: string) => {
@@ -241,25 +225,6 @@ export const ExtensionNote: React.FC = () => {
               {!lastUpdateTime && !saving && (
                 <span style={{ color: "#9ca3af" }}>自动保存已开启</span>
               )}
-            </div>
-            <div>
-              <button
-                onClick={clearNote}
-                style={{
-                  padding: "6px 12px",
-                  background: "#6b7280",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                  transition: "background-color 0.2s ease",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#374151")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#6b7280")}
-              >
-                清空
-              </button>
             </div>
           </div>
         </div>
