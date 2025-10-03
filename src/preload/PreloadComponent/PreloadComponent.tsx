@@ -71,7 +71,6 @@ const PreLoadComponent: React.FC = () => {
   }, [searchHistory]);
 
   const handleNavigation = useCallback((action: "back" | "forward") => {
-    window.location.reload()
     // 使用IPC通信来处理导航，而不是直接操作window.history
     ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_NAVIGATION, action);
   }, []);
