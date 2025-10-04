@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, Menu, shell, clipboard } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { BrowserItem, vsgoStore } from "../store";
@@ -77,6 +77,127 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   });
   floatingWindow.loadURL(url);
   floatingWindows.push(floatingWindow);
+
+  // 添加右键菜单支持
+  floatingWindow.webContents.on("context-menu", (_event, params) => {
+    const { x, y } = params;
+    const template: Electron.MenuItemConstructorOptions[] = [];
+    const textContent = params.selectionText || "";
+    const isSelectionLink = /^https?:\/\//.test(textContent.trim());
+    if (isSelectionLink) {
+      template.push({
+        label: "在新窗口中打开链接",
+        click: () => {
+          createFloatingWindow(textContent.trim());
+        },
+      });
+    } else if (params.linkURL) {
+      template.push(
+        {
+          label: "在新窗口中打开链接",
+          click: () => {
+            createFloatingWindow(params.linkURL);
+          },
+        },
+
+        {
+          label: "在外部浏览器中打开",
+          click: () => {
+            shell.openExternal(params.linkURL);
+          },
+        },
+        {
+          label: "复制链接地址",
+          click: () => {
+            clipboard.writeText(params.linkURL);
+          },
+        },
+        { type: "separator" }
+      );
+    }
+
+    // 如果右键点击的是图片
+    if (params.srcURL && params.mediaType === "image") {
+      template.push(
+        {
+          label: "复制图片地址",
+          click: () => {
+            clipboard.writeText(params.srcURL);
+          },
+        },
+        {
+          label: "在外部浏览器中打开图片",
+          click: () => {
+            shell.openExternal(params.srcURL);
+          },
+        },
+        { type: "separator" }
+      );
+    }
+
+    // 如果有选中的文本
+    if (params.selectionText) {
+      template.push(
+        {
+          label: "复制",
+          role: "copy",
+        },
+        { type: "separator" }
+      );
+    }
+
+    // 通用菜单项
+    template.push(
+      {
+        label: "返回",
+        enabled: floatingWindow.webContents.navigationHistory.canGoBack(),
+        click: () => {
+          floatingWindow.webContents.navigationHistory.goBack();
+        },
+      },
+      {
+        label: "前进",
+        enabled: floatingWindow.webContents.navigationHistory.canGoForward(),
+        click: () => {
+          floatingWindow.webContents.navigationHistory.goForward();
+        },
+      },
+      {
+        label: "刷新",
+        click: () => {
+          floatingWindow.webContents.reload();
+        },
+      },
+      { type: "separator" },
+      {
+        label: "复制当前链接",
+        click: () => {
+          clipboard.writeText(floatingWindow.webContents.getURL());
+        },
+      },
+      {
+        label: "在外部浏览器中打开",
+        click: () => {
+          shell.openExternal(floatingWindow.webContents.getURL());
+        },
+      },
+      { type: "separator" },
+      {
+        label: "开发者工具",
+        click: () => {
+          floatingWindow.webContents.toggleDevTools();
+        },
+      }
+    );
+
+    const contextMenu = Menu.buildFromTemplate(template);
+    contextMenu.popup({
+      window: floatingWindow,
+      x: x,
+      y: y,
+    });
+  });
+
   // 处理新窗口请求，在外部浏览器中打开链接
   floatingWindow.webContents.setWindowOpenHandler(({ url: newUrl }) => {
     createFloatingWindow(newUrl);

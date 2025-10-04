@@ -24,6 +24,7 @@ const PreLoadComponent: React.FC = () => {
   const [canGoBack, setCanGoBack] = useState<boolean>(false);
   const [canGoForward, setCanGoForward] = useState<boolean>(false);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
+  useCustomStyleInjector();
   const searchHistory = useCallback(
     debounce((value = "") => {
       ipcRenderer
@@ -477,6 +478,24 @@ function HistoryDropdownItem({
       </div>
     </div>
   );
+}
+/* 
+自定义样式注入器，解决宿主页面样式冲突问题
+*/
+function useCustomStyleInjector() {
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.innerHTML = `
+    #main {
+      margin-top: 220px !important;
+    }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+  return null;
 }
 
 export default PreLoadComponent;
