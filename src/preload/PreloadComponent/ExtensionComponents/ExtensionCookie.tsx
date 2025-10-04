@@ -224,15 +224,12 @@ export const ExtensionCookie: React.FC = () => {
           </button>
         </div>
 
-        <div style={{ marginBottom: "12px" }}>
+        {/* <div style={{ marginBottom: "12px" }}>
           <h4 style={{ margin: "0 0 8px 0", fontSize: "14px", fontWeight: 600, color: "#374151" }}>
             已保存的 Cookie ({savedCookies.length})
           </h4>
-
-          {/* 搜索框 */}
           {savedCookies.length > 0 && (
             <>
-              {/* 批量操作按钮 */}
               <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
                 <button
                   onClick={exportCookies}
@@ -269,7 +266,7 @@ export const ExtensionCookie: React.FC = () => {
               </div>
             </>
           )}
-        </div>
+        </div> */}
 
         {savedCookies.length === 0 ? (
           <div
