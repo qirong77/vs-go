@@ -21,6 +21,9 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     alwaysOnTop: false,
     webPreferences: {
       sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false, // Allow cross-origin in development
       preload: path.join(__dirname, "../preload/index.js"),
     },
   });
@@ -203,6 +206,22 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     createFloatingWindow(newUrl);
     return { action: "deny" };
   });
+  // 添加跨平台快捷键支持
+  floatingWindow.webContents.on("before-input-event", (_event, input) => {
+    // macOS: Command+Option+I, Windows/Linux: Ctrl+Shift+I
+    if (
+      ((process.platform === "darwin" && 
+        input.modifiers.includes("meta") && 
+        input.modifiers.includes("alt")) ||
+       (process.platform !== "darwin" && 
+        input.modifiers.includes("control") && 
+        input.modifiers.includes("shift"))) &&
+      input.key.toLowerCase() === "i"
+    ) {
+      floatingWindow.webContents.toggleDevTools();
+    }
+  });
+
   ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_TOGGLE_DEVTOOLS, (event) => {
     if (event.sender === floatingWindow.webContents) {
       floatingWindow.webContents.toggleDevTools();
