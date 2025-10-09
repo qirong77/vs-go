@@ -38,7 +38,7 @@ function parseBookmarksHtml(htmlContent: string): BrowserItem[] {
 }
 
 ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, (_e, arg) => {
-  !is.dev && MainWindowManager.setWindowSize(650, Math.floor(arg));
+  !is.dev && MainWindowManager.setWindowSize(700, Math.floor(arg));
 });
 ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
   const filePath = file.filePath;

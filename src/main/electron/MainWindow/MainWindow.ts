@@ -8,7 +8,7 @@ app.once("ready", () => {
 });
 function createMainWindow() {
   const window = new BrowserWindow({
-    width: 850,
+    width: 700,
     height: 600,
     show: true,
     frame: is.dev ? true : false,
