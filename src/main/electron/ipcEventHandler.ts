@@ -7,7 +7,7 @@ import { execSync } from "child_process";
 import { getMainWindowFiles } from "./MainWindow/MainWindowFileManager";
 import { existsSync, readFileSync } from "fs";
 import { vscodeBase64 } from "../../common/vscodeBase64";
-import { BrowserItem, vsgoStore, cookieStore, cookieByUrlStore,  fileAccessStore } from "./store";
+import { BrowserItem, vsgoStore, cookieStore, cookieByUrlStore, fileAccessStore, monacoNotesStore } from "./store";
 import { FloatingWindowManager } from "./FloateWindow";
 import { MainWindowManager } from "./MainWindow/MainWindow";
 
@@ -373,6 +373,30 @@ ipcMain.handle(VS_GO_EVENT.COOKIE_APPLY_BY_URL, async (_event, cookieData, targe
     return { success: true, count: cookiesToSet.length };
   } catch (error) {
     console.error("应用Cookie失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
+  }
+});
+
+// Monaco编辑器笔记相关事件处理（使用electron-store持久化存储）
+ipcMain.handle("monaco-markdown-editor-get-content", async (_event, url?: string) => {
+  try {
+    const key = url || "global";
+    const content = monacoNotesStore.getMonacoNote(key);
+    return content;
+  } catch (error) {
+    console.error("获取笔记内容失败:", error);
+    return "";
+  }
+});
+
+ipcMain.handle("monaco-markdown-editor-content-changed", async (_event, content: string, url?: string) => {
+  try {
+    const key = url || "global";
+    monacoNotesStore.saveMonacoNote(key, content);
+    console.log(`笔记已保存 ${key}:`, content.length + " 字符");
+    return { success: true };
+  } catch (error) {
+    console.error("保存笔记内容失败:", error);
     return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });

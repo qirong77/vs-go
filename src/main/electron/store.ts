@@ -99,6 +99,14 @@ const schema = {
       updateTimeDisplay: { type: "string" },
     },
   },
+  // Monaco编辑器笔记存储
+  monacoNotes: {
+    type: "object",
+    default: {},
+    additionalProperties: {
+      type: "string",
+    },
+  },
 };
 
 const store = new Store({ schema });
@@ -182,5 +190,33 @@ export const fileAccessStore = {
 
   clearFileAccessHistory(): void {
     vsgoStore.set("fileAccessHistory", {});
+  },
+};
+
+// Monaco编辑器笔记存储方法
+export const monacoNotesStore = {
+  getMonacoNotes(): Record<string, string> {
+    return vsgoStore.get("monacoNotes", {}) as Record<string, string>;
+  },
+
+  getMonacoNote(key: string): string {
+    const notes = this.getMonacoNotes();
+    return notes[key] || "";
+  },
+
+  saveMonacoNote(key: string, content: string): void {
+    const notes = this.getMonacoNotes();
+    notes[key] = content;
+    vsgoStore.set("monacoNotes", notes);
+  },
+
+  deleteMonacoNote(key: string): void {
+    const notes = this.getMonacoNotes();
+    delete notes[key];
+    vsgoStore.set("monacoNotes", notes);
+  },
+
+  clearAllMonacoNotes(): void {
+    vsgoStore.set("monacoNotes", {});
   },
 };

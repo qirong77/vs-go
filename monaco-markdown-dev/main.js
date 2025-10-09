@@ -1,5 +1,25 @@
 const ELEMENT_ID = "monaco-markdown-editor";
 const script = document.createElement("script");
+if (!window.electron) {
+  console.log("未检测到electron环境，使用模拟的ipcRenderer");
+  window.electron = {
+    ipcRenderer: {
+      invoke(channel, ...args) {
+        console.log("模拟调用ipcRenderer.invoke:", channel, args);
+        if (channel === "monaco-markdown-editor-get-content") {
+          return Promise.resolve("# 模拟的初始内容\n\n这是一些示例的Markdown内容。");
+        }
+        return Promise.resolve("");
+      },
+      send(channel, ...args) {
+        console.log("模拟调用ipcRenderer.send:", channel, args);
+        if (channel === "monaco-markdown-editor-content-changed") {
+          console.log("内容变更:", args[0]);
+        }
+      },
+    },
+  };
+}
 script.src = "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs/loader.js";
 script.onload = () => {
   window.require.config({
@@ -28,7 +48,7 @@ script.onload = () => {
         // 检查当前行的内容，如果刚输入了 /，则显示链接相关的提示
         const line = model.getLineContent(position.lineNumber);
         const textBeforeCursor = line.substring(0, position.column - 1);
-        
+
         if (textBeforeCursor.endsWith("/")) {
           return {
             suggestions: [
@@ -37,7 +57,8 @@ script.onload = () => {
                 kind: window.monaco.languages.CompletionItemKind.Snippet,
                 documentation: "插入链接",
                 insertText: "[链接文本](链接地址)",
-                insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                insertTextRules:
+                  window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
                 range: {
                   startLineNumber: position.lineNumber,
                   endLineNumber: position.lineNumber,
@@ -50,7 +71,8 @@ script.onload = () => {
                 kind: window.monaco.languages.CompletionItemKind.Snippet,
                 documentation: "插入图片链接",
                 insertText: "![图片描述](图片地址)",
-                insertTextRules: window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                insertTextRules:
+                  window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
                 range: {
                   startLineNumber: position.lineNumber,
                   endLineNumber: position.lineNumber,
@@ -86,24 +108,24 @@ script.onload = () => {
           const model = editor.getModel();
           const line = model.getLineContent(position.lineNumber);
           const column = position.column;
-          
+
           // 简单的链接检测正则表达式
           const linkRegex = /\[([^\]]*)\]\(([^)]*)\)/g;
           let match;
-          
+
           while ((match = linkRegex.exec(line)) !== null) {
             const linkStart = match.index;
             const linkEnd = match.index + match[0].length;
-            
+
             // 检查点击是否在链接范围内
             if (column >= linkStart + 1 && column <= linkEnd + 1) {
               console.log("点击了链接:", {
                 text: match[1],
                 url: match[2],
                 position: position,
-                fullMatch: match[0]
+                fullMatch: match[0],
               });
-              
+
               // 阻止默认行为
               e.event.preventDefault();
               e.event.stopPropagation();
@@ -116,13 +138,13 @@ script.onload = () => {
           while ((match = urlRegex.exec(line)) !== null) {
             const urlStart = match.index;
             const urlEnd = match.index + match[0].length;
-            
+
             if (column >= urlStart + 1 && column <= urlEnd + 1) {
               console.log("点击了URL:", {
                 url: match[0],
-                position: position
+                position: position,
               });
-              
+
               // 阻止默认行为
               e.event.preventDefault();
               e.event.stopPropagation();
