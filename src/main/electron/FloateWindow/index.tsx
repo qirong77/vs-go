@@ -2,7 +2,7 @@ import { BrowserWindow, Menu, shell, clipboard, session } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import { handleFloatWindowEvents } from "./registerFloatWindowEvents";
+import { handleFloatWindowWebContentEvents } from "./registerFloatWindowEvents";
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
 session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -43,7 +43,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   floatingWindow.setVisibleOnAllWorkspaces(true, {
     visibleOnFullScreen: true, // 允许在全屏应用上显示
   });
-  handleFloatWindowEvents({
+  handleFloatWindowWebContentEvents({
     floatingWindow,
     url,
     createFloatingWindow,

@@ -7,7 +7,7 @@ const loadMonacoEditorString = readFileSync(
   path.join(__dirname, "../../monaco-markdown-dev/main.js"),
   "utf-8"
 );
-export function handleFloatWindowEvents(props: {
+export function handleFloatWindowWebContentEvents(props: {
   floatingWindow: BrowserWindow;
   url: string;
   createFloatingWindow: (url: string) => BrowserWindow;
