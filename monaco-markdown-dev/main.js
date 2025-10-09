@@ -76,7 +76,7 @@ script.onload = () => {
                 url: match[0],
                 position: position,
               });
-              window.electron.ipcRenderer.invoke("FLOATING_WINDOW_CREATE", { url: match[0] });
+              window.electron.ipcRenderer.send("FLOATING_WINDOW_CREATE", { url: match[0] });
               // 阻止默认行为
               e.event.preventDefault();
               e.event.stopPropagation();

@@ -3,14 +3,10 @@ import { ExtensionPopover } from "./ExtensionPopover";
 // 声明全局类型
 
 export const ExtensionNote: React.FC = () => {
-  // 在window上监听事件
-  window.addEventListener("myCustomEvent", function (e) {
-    console.log("自定义事件被触发了");
-  });
   return (
     <ExtensionPopover
       content={
-        <div style={{ width: "600px", height: "800px", border: "1px solid #eee" }}>
+        <div style={{ width: "600px", height: "400px", border: "1px solid #eee" }}>
           <div id="monaco-markdown-editor" style={{ width: "100%", height: "100%" }}>
           </div>
         </div>
