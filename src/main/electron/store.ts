@@ -1,5 +1,5 @@
 import Store from "electron-store";
-import { SavedCookie, SavedCookieByUrl, NoteItem, SingleNote } from "../../common/type";
+import { SavedCookie, SavedCookieByUrl } from "../../common/type";
 
 // Define or import BrowserItem type
 export type BrowserItem = {
@@ -161,73 +161,7 @@ export const cookieByUrlStore = {
   },
 };
 
-// 笔记存储相关方法
-export const noteStore = {
-  getAllNotes(): NoteItem[] {
-    return vsgoStore.get("savedNotes", []) as NoteItem[];
-  },
 
-  getNoteByUrl(url: string): NoteItem | undefined {
-    const notes = this.getAllNotes();
-    return notes.find((note) => note.url === url);
-  },
-
-  saveNote(note: NoteItem): void {
-    const notes = this.getAllNotes();
-    const existingIndex = notes.findIndex((n) => n.url === note.url);
-
-    if (existingIndex >= 0) {
-      notes[existingIndex] = note;
-    } else {
-      notes.push(note);
-    }
-
-    vsgoStore.set("savedNotes", notes);
-  },
-
-  deleteNote(id: string): void {
-    const notes = this.getAllNotes();
-    const filteredNotes = notes.filter((note) => note.id !== id);
-    vsgoStore.set("savedNotes", filteredNotes);
-  },
-
-  searchNotes(query: string): NoteItem[] {
-    const notes = this.getAllNotes();
-    const lowerQuery = query.toLowerCase();
-
-    return notes.filter(
-      (note) =>
-        note.title.toLowerCase().includes(lowerQuery) ||
-        note.domain.toLowerCase().includes(lowerQuery) ||
-        note.content.toLowerCase().includes(lowerQuery)
-    );
-  },
-
-  clearAllNotes(): void {
-    vsgoStore.set("savedNotes", []);
-  },
-};
-
-// 新的单个笔记存储方法
-export const singleNoteStore = {
-  getNote(): SingleNote {
-    return vsgoStore.get("singleNote") as SingleNote;
-  },
-
-  saveNote(note: SingleNote): void {
-    vsgoStore.set("singleNote", note);
-  },
-
-  clearNote(): void {
-    const emptyNote: SingleNote = {
-      title: "",
-      content: "",
-      updateTime: 0,
-      updateTimeDisplay: "",
-    };
-    vsgoStore.set("singleNote", emptyNote);
-  },
-};
 
 // 文件访问历史存储方法
 export const fileAccessStore = {

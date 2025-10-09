@@ -1,10 +1,43 @@
-import { BrowserWindow, Menu, shell, clipboard } from "electron";
+import { BrowserWindow, Menu, shell, clipboard, session } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { BrowserItem, vsgoStore } from "../store";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { ipcMain } from "electron";
 const floatingWindows: BrowserWindow[] = [];
+
+const loadMonacoEditorString = `
+const script = document.createElement("script");
+script.src = "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs/loader.js";
+script.onload = () => {
+  window.require.config({
+    paths: { vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.47.0/min/vs" },
+  });
+
+  window.require(["vs/editor/editor.main"], function () {
+    // 创建编辑器实例
+    const editor = window.monaco.editor.create(document.getElementById("monaco-markdown-editor"), {
+      value: "# hello",
+      language: "markdown",
+    });
+  });
+};
+document.body.appendChild(script);
+`;
+session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+  const responseHeaders = details.responseHeaders || {};
+  // 处理 X-Frame-Options 头
+  if (responseHeaders["x-frame-options"] || responseHeaders["X-Frame-Options"]) {
+    delete responseHeaders["x-frame-options"];
+    delete responseHeaders["X-Frame-Options"];
+  }
+  // 处理 Content-Security-Policy 头
+  if (responseHeaders["content-security-policy"] || responseHeaders["Content-Security-Policy"]) {
+    delete responseHeaders["content-security-policy"];
+    delete responseHeaders["Content-Security-Policy"];
+  }
+  callback({ cancel: false, responseHeaders });
+});
 function createFloatingWindow(url = "https://www.baidu.com") {
   const oldWindow = floatingWindows.find(
     (win) => !win.isDestroyed() && win.webContents.getURL() === url
@@ -24,6 +57,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
       preload: path.join(__dirname, "../preload/index.js"),
     },
   });
+
   floatingWindow.setVisibleOnAllWorkspaces(true, {
     visibleOnFullScreen: true, // 允许在全屏应用上显示
   });
@@ -66,6 +100,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     const canGoBack = floatingWindow.webContents.navigationHistory.canGoBack();
     const canGoForward = floatingWindow.webContents.navigationHistory.canGoForward();
     floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward, url });
+    floatingWindow.webContents.executeJavaScript(loadMonacoEditorString);
   });
 
   // 监听普通导航事件
@@ -77,7 +112,6 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   });
   floatingWindow.loadURL(url);
   floatingWindows.push(floatingWindow);
-
   // 添加右键菜单支持
   floatingWindow.webContents.on("context-menu", (_event, params) => {
     const { x, y } = params;

@@ -38,14 +38,6 @@ export type CookieData = {
   cookies: SavedCookie[];
 };
 
-// 笔记相关类型定义 - 简化为单个笔记对象
-export type SingleNote = {
-  title: string;
-  content: string;
-  updateTime: number;
-  updateTimeDisplay: string;
-};
-
 // 保持旧的类型定义用于兼容性（如果需要的话）
 export type NoteItem = {
   id: string;
