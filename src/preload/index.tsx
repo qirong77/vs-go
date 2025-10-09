@@ -45,6 +45,6 @@ window.addEventListener("load", () => {
   `;
   document.body.insertBefore(root, document.body.firstChild);
   document.body.style.height = "auto";
-  const rootInstance = ReactDOM.createRoot(root);
-  rootInstance.render(<PreLoadComponent />);
+  // const rootInstance = ReactDOM.createRoot(root);
+  // rootInstance.render(<PreLoadComponent />);
 });

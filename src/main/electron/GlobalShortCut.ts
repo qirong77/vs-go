@@ -7,6 +7,3 @@ globalShortcut.register("Command+Escape", () => {
 globalShortcut.register("Alt+Space", () => {
   MainWindowManager.toggleIsShowMainWindow();
 });
-globalShortcut.register("F12", () => {
-  MainWindowManager.toogleDevTools();
-});
