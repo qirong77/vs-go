@@ -32,6 +32,19 @@ script.onload = () => {
       automaticLayout: true,
       minimap: { enabled: false },
     });
+    const currentKey = { ctrl: false, shift: false, alt: false, meta: false };
+    editor.onKeyDown((e) => {
+      if (e.ctrlKey) currentKey.ctrl = true;
+      if (e.shiftKey) currentKey.shift = true;
+      if (e.altKey) currentKey.alt = true;
+      if (e.metaKey) currentKey.meta = true;
+    });
+    editor.onKeyUp((e) => {
+      if (!e.ctrlKey) currentKey.ctrl = false;
+      if (!e.shiftKey) currentKey.shift = false;
+      if (!e.altKey) currentKey.alt = false;
+      if (!e.metaKey) currentKey.meta = false;
+    });
     // 添加链接点击处理 - 检测点击链接并阻止默认行为
     editor.onMouseDown(function (e) {
       if (e.target && e.target.detail) {
@@ -40,16 +53,11 @@ script.onload = () => {
           const model = editor.getModel();
           const line = model.getLineContent(position.lineNumber);
           const column = position.column;
-
-          // 简单的链接检测正则表达式
-          const linkRegex = /\[([^\]]*)\]\(([^)]*)\)/g;
+          const linkRegex = /https?:\/\/[^\s)]+/g;
           let match;
-
           while ((match = linkRegex.exec(line)) !== null) {
             const linkStart = match.index;
             const linkEnd = match.index + match[0].length;
-
-            // 检查点击是否在链接范围内
             if (column >= linkStart + 1 && column <= linkEnd + 1) {
               console.log("点击了链接:", {
                 text: match[1],
@@ -57,26 +65,9 @@ script.onload = () => {
                 position: position,
                 fullMatch: match[0],
               });
-
-              // 阻止默认行为
-              e.event.preventDefault();
-              e.event.stopPropagation();
-              break;
-            }
-          }
-
-          // 也检测直接的URL链接
-          const urlRegex = /https?:\/\/[^\s)]+/g;
-          while ((match = urlRegex.exec(line)) !== null) {
-            const urlStart = match.index;
-            const urlEnd = match.index + match[0].length;
-
-            if (column >= urlStart + 1 && column <= urlEnd + 1) {
-              console.log("点击了URL:", {
-                url: match[0],
-                position: position,
-              });
-              window.electron.ipcRenderer.send("FLOATING_WINDOW_CREATE", { url: match[0] });
+              if(currentKey.meta) {
+                window.electron.ipcRenderer.send("FLOATING_WINDOW_CREATE", { url: match[0] });
+              }
               // 阻止默认行为
               e.event.preventDefault();
               e.event.stopPropagation();

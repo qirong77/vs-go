@@ -7,7 +7,10 @@ import { ipcMain } from "electron";
 import { readFileSync } from "fs";
 const floatingWindows: BrowserWindow[] = [];
 
-const loadMonacoEditorString =  readFileSync(path.join(__dirname, "../../monaco-markdown-dev/main.js"), "utf-8");
+const loadMonacoEditorString = readFileSync(
+  path.join(__dirname, "../../monaco-markdown-dev/main.js"),
+  "utf-8"
+);
 session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
   const responseHeaders = details.responseHeaders || {};
   // 处理 X-Frame-Options 头
