@@ -52,7 +52,7 @@ function showWindowOnCurrentDesktop() {
   _mainWindow.focus();
 }
 
-function toogleIsShowMainWindow() {
+function toggleIsShowMainWindow() {
   if (!_mainWindow) {
     _mainWindow = createMainWindow();
     showWindowOnCurrentDesktop();
@@ -85,7 +85,7 @@ function getMainWindow() {
   return _mainWindow;
 }
 export const MainWindowManager = {
-  toogleIsShowMainWindow,
+  toggleIsShowMainWindow,
   toogleDevTools,
   getMainWindow,
   hide,

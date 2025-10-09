@@ -7,7 +7,7 @@ app.whenReady().then(async () => {
     openAsHidden: true,
   });
   import("./MainWindow/MainWindow").then(() => {
-    MainWindowManager.toogleIsShowMainWindow();
+    MainWindowManager.toggleIsShowMainWindow();
   });
   import("./GlobalShortCut");
   import("./ipcEventHandler");
