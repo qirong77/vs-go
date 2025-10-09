@@ -114,7 +114,7 @@ function App() {
           {showFiles.map((file, i) => {
             return (
               <li
-                className={`flex [&>svg]:mx-[6px] [&>svg]:w-[18px] [&>svg]:h-[18px] items-center  pl-1 h-[34px] group
+                className={`flex [&>svg]:mx-[6px] [&>svg]:w-[18px] [&>svg]:h-[18px] items-center  pl-1 h-[34px] group flex-nowrap overflow-hidden text-ellipsis
                   ${i === active ? "active-li" : ""}
                   `}
                 key={file.filePath + i}
@@ -135,7 +135,7 @@ function App() {
                   />
                 )}
                 {file.browser && <span className="ml-1 text-lg">🌐</span>}
-                <span className="text-lg pl-[8px] flex-1">
+                <span className="text-lg pl-[8px] flex-1 overflow-hidden text-ellipsis flex items-center flex-nowrap">
                   <span>{file.fileName.replace(".app", "")}{" "}</span>
                   <span className="ml-2 text-slate-300 text-sm">
                     {file.browser?.url

@@ -230,6 +230,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
 
   // 处理新窗口请求，在外部浏览器中打开链接
   floatingWindow.webContents.setWindowOpenHandler(({ url: newUrl }) => {
+    console.log("Request to open new window with URL:", newUrl);
     createFloatingWindow(newUrl);
     return { action: "deny" };
   });
