@@ -6,7 +6,7 @@ import { VS_GO_EVENT } from "../../../common/EVENT";
 import { ipcMain } from "electron";
 import { readFileSync } from "fs";
 const floatingWindows: BrowserWindow[] = [];
-
+let lastWindowUrl = "";
 const loadMonacoEditorString = readFileSync(
   path.join(__dirname, "../../monaco-markdown-dev/main.js"),
   "utf-8"
@@ -255,6 +255,9 @@ function createFloatingWindow(url = "https://www.baidu.com") {
       floatingWindow.webContents.send("navigation-state-changed", { canGoBack, canGoForward });
     }
   });
+  floatingWindow.on("close", () => {
+    lastWindowUrl = floatingWindow.webContents.getURL();
+  });
   floatingWindow.on("closed", () => {
     const index = floatingWindows.indexOf(floatingWindow);
     if (index > -1) {
@@ -278,7 +281,7 @@ function HideAllFloatingWindows() {
 }
 function ShowAllFloatingWindows() {
   if (!floatingWindows.length) {
-    createFloatingWindow("https://www.google.com");
+    createFloatingWindow(lastWindowUrl || "https://www.google.com");
     return;
   }
   floatingWindows.forEach((win) => {
