@@ -32,74 +32,6 @@ script.onload = () => {
       automaticLayout: true,
       minimap: { enabled: false },
     });
-
-    // 注册自动补全提供者 - 当输入 / 时显示链接相关的下拉提示
-    window.monaco.languages.registerCompletionItemProvider("markdown", {
-      triggerCharacters: ["/"],
-      provideCompletionItems: function (model, position) {
-        const word = model.getWordUntilPosition(position);
-        const range = {
-          startLineNumber: position.lineNumber,
-          endLineNumber: position.lineNumber,
-          startColumn: word.startColumn,
-          endColumn: word.endColumn,
-        };
-
-        // 检查当前行的内容，如果刚输入了 /，则显示链接相关的提示
-        const line = model.getLineContent(position.lineNumber);
-        const textBeforeCursor = line.substring(0, position.column - 1);
-
-        if (textBeforeCursor.endsWith("/")) {
-          return {
-            suggestions: [
-              {
-                label: "link",
-                kind: window.monaco.languages.CompletionItemKind.Snippet,
-                documentation: "插入链接",
-                insertText: "[链接文本](链接地址)",
-                insertTextRules:
-                  window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                range: {
-                  startLineNumber: position.lineNumber,
-                  endLineNumber: position.lineNumber,
-                  startColumn: position.column - 1, // 替换掉 /
-                  endColumn: position.column,
-                },
-              },
-              {
-                label: "image",
-                kind: window.monaco.languages.CompletionItemKind.Snippet,
-                documentation: "插入图片链接",
-                insertText: "![图片描述](图片地址)",
-                insertTextRules:
-                  window.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                range: {
-                  startLineNumber: position.lineNumber,
-                  endLineNumber: position.lineNumber,
-                  startColumn: position.column - 1, // 替换掉 /
-                  endColumn: position.column,
-                },
-              },
-              {
-                label: "url",
-                kind: window.monaco.languages.CompletionItemKind.Snippet,
-                documentation: "插入直接URL",
-                insertText: "https://",
-                range: {
-                  startLineNumber: position.lineNumber,
-                  endLineNumber: position.lineNumber,
-                  startColumn: position.column - 1, // 替换掉 /
-                  endColumn: position.column,
-                },
-              },
-            ],
-          };
-        }
-
-        return { suggestions: [] };
-      },
-    });
-
     // 添加链接点击处理 - 检测点击链接并阻止默认行为
     editor.onMouseDown(function (e) {
       if (e.target && e.target.detail) {
@@ -144,7 +76,7 @@ script.onload = () => {
                 url: match[0],
                 position: position,
               });
-
+              window.electron.ipcRenderer.invoke("FLOATING_WINDOW_CREATE", { url: match[0] });
               // 阻止默认行为
               e.event.preventDefault();
               e.event.stopPropagation();
