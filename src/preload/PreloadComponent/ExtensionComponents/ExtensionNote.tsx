@@ -12,7 +12,6 @@ export const ExtensionNote: React.FC = () => {
       content={
         <div style={{ width: "600px", height: "800px", border: "1px solid #eee" }}>
           <div id="monaco-markdown-editor" style={{ width: "100%", height: "100%" }}>
-            Note Content
           </div>
         </div>
       }
