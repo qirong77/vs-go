@@ -3,6 +3,7 @@ import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { handleFloatWindowWebContentEvents } from "./registerFloatWindowEvents";
+import { createFloatingWindowNew } from "../../createFloatingWindowNew";
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
 session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -62,6 +63,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   });
   floatingWindow.center();
   floatingWindow.show();
+  createFloatingWindowNew()
   return floatingWindow;
 }
 function HideAllFloatingWindows() {
@@ -83,6 +85,7 @@ function ShowAllFloatingWindows() {
   });
   const lastWindow = floatingWindows[floatingWindows.length - 1];
   lastWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_FOCUS_INPUT);
+  createFloatingWindow()
   lastWindow.show();
 }
 function toggleFloatingWindowVisible() {

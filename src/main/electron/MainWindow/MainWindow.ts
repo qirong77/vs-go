@@ -2,6 +2,7 @@ import { is } from "@electron-toolkit/utils";
 import { app, BrowserWindow, dialog } from "electron";
 import path from "path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
+import { createFloatingWindowNew } from "../../createFloatingWindowNew";
 let _mainWindow: BrowserWindow;
 app.once("ready", () => {
   _mainWindow = createMainWindow();
@@ -52,6 +53,7 @@ function createMainWindow() {
   });
   return window;
 }
+
 function showWindowOnCurrentDesktop() {
   _mainWindow.center();
   _mainWindow.show();
