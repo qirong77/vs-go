@@ -177,8 +177,11 @@ function detectWhiteScreen() {
 setTimeout(() => {
   const isWhiteScreen = detectWhiteScreen();
   if (!isWhiteScreen) {
-    createEditor();
+    const ext = document.querySelector(".preload-component-extension-popover");
+    ext.addEventListener("click", () => {
+      if (!window.monaco) createEditor();
+    });
     return;
   }
   console.log("页面白屏，尝试重新加载");
-});
+}, 0);
