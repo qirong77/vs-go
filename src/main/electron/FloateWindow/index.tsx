@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, shell, clipboard, session } from "electron";
+import { BrowserWindow,  session } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
