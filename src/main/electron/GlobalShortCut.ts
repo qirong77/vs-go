@@ -1,7 +1,7 @@
 import { globalShortcut } from "electron";
 import { MainWindowManager } from "./MainWindow/MainWindow";
 import { FloatingWindowManager } from "./FloateWindow";
-globalShortcut.register("Command+Escape", () => {
+globalShortcut.register("Command+`", () => {
   FloatingWindowManager.toggleFloatingWindowVisible();
 });
 globalShortcut.register("Alt+Space", () => {
