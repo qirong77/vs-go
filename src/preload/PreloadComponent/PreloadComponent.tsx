@@ -173,8 +173,8 @@ function UrlToolBar({
         historyList={historyList}
       />
       <div style={styles.extensionContainer}>
-        <ExtensionCookie />
         <ExtensionNote />
+        <ExtensionCookie />
       </div>
     </div>
   );

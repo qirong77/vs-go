@@ -14,8 +14,7 @@ session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
   }
   // 处理 Content-Security-Policy 头
   if (responseHeaders["content-security-policy"] || responseHeaders["Content-Security-Policy"]) {
-    delete responseHeaders["content-security-policy"];
-    delete responseHeaders["Content-Security-Policy"];
+    responseHeaders['content-security-policy'] = ["default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"];
   }
   callback({ cancel: false, responseHeaders });
 });
@@ -33,6 +32,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
     width: 1200,
     height: 800,
     alwaysOnTop: false,
+
     webPreferences: {
       sandbox: false,
       preload: path.join(__dirname, "../preload/index.js"),
