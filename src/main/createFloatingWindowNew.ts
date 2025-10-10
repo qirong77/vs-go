@@ -29,4 +29,4 @@ export function createFloatingWindowNew(url = "https://www.zhihu.com/") {
 }
 setTimeout(()=>{
 // createFloatingWindowNew()
-},10000)i
+},10000)
