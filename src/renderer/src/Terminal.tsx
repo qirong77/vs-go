@@ -75,7 +75,8 @@ export function Terminal() {
 
     // 显示提示符
     const showPrompt = () => {
-      terminal.write("\x1b[1;34m$ \x1b[0m");
+      const prompt = "$ ";
+      terminal.write(`\x1b[1;36m${prompt}\x1b[0m`);
       cursorPositionRef.current = 0;
     };
 
@@ -87,12 +88,13 @@ export function Terminal() {
     };
 
     // 监听来自主进程的数据
-    const handleTerminalData = (e, data) => {
+    const handleTerminalData = (_e, data) => {
       const { type, data: content } = data;
 
       switch (type) {
         case "stdout":
-            terminal.write(`\x1b[37m${content}\x1b[0m`);
+          // 直接输出，保持原有格式
+          terminal.write(content);
           break;
         case "stderr":
           terminal.write(`\x1b[31m${content}\x1b[0m`);
@@ -105,11 +107,10 @@ export function Terminal() {
           terminal.writeln("\x1b[32m终端已就绪\x1b[0m");
           break;
         case "prompt":
-          terminal.write(content);
+          terminal.write(`\r\n\x1b[1;36m${content}\x1b[0m`);
           break;
         case "error":
           terminal.writeln(`\x1b[31m错误: ${content}\x1b[0m`);
-          showPrompt();
           break;
         case "exit":
           terminal.writeln(`\x1b[33m${content}\x1b[0m`);
@@ -122,6 +123,8 @@ export function Terminal() {
     // 处理回车键
     const handleEnter = () => {
       const command = currentInputRef.current.trim();
+      
+      // 显示用户输入的完整命令行
       terminal.writeln("");
 
       if (command) {
@@ -134,7 +137,10 @@ export function Terminal() {
         // 发送命令到主进程
         sendCommand(command);
       } else {
-        showPrompt();
+        // 空命令时直接显示新的提示符
+        if (window.electron) {
+          window.electron.ipcRenderer.send(VS_GO_EVENT.TERMINAL_RUN_COMMAND, "");
+        }
       }
 
       currentInputRef.current = "";

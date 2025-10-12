@@ -34,44 +34,10 @@ class TerminalManager {
 
   private startShell() {
     try {
-      // 根据操作系统选择合适的shell
-      const shell = process.platform === 'win32' ? 'cmd.exe' : 
-                   process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash';
+      // 不启动持续的shell进程，而是按需执行命令
+      this.process = null;
       
-      this.process = spawn(shell, [], {
-        cwd: this.currentDirectory,
-        env: process.env,
-      });
-
-      if (this.process.stdout) {
-        this.process.stdout.on('data', (data) => {
-          const output = data.toString();
-          this.sendToRenderer('stdout', output);
-          
-          // 如果输出包含提示符特征，发送新的提示符
-          if (output.includes('$') || output.includes('#') || output.endsWith('% ')) {
-            setTimeout(() => this.sendPrompt(), 100);
-          }
-        });
-      }
-
-      if (this.process.stderr) {
-        this.process.stderr.on('data', (data) => {
-          this.sendToRenderer('stderr', data.toString());
-        });
-      }
-
-      this.process.on('exit', (code) => {
-        this.sendToRenderer('exit', `进程退出，退出码: ${code}`);
-        // 重新启动shell
-        setTimeout(() => this.startShell(), 1000);
-      });
-
-      this.process.on('error', (error) => {
-        this.sendToRenderer('error', `错误: ${error.message}`);
-      });
-
-      // 发送初始提示和提示符
+      // 发送初始提示
       this.sendToRenderer('ready', '终端已就绪');
       this.sendPrompt();
       
@@ -82,30 +48,74 @@ class TerminalManager {
   }
 
   private executeCommand(command: string) {
-    if (!this.process || !this.process.stdin) {
-      this.sendToRenderer('error', '终端进程未就绪');
+    const trimmedCommand = command.trim();
+    
+    // 处理特殊命令
+    if (trimmedCommand.startsWith('cd ')) {
+      this.handleCdCommand(trimmedCommand);
+      return;
+    }
+
+    if (trimmedCommand === 'clear' || trimmedCommand === 'cls') {
+      this.sendToRenderer('clear', '');
+      return;
+    }
+
+    if (!trimmedCommand) {
+      this.sendPrompt();
       return;
     }
 
     try {
-      // 处理特殊命令
-      const trimmedCommand = command.trim();
-      
-      if (trimmedCommand.startsWith('cd ')) {
-        this.handleCdCommand(trimmedCommand);
-        return;
-      }
+      // 使用shell执行完整命令，保持原始格式
+      const shell = process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash';
+      const commandProcess = spawn(shell, ['-c', trimmedCommand], {
+        cwd: this.currentDirectory,
+        env: {
+          ...process.env,
+          TERM: 'xterm-256color',
+          FORCE_COLOR: '1',
+        },
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
 
-      if (trimmedCommand === 'clear' || trimmedCommand === 'cls') {
-        this.sendToRenderer('clear', '');
-        return;
-      }
+      let stdout = '';
+      let stderr = '';
 
-      // 执行普通命令
-      this.process.stdin.write(command + '\n');
+      commandProcess.stdout?.setEncoding('utf8');
+      commandProcess.stderr?.setEncoding('utf8');
+
+      commandProcess.stdout?.on('data', (data) => {
+        stdout += data;
+      });
+
+      commandProcess.stderr?.on('data', (data) => {
+        stderr += data;
+      });
+
+      commandProcess.on('close', (code) => {
+        // 发送完整输出
+        if (stdout) {
+          this.sendToRenderer('stdout', stdout);
+        }
+        if (stderr) {
+          this.sendToRenderer('stderr', stderr);
+        } else if (code !== 0) {
+          this.sendToRenderer('stderr', `命令退出码: ${code}\n`);
+        }
+        
+        // 总是发送新的提示符
+        this.sendPrompt();
+      });
+
+      commandProcess.on('error', (err) => {
+        this.sendToRenderer('stderr', `bash: ${trimmedCommand}: 命令未找到 - ${err.message}\n`);
+        this.sendPrompt();
+      });
       
     } catch (error) {
-      this.sendToRenderer('error', `执行命令失败: ${error}`);
+      this.sendToRenderer('stderr', `执行命令失败: ${error}\n`);
+      this.sendPrompt();
     }
   }
 
@@ -153,7 +163,8 @@ class TerminalManager {
   }
 
   private sendPrompt() {
-    const prompt = `${this.currentDirectory.replace(os.homedir(), '~')} $ `;
+    const shortenedPath = this.currentDirectory.replace(os.homedir(), '~');
+    const prompt = `${shortenedPath} $ `;
     this.sendToRenderer('prompt', prompt);
   }
 
