@@ -1,6 +1,7 @@
 import { is } from "@electron-toolkit/utils";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import path from "path";
+import { VS_GO_EVENT } from "../../../common/EVENT";
 
 export function createTerminalWindow() {
   const window = new BrowserWindow({
@@ -21,4 +22,13 @@ export function createTerminalWindow() {
       hash: "/terminal",
     });
   }
+  ipcMain.on(VS_GO_EVENT.TERMINAL_RUN_COMMAND, (_event, command: string) => {
+    if (_event.sender === window.webContents) {
+      // 在这里处理命令执行逻辑
+      console.log("执行命令:", command);
+      // 你可以将命令发送到终端窗口进行处理
+      window.webContents.send(VS_GO_EVENT.TERMINAL_SEND_DATA, command);
+    }
+  });
+  return window;
 }
