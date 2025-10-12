@@ -181,7 +181,6 @@ export function createTerminalWindow() {
     width: 1000,
     height: 700,
     show: true,
-    titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,

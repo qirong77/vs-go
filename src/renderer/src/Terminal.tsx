@@ -64,8 +64,7 @@ export function Terminal() {
     fitAddonRef.current = fitAddon;
 
     // 显示欢迎信息
-    terminal.writeln("\x1b[1;32m欢迎使用 VS Go 终端\x1b[0m");
-    terminal.writeln("\x1b[90m正在连接到系统终端...\x1b[0m");
+    terminal.writeln("\x1b[1;32mVS Go 终端\x1b[0m");
     terminal.writeln("");
 
     // 重置状态变量
