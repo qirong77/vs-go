@@ -14,10 +14,10 @@ export function createTerminal({
   sendTerminalMessage: (data: TerminalMessage) => void;
 }) {
   // 检查桌面目录是否存在，如果不存在则使用用户主目录
-  const desktopPath = path.join(os.homedir(), 'Desktop');
+  const desktopPath = path.join(os.homedir(), "Desktop");
   let DEFAULT_ROOT_PATH: string;
   try {
-    const fs = require('fs');
+    const fs = require("fs");
     if (fs.existsSync(desktopPath) && fs.statSync(desktopPath).isDirectory()) {
       DEFAULT_ROOT_PATH = desktopPath;
     } else {
@@ -26,7 +26,7 @@ export function createTerminal({
   } catch {
     DEFAULT_ROOT_PATH = os.homedir();
   }
-  
+
   let childProcess: ChildProcess | null = null;
   let currentWorkingDirectory = DEFAULT_ROOT_PATH;
 
@@ -36,20 +36,20 @@ export function createTerminal({
     if (cdMatch) {
       const targetPath = cdMatch[1].trim();
       let newPath: string;
-      
-      if (targetPath === '~' || targetPath === '') {
+
+      if (targetPath === "~" || targetPath === "") {
         newPath = os.homedir();
-      } else if (targetPath.startsWith('~')) {
+      } else if (targetPath.startsWith("~")) {
         newPath = path.join(os.homedir(), targetPath.slice(2));
       } else if (path.isAbsolute(targetPath)) {
         newPath = targetPath;
       } else {
         newPath = path.join(currentWorkingDirectory, targetPath);
       }
-      
+
       try {
         // 检查路径是否存在
-        const fs = require('fs');
+        const fs = require("fs");
         if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
           currentWorkingDirectory = path.resolve(newPath);
           sendTerminalMessage({
@@ -91,7 +91,7 @@ export function createTerminal({
     }
 
     // 处理 pwd 命令
-    if (command.trim() === 'pwd') {
+    if (command.trim() === "pwd") {
       sendTerminalMessage({
         type: "stdout",
         content: `${currentWorkingDirectory}\n`,
@@ -104,7 +104,7 @@ export function createTerminal({
     }
 
     // 处理 clear 命令
-    if (command.trim() === 'clear' || command.trim() === 'cls') {
+    if (command.trim() === "clear" || command.trim() === "cls") {
       sendTerminalMessage({
         type: "clear",
         content: "",
@@ -123,7 +123,7 @@ export function createTerminal({
     runCommand(command = "") {
       // 如果有正在运行的进程，先终止它
       if (childProcess) {
-        childProcess.kill('SIGTERM');
+        childProcess.kill("SIGTERM");
         sendTerminalMessage({
           type: "info",
           content: "Terminated current process to execute new command\n",
@@ -150,9 +150,10 @@ export function createTerminal({
       try {
         // 执行命令
         childProcess = spawn(shell, shellArgs, {
+          detached: true,
           cwd: currentWorkingDirectory,
           stdio: "pipe",
-          env: { 
+          env: {
             ...process.env,
             PWD: currentWorkingDirectory, // 确保PWD环境变量正确
           },
@@ -185,7 +186,7 @@ export function createTerminal({
           if (signal) {
             exitMessage += `, signal: ${signal}`;
           }
-          
+
           // 如果没有输出且命令成功执行，给出提示
           if (!hasOutput && code === 0) {
             sendTerminalMessage({
@@ -193,7 +194,7 @@ export function createTerminal({
               content: "Command executed successfully (no output)\n",
             });
           }
-          
+
           sendTerminalMessage({
             type: "exit",
             content: exitMessage,
@@ -213,7 +214,7 @@ export function createTerminal({
         // 设置超时（30秒）
         const timeout = setTimeout(() => {
           if (childProcess) {
-            childProcess.kill('SIGTERM');
+            childProcess.kill("SIGTERM");
             sendTerminalMessage({
               type: "error",
               content: "Command timed out after 30 seconds\n",
@@ -221,10 +222,9 @@ export function createTerminal({
           }
         }, 30000);
 
-        childProcess.on('close', () => {
+        childProcess.on("close", () => {
           clearTimeout(timeout);
         });
-
       } catch (err) {
         sendTerminalMessage({
           type: "error",
@@ -239,7 +239,7 @@ export function createTerminal({
 
     setWorkingDirectory(newPath: string) {
       try {
-        const fs = require('fs');
+        const fs = require("fs");
         if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
           currentWorkingDirectory = path.resolve(newPath);
           return true;
@@ -252,13 +252,16 @@ export function createTerminal({
 
     killCurrentProcess() {
       if (childProcess) {
-        childProcess.kill('SIGTERM');
-        sendTerminalMessage({
-          type: "info",
-          content: "Process terminated\n",
-        });
-        childProcess = null;
-        return true;
+        if (childProcess.pid) {
+          try {
+            process.kill(-childProcess.pid, "SIGKILL"); // 负号表示终止整个进程组
+            return true;
+          } catch (error) {
+            console.log("终止进程组失败，尝试终止单个进程");
+            childProcess.kill("SIGKILL");
+            return true;
+          }
+        }
       }
       return false;
     },
@@ -266,7 +269,7 @@ export function createTerminal({
     dispose() {
       // 清理子进程
       if (childProcess) {
-        childProcess.kill('SIGTERM');
+        childProcess.kill("SIGTERM");
         childProcess = null;
       }
       sendTerminalMessage({ type: "close", content: "Terminal closed\n" });
