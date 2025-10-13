@@ -3,11 +3,14 @@ import { VS_GO_EVENT } from "../../common/EVENT";
 
 export function Terminal() {
   useEffect(() => {
-    window.electron.ipcRenderer.on(VS_GO_EVENT.TERMINAL_SEND_DATA, (data) => {
+    window.electron.ipcRenderer.on(VS_GO_EVENT.TERMINAL_SEND_DATA, (e, data) => {
       console.log("Terminal Data:", data);
     });
     setTimeout(() => {
-      window.electron.ipcRenderer.send(VS_GO_EVENT.TERMINAL_RUN_COMMAND, "ls -al");
+      window.electron.ipcRenderer.send(VS_GO_EVENT.TERMINAL_RUN_COMMAND, "ls");
+      setTimeout(() => {
+        window.electron.ipcRenderer.send(VS_GO_EVENT.TERMINAL_RUN_COMMAND, "pwd");
+      }, 1000);
     }, 1000);
   }, []);
   return (

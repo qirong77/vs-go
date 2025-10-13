@@ -26,6 +26,7 @@ export function createTerminalWindow() {
   ipcMain.on(VS_GO_EVENT.TERMINAL_RUN_COMMAND, (event, command: string) => {
     const terminal = createTerminal({
       sendTerminalMessage(data) {
+        console.log('sendTerminalMessage', data);
         window.webContents.send(VS_GO_EVENT.TERMINAL_SEND_DATA, data);
       },
     });
