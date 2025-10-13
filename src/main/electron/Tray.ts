@@ -23,9 +23,15 @@ tray.setToolTip("VsGoTray");
 
 import { MainWindowManager } from "./MainWindow/MainWindow";
 import { createBrowserSettingWindow } from "./BrowserSettingWindow";
-
+import { createTerminalWindow } from "./Terminal/TerminalWindow";
 
 const contextMenu = Menu.buildFromTemplate([
+  {
+    label: "新建终端",
+    click() {
+      createTerminalWindow();
+    },
+  },
   {
     label: "浏览器设置",
     click() {
