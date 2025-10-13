@@ -98,12 +98,12 @@ export function Terminal() {
   // 格式化路径显示
   const formatPath = useCallback((path: string) => {
     // 简单的路径缩短逻辑
-    if (path.includes('/Users/')) {
-      const parts = path.split('/');
-      const userIndex = parts.indexOf('Users');
+    if (path.includes("/Users/")) {
+      const parts = path.split("/");
+      const userIndex = parts.indexOf("Users");
       if (userIndex !== -1 && userIndex + 1 < parts.length) {
-        const remainingPath = parts.slice(userIndex + 2).join('/');
-        return remainingPath ? `~/${remainingPath}` : '~';
+        const remainingPath = parts.slice(userIndex + 2).join("/");
+        return remainingPath ? `~/${remainingPath}` : "~";
       }
     }
     return path;
@@ -125,8 +125,7 @@ export function Terminal() {
 
   const executeCommand = useCallback(
     (command: string) => {
-      if (!command.trim() || isExecuting) return;
-
+      if (!command.trim()) return;
       setIsExecuting(true);
       addMessage("command", command);
 
@@ -222,10 +221,6 @@ export function Terminal() {
     };
 
     window.electron.ipcRenderer.on(VS_GO_EVENT.TERMINAL_SEND_DATA, handleTerminalData);
-
-    // 初始化消息
-    addMessage("info", "Terminal ready. Type commands to execute.");
-
     // 获取当前工作目录
     setTimeout(() => {
       getCurrentDirectory();
@@ -264,9 +259,7 @@ export function Terminal() {
       {/* 命令输入区域 */}
       <div className="flex items-center px-4 py-2 bg-gray-800 border-t border-gray-700">
         <div className="flex items-center text-sm font-mono mr-2">
-          <span className="text-gray-400">
-            {formatPath(currentWorkingDirectory)}
-          </span>
+          <span className="text-gray-400">{formatPath(currentWorkingDirectory)}</span>
           <span className="text-blue-400 ml-1">❯</span>
         </div>
         <input
@@ -275,8 +268,7 @@ export function Terminal() {
           value={currentCommand}
           onChange={(e) => setCurrentCommand(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={isExecuting}
-          placeholder="Enter command..."
+          placeholder={isExecuting ? "Command running..." : "Type a command and press Enter"}
           className="flex-1 bg-transparent text-green-300 font-mono text-sm outline-none placeholder-gray-500 disabled:opacity-50"
         />
         <div className="flex items-center space-x-2 ml-2">
@@ -290,7 +282,7 @@ export function Terminal() {
           </div>
           <button
             onClick={() => executeCommand(currentCommand)}
-            disabled={isExecuting || !currentCommand.trim()}
+            disabled={!currentCommand.trim()}
             className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:opacity-50 rounded text-white transition-colors"
           >
             Run
