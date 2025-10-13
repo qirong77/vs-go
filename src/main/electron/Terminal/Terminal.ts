@@ -1,5 +1,6 @@
-import { spawn } from "node:child_process";
+import { spawn, ChildProcess } from "node:child_process";
 import os from "node:os";
+import path from "node:path";
 
 // 定义消息类型接口
 interface TerminalMessage {
@@ -13,44 +14,138 @@ export function createTerminal({
   sendTerminalMessage: (data: TerminalMessage) => void;
 }) {
   const DEFAULT_ROOT_PATH = os.homedir();
-  let childProcess: ReturnType<typeof spawn> | null = null;
+  let childProcess: ChildProcess | null = null;
+  let currentWorkingDirectory = DEFAULT_ROOT_PATH;
+
+  const parseCommand = (command: string) => {
+    // 处理 cd 命令
+    const cdMatch = command.match(/^cd\s+(.*)$/);
+    if (cdMatch) {
+      const targetPath = cdMatch[1].trim();
+      let newPath: string;
+      
+      if (targetPath === '~' || targetPath === '') {
+        newPath = os.homedir();
+      } else if (targetPath.startsWith('~')) {
+        newPath = path.join(os.homedir(), targetPath.slice(2));
+      } else if (path.isAbsolute(targetPath)) {
+        newPath = targetPath;
+      } else {
+        newPath = path.join(currentWorkingDirectory, targetPath);
+      }
+      
+      try {
+        // 检查路径是否存在
+        const fs = require('fs');
+        if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
+          currentWorkingDirectory = path.resolve(newPath);
+          sendTerminalMessage({
+            type: "stdout",
+            content: `Changed directory to: ${currentWorkingDirectory}\n`,
+          });
+          sendTerminalMessage({
+            type: "exit",
+            content: "命令执行完成，退出码: 0",
+          });
+          return { handled: true };
+        } else {
+          sendTerminalMessage({
+            type: "stderr",
+            content: `cd: ${targetPath}: No such file or directory\n`,
+          });
+          sendTerminalMessage({
+            type: "exit",
+            content: "命令执行完成，退出码: 1",
+          });
+          return { handled: true };
+        }
+      } catch (err) {
+        sendTerminalMessage({
+          type: "stderr",
+          content: `cd: ${(err as Error).message}\n`,
+        });
+        sendTerminalMessage({
+          type: "exit",
+          content: "命令执行完成，退出码: 1",
+        });
+        return { handled: true };
+      }
+    }
+
+    // 处理 pwd 命令
+    if (command.trim() === 'pwd') {
+      sendTerminalMessage({
+        type: "stdout",
+        content: `${currentWorkingDirectory}\n`,
+      });
+      sendTerminalMessage({
+        type: "exit",
+        content: "命令执行完成，退出码: 0",
+      });
+      return { handled: true };
+    }
+
+    // 处理 clear 命令
+    if (command.trim() === 'clear' || command.trim() === 'cls') {
+      sendTerminalMessage({
+        type: "clear",
+        content: "",
+      });
+      sendTerminalMessage({
+        type: "exit",
+        content: "命令执行完成，退出码: 0",
+      });
+      return { handled: true };
+    }
+
+    return { handled: false };
+  };
 
   return {
     runCommand(command = "") {
       // 如果有正在运行的进程，先终止它
       if (childProcess) {
-        childProcess.kill();
+        childProcess.kill('SIGTERM');
         sendTerminalMessage({
           type: "info",
-          content: "终止当前命令，执行新命令",
+          content: "Terminated current process to execute new command\n",
         });
+        childProcess = null;
       }
 
       if (!command.trim()) {
-        sendTerminalMessage({ type: "error", content: "命令不能为空" });
+        sendTerminalMessage({ type: "error", content: "Command cannot be empty\n" });
+        return;
+      }
+
+      // 检查是否是内置命令
+      const parseResult = parseCommand(command);
+      if (parseResult.handled) {
         return;
       }
 
       // 根据操作系统选择合适的 shell
-      const shell = os.platform() === "win32" ? "cmd.exe" : "/bin/sh";
-      const shellArgs = os.platform() === "win32" ? ["/c", command] : ["-c", command];
+      const isWindows = os.platform() === "win32";
+      const shell = isWindows ? "cmd.exe" : process.env.SHELL || "/bin/zsh";
+      const shellArgs = isWindows ? ["/c", command] : ["-c", command];
 
       try {
         // 执行命令
         childProcess = spawn(shell, shellArgs, {
-          cwd: DEFAULT_ROOT_PATH,
+          cwd: currentWorkingDirectory,
           stdio: "pipe",
-          env: process.env, // 继承当前环境变量
+          env: { 
+            ...process.env,
+            PWD: currentWorkingDirectory, // 确保PWD环境变量正确
+          },
+          shell: false,
         });
 
-        // 发送命令开始的消息
-        sendTerminalMessage({
-          type: "command",
-          content: `$ ${command}`,
-        });
+        let hasOutput = false;
 
         // 处理标准输出
         childProcess.stdout?.on("data", (data) => {
+          hasOutput = true;
           sendTerminalMessage({
             type: "stdout",
             content: data.toString(),
@@ -59,6 +154,7 @@ export function createTerminal({
 
         // 处理错误输出
         childProcess.stderr?.on("data", (data) => {
+          hasOutput = true;
           sendTerminalMessage({
             type: "stderr",
             content: data.toString(),
@@ -66,10 +162,23 @@ export function createTerminal({
         });
 
         // 处理命令完成事件
-        childProcess.on("close", (code) => {
+        childProcess.on("close", (code, signal) => {
+          let exitMessage = `Process exited with code: ${code}`;
+          if (signal) {
+            exitMessage += `, signal: ${signal}`;
+          }
+          
+          // 如果没有输出且命令成功执行，给出提示
+          if (!hasOutput && code === 0) {
+            sendTerminalMessage({
+              type: "stdout",
+              content: "Command executed successfully (no output)\n",
+            });
+          }
+          
           sendTerminalMessage({
             type: "exit",
-            content: `命令执行完成，退出码: ${code}`,
+            content: exitMessage,
           });
           childProcess = null;
         });
@@ -78,25 +187,71 @@ export function createTerminal({
         childProcess.on("error", (err) => {
           sendTerminalMessage({
             type: "error",
-            content: `执行命令出错: ${err.message}`,
+            content: `Failed to execute command: ${err.message}\n`,
           });
           childProcess = null;
         });
+
+        // 设置超时（30秒）
+        const timeout = setTimeout(() => {
+          if (childProcess) {
+            childProcess.kill('SIGTERM');
+            sendTerminalMessage({
+              type: "error",
+              content: "Command timed out after 30 seconds\n",
+            });
+          }
+        }, 30000);
+
+        childProcess.on('close', () => {
+          clearTimeout(timeout);
+        });
+
       } catch (err) {
         sendTerminalMessage({
           type: "error",
-          content: `创建进程失败: ${(err as Error).message}`,
+          content: `Failed to spawn process: ${(err as Error).message}\n`,
         });
       }
+    },
+
+    getCurrentDirectory() {
+      return currentWorkingDirectory;
+    },
+
+    setWorkingDirectory(newPath: string) {
+      try {
+        const fs = require('fs');
+        if (fs.existsSync(newPath) && fs.statSync(newPath).isDirectory()) {
+          currentWorkingDirectory = path.resolve(newPath);
+          return true;
+        }
+      } catch {
+        // Ignore errors
+      }
+      return false;
+    },
+
+    killCurrentProcess() {
+      if (childProcess) {
+        childProcess.kill('SIGTERM');
+        sendTerminalMessage({
+          type: "info",
+          content: "Process terminated\n",
+        });
+        childProcess = null;
+        return true;
+      }
+      return false;
     },
 
     dispose() {
       // 清理子进程
       if (childProcess) {
-        childProcess.kill();
+        childProcess.kill('SIGTERM');
         childProcess = null;
       }
-      sendTerminalMessage({ type: "close", content: "终端已关闭" });
+      sendTerminalMessage({ type: "close", content: "Terminal closed\n" });
     },
   };
 }
