@@ -13,7 +13,7 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "preview": "electron-vite preview",
     "dev": "electron-vite dev",
-    "dev:monaco": "vite --config ./monaco-markdown-dev/vite.config.ts",
+    "dev:monaco":"vite --config ./monaco-markdown-dev/vite.config.ts",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
@@ -32,8 +32,6 @@
     "@udecode/plate-heading": "^48.0.0",
     "@udecode/plate-list": "^48.0.0",
     "@udecode/plate-paragraph": "^36.0.0",
-    "@xterm/addon-fit": "^0.10.0",
-    "@xterm/addon-web-links": "^0.11.0",
     "autoprefixer": "^10.4.19",
     "cheerio": "^1.1.2",
     "electron-store": "^10.1.0",
@@ -44,8 +42,7 @@
     "slate": "^0.118.1",
     "slate-history": "^0.113.1",
     "slate-react": "^0.117.4",
-    "tailwindcss": "^3.4.3",
-    "xterm": "^5.3.0"
+    "tailwindcss": "^3.4.3"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
