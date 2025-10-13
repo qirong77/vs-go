@@ -13,7 +13,20 @@ export function createTerminal({
 }: {
   sendTerminalMessage: (data: TerminalMessage) => void;
 }) {
-  const DEFAULT_ROOT_PATH = os.homedir();
+  // 检查桌面目录是否存在，如果不存在则使用用户主目录
+  const desktopPath = path.join(os.homedir(), 'Desktop');
+  let DEFAULT_ROOT_PATH: string;
+  try {
+    const fs = require('fs');
+    if (fs.existsSync(desktopPath) && fs.statSync(desktopPath).isDirectory()) {
+      DEFAULT_ROOT_PATH = desktopPath;
+    } else {
+      DEFAULT_ROOT_PATH = os.homedir();
+    }
+  } catch {
+    DEFAULT_ROOT_PATH = os.homedir();
+  }
+  
   let childProcess: ChildProcess | null = null;
   let currentWorkingDirectory = DEFAULT_ROOT_PATH;
 
@@ -42,6 +55,11 @@ export function createTerminal({
           sendTerminalMessage({
             type: "stdout",
             content: `Changed directory to: ${currentWorkingDirectory}\n`,
+          });
+          // 发送更新的工作目录给前端
+          sendTerminalMessage({
+            type: "cwd",
+            content: currentWorkingDirectory,
           });
           sendTerminalMessage({
             type: "exit",

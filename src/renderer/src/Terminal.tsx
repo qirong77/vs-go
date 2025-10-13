@@ -95,6 +95,20 @@ export function Terminal() {
   const [currentWorkingDirectory, setCurrentWorkingDirectory] = useState("~");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 格式化路径显示
+  const formatPath = useCallback((path: string) => {
+    // 简单的路径缩短逻辑
+    if (path.includes('/Users/')) {
+      const parts = path.split('/');
+      const userIndex = parts.indexOf('Users');
+      if (userIndex !== -1 && userIndex + 1 < parts.length) {
+        const remainingPath = parts.slice(userIndex + 2).join('/');
+        return remainingPath ? `~/${remainingPath}` : '~';
+      }
+    }
+    return path;
+  }, []);
+
   const addMessage = useCallback((type: string, content: string) => {
     setMessages((prev) => [...prev, { type, content, timestamp: Date.now() }]);
   }, []);
@@ -250,7 +264,9 @@ export function Terminal() {
       {/* 命令输入区域 */}
       <div className="flex items-center px-4 py-2 bg-gray-800 border-t border-gray-700">
         <div className="flex items-center text-sm font-mono mr-2">
-          <span className="text-gray-400">{currentWorkingDirectory}</span>
+          <span className="text-gray-400">
+            {formatPath(currentWorkingDirectory)}
+          </span>
           <span className="text-blue-400 ml-1">❯</span>
         </div>
         <input
@@ -271,20 +287,6 @@ export function Terminal() {
             >
               Clear
             </button>
-            {isExecuting && (
-              <>
-                <button
-                  onClick={interruptCommand}
-                  className="px-2 py-1 text-xs bg-red-600 hover:bg-red-500 rounded text-white"
-                >
-                  Interrupt
-                </button>
-                <div className="flex items-center space-x-1 text-yellow-400">
-                  <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-                  <span className="text-xs">Running...</span>
-                </div>
-              </>
-            )}
           </div>
           <button
             onClick={() => executeCommand(currentCommand)}
