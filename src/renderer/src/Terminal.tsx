@@ -135,9 +135,9 @@ export function Terminal() {
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
         executeCommand(currentCommand);
-        window.requestIdleCallback(()=>{
-          inputRef.current?.focus()
-        })
+        window.requestIdleCallback(() => {
+          inputRef.current?.focus();
+        });
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         if (historyIndex < commandHistory.length - 1) {
@@ -200,6 +200,9 @@ export function Terminal() {
       addMessage(type, content || "");
 
       if (type === "exit" || type === "error") {
+        window.requestIdleCallback(() => {
+          inputRef.current?.focus();
+        });
         setIsExecuting(false);
       }
     };
@@ -227,14 +230,27 @@ export function Terminal() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col bg-gray-900 text-green-300" onClick={()=> inputRef.current?.focus()}>
+    <div
+      className="h-full flex flex-col bg-gray-900 text-green-300"
+      onClick={() => {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) {
+          inputRef.current?.focus();
+        }
+      }}
+    >
+      <style>{`
+      #root {
+      height: 100vh;
+      }
+      `}</style>
       {/* 终端输出区域 */}
       <TerminalOutput messages={messages} />
-    
+
       {/* 命令输入区域 */}
       <div className="flex items-center px-4 py-2 bg-gray-800 border-t border-gray-700">
         <div className="flex items-center text-sm font-mono mr-2">
-          <span className="text-gray-400">{currentWorkingDirectory.split("/").pop() || "~"}</span>
+          <span className="text-gray-400">{currentWorkingDirectory}</span>
           <span className="text-blue-400 ml-1">❯</span>
         </div>
         <input
@@ -249,7 +265,6 @@ export function Terminal() {
         />
         <div className="flex items-center space-x-2 ml-2">
           <div className="flex items-center space-x-2">
-            <span className="text-xs text-gray-400 font-mono">{currentWorkingDirectory}</span>
             <button
               onClick={clearTerminal}
               className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
