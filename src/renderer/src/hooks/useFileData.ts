@@ -22,7 +22,7 @@ export function useFileData(searchValue: string) {
     const newShowFiles = allFiles
       .filter((file) => {
         const fName = normalizeStr(file.fileName);
-        return fName.includes(searchValue.trim());
+        return fName.includes(searchValue.trim()) || file.browser?.url.includes(searchValue.trim());
       })
       .sort((file1, file2) => {
         const f1Name = normalizeStr(file1.fileName);
@@ -50,11 +50,13 @@ export function useFileData(searchValue: string) {
         
         const f1TimeBonus = f1AccessTime > 0 && (now - f1AccessTime) < oneWeek ? 20 : 0;
         const f2TimeBonus = f2AccessTime > 0 && (now - f2AccessTime) < oneWeek ? 20 : 0;
-        
+
+        const f1UrlScore = file1.browser?.url.includes(normalizedSearch) ? 1 : 0;
+        const f2UrlScore = file2.browser?.url.includes(normalizedSearch) ? 1 : 0;
         // 综合分数：搜索匹配度 + 时间加权
-        const f1TotalScore = f1NameScore + f1TimeBonus;
-        const f2TotalScore = f2NameScore + f2TimeBonus;
-        
+        const f1TotalScore = f1NameScore + f1TimeBonus + f1UrlScore;
+        const f2TotalScore = f2NameScore + f2TimeBonus + f2UrlScore;
+
         // 如果综合分数相同，则按最后访问时间排序
         if (f1TotalScore === f2TotalScore) {
           return f2AccessTime - f1AccessTime;

@@ -76,6 +76,8 @@ function App() {
   };
   useEffect(() => {
     window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, () => {
+      setInput("");
+      setActive(0);
       inputRef.current?.focus();
     });
     return () => {
