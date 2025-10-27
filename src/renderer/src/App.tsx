@@ -61,17 +61,6 @@ function App() {
         setActive(0);
         return;
       }
-      const isUrl = /^(http|https):\/\/[^ "]+$/.test(input);
-      if (isUrl) {
-        window.electron.ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, {
-          url: input.trim(),
-          name: input.trim(),
-          id: new Date().getTime() + "",
-        });
-        setInput("");
-        setActive(0);
-        return;
-      }
     }
   };
   useEffect(() => {

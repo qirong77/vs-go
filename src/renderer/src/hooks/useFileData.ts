@@ -66,19 +66,20 @@ export function useFileData(searchValue: string) {
     const extra: IMainWindowFiles = [];
     const isUrl = /^(http|https):\/\/[^ "]+$/.test(searchValue);
     const googleSearchUrl = "https://www.google.com/search?q=" + searchValue;
+    const name = isUrl ? "打开链接🔗: " + searchValue : "搜索🔍: " + searchValue
     extra.push({
-      fileName: "",
+      fileName: name,
       filePath: "",
       useAppBase64: "",
       iconBase64: "",
       browser: {
-        name: isUrl ? "打开链接🔗: " + searchValue : "搜索🔍: " + searchValue,
+        name,
         url: isUrl ? searchValue : googleSearchUrl,
         id: new Date().toLocaleString(),
         type: "history",
       },
     });
-    setShowFiles(newShowFiles);
+    setShowFiles([...newShowFiles,...extra]);
   }, [searchValue, allFiles]);
   return { showFiles, updateAllFiles };
 }
