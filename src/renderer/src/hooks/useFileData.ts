@@ -6,7 +6,6 @@ import pinyin from "pinyin";
 export function useFileData(searchValue: string) {
   const [allFiles, setAllFiles] = useState<IMainWindowFiles>([]);
   const [showFiles, setShowFiles] = useState<IMainWindowFiles>([]);
-
   const updateAllFiles = useCallback(() => {
     window.electron.ipcRenderer.invoke(VS_GO_EVENT.GET_FILES_LIST).then((res) => {
       setAllFiles(res);
@@ -28,28 +27,28 @@ export function useFileData(searchValue: string) {
         const f1Name = normalizeStr(file1.fileName);
         const f2Name = normalizeStr(file2.fileName);
         const normalizedSearch = searchValue.trim();
-        
+
         // 如果没有搜索内容，仅按最后访问时间排序
         if (!normalizedSearch) {
           const f1AccessTime = file1.lastAccessTime || 0;
           const f2AccessTime = file2.lastAccessTime || 0;
           return f2AccessTime - f1AccessTime; // 最近访问的排在前面
         }
-        
+
         // 计算搜索匹配度分数
         const f1Index = f1Name.indexOf(normalizedSearch);
         const f2Index = f2Name.indexOf(normalizedSearch);
         const f1NameScore = f1Index === -1 ? 0 : 100 - f1Index;
         const f2NameScore = f2Index === -1 ? 0 : 100 - f2Index;
-        
+
         // 计算访问时间权重（最近7天内的访问会获得额外加权）
         const now = Date.now();
         const oneWeek = 7 * 24 * 60 * 60 * 1000;
         const f1AccessTime = file1.lastAccessTime || 0;
         const f2AccessTime = file2.lastAccessTime || 0;
-        
-        const f1TimeBonus = f1AccessTime > 0 && (now - f1AccessTime) < oneWeek ? 20 : 0;
-        const f2TimeBonus = f2AccessTime > 0 && (now - f2AccessTime) < oneWeek ? 20 : 0;
+
+        const f1TimeBonus = f1AccessTime > 0 && now - f1AccessTime < oneWeek ? 20 : 0;
+        const f2TimeBonus = f2AccessTime > 0 && now - f2AccessTime < oneWeek ? 20 : 0;
 
         const f1UrlScore = file1.browser?.url.includes(normalizedSearch) ? 1 : 0;
         const f2UrlScore = file2.browser?.url.includes(normalizedSearch) ? 1 : 0;
@@ -61,9 +60,24 @@ export function useFileData(searchValue: string) {
         if (f1TotalScore === f2TotalScore) {
           return f2AccessTime - f1AccessTime;
         }
-        
+
         return f2TotalScore - f1TotalScore;
       });
+    const extra: IMainWindowFiles = [];
+    const isUrl = /^(http|https):\/\/[^ "]+$/.test(searchValue);
+    const googleSearchUrl = "https://www.google.com/search?q=" + searchValue;
+    extra.push({
+      fileName: "",
+      filePath: "",
+      useAppBase64: "",
+      iconBase64: "",
+      browser: {
+        name: isUrl ? "打开链接🔗: " + searchValue : "搜索🔍: " + searchValue,
+        url: isUrl ? searchValue : googleSearchUrl,
+        id: new Date().toLocaleString(),
+        type: "history",
+      },
+    });
     setShowFiles(newShowFiles);
   }, [searchValue, allFiles]);
   return { showFiles, updateAllFiles };
