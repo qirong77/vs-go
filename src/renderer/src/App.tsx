@@ -161,11 +161,6 @@ function App() {
           })}
         </ul>
       </div>
-      {/* <IfComponent condition={!!browserItem?.url}>
-                <div style={{ border: "1px solid #eee" }}>
-                    <iframe src={browserItem?.url} style={{ width: "100%", minHeight: "500px" }}></iframe>
-                </div>
-            </IfComponent> */}
     </div>
   );
 }
