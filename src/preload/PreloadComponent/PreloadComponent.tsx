@@ -38,7 +38,7 @@ const PreLoadComponent: React.FC = () => {
 
   useEffect(() => {
     const handleDevToolsShortKey = (e: KeyboardEvent) => {
-      console.log(e)
+      console.log(e);
       // if (e.key === "F12" || (e.key === "I" && e.ctrlKey && e.altKey)) {
       //   ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_TOGGLE_DEVTOOLS);
       // }
@@ -91,7 +91,10 @@ const PreLoadComponent: React.FC = () => {
     // 监听导航状态变化
     ipcRenderer.on(
       "navigation-state-changed",
-      (_event, { canGoBack, canGoForward, url }: { canGoBack: boolean; canGoForward: boolean; url: string }) => {
+      (
+        _event,
+        { canGoBack, canGoForward, url }: { canGoBack: boolean; canGoForward: boolean; url: string }
+      ) => {
         setCurrentUrl(url);
         setCanGoBack(canGoBack);
         setCanGoForward(canGoForward);

@@ -1,12 +1,12 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from "vite";
 
 export default defineConfig({
-  root: './monaco-markdown-dev',
+  root: "./monaco-markdown-dev",
   server: {
     port: 5173,
-    open: true
+    open: true,
   },
   build: {
-    outDir: '../dist-monaco-dev'
-  }
-})
+    outDir: "../dist-monaco-dev",
+  },
+});

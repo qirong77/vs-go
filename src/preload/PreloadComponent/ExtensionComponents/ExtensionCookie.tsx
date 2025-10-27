@@ -67,9 +67,9 @@ export const ExtensionCookie: React.FC = () => {
       );
 
       if (result.success) {
-        showToast({ 
-          message: `Cookie 应用成功，设置了 ${result.count} 个cookie，即将刷新页面...`, 
-          type: "success" 
+        showToast({
+          message: `Cookie 应用成功，设置了 ${result.count} 个cookie，即将刷新页面...`,
+          type: "success",
         });
         // 延迟刷新以显示成功消息
         setTimeout(() => {
@@ -138,8 +138,6 @@ export const ExtensionCookie: React.FC = () => {
         }
       `}</style>
       <div style={{ width: "400px", maxHeight: "500px", overflow: "scroll", position: "relative" }}>
-
-
         <h3 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: 600, color: "#1f2937" }}>
           Cookie 管理
         </h3>

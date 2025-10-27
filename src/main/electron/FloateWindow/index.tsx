@@ -1,4 +1,4 @@
-import { BrowserWindow,  session } from "electron";
+import { BrowserWindow, session } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
@@ -15,12 +15,14 @@ session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
   }
   // 处理 Content-Security-Policy 头
   if (responseHeaders["content-security-policy"] || responseHeaders["Content-Security-Policy"]) {
-    responseHeaders['content-security-policy'] = ["default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"];
+    responseHeaders["content-security-policy"] = [
+      "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;",
+    ];
   }
   callback({ cancel: false, responseHeaders });
 });
-function createFloatingWindow(url:string) {
-  if(!url) {
+function createFloatingWindow(url: string) {
+  if (!url) {
     showErrorDialog("无法创建浮动窗口，URL 为空");
     throw new Error("URL is empty");
     return;

@@ -3,6 +3,7 @@
 ## 🎉 已完成的功能
 
 ### 1. 现代化终端界面 UI
+
 - ✅ 仿 macOS 终端的美观界面设计
 - ✅ 深色主题配色（黑色背景，绿色文字）
 - ✅ 终端窗口控制按钮（红、黄、绿圆点）
@@ -11,6 +12,7 @@
 - ✅ ANSI 颜色支持，正确显示彩色输出
 
 ### 2. 完整的命令交互功能
+
 - ✅ 命令输入框，支持实时输入
 - ✅ Enter 键执行命令
 - ✅ 命令历史记录（上下箭头浏览历史）
@@ -18,6 +20,7 @@
 - ✅ 实时输出显示（stdout, stderr 分别着色）
 
 ### 3. 键盘快捷键支持
+
 - ✅ `↑ ↓` - 浏览命令历史
 - ✅ `Enter` - 执行命令
 - ✅ `Ctrl+C` - 中断正在运行的命令
@@ -25,18 +28,21 @@
 - ✅ `Tab` - 命令补全（预留功能）
 
 ### 4. 内置命令支持
+
 - ✅ `cd` - 切换目录（支持相对路径、绝对路径、~）
 - ✅ `pwd` - 显示当前工作目录
 - ✅ `clear` / `cls` - 清空终端
 - ✅ 目录状态持久化（cd 后其他命令在新目录执行）
 
 ### 5. 进程管理功能
+
 - ✅ 命令超时控制（30秒）
 - ✅ 进程中断支持
 - ✅ 多窗口支持（每个终端窗口独立会话）
 - ✅ 优雅的进程清理
 
 ### 6. 用户体验增强
+
 - ✅ 自动聚焦输入框
 - ✅ 自动滚动到最新输出
 - ✅ 运行状态指示（动画、按钮状态）
@@ -46,18 +52,21 @@
 ## 🏗️ 技术实现
 
 ### 前端 (React + TypeScript)
+
 - 使用 React Hooks 进行状态管理
 - TypeScript 确保类型安全
 - Tailwind CSS 实现美观界面
 - ansi-to-html 库处理终端颜色输出
 
 ### 后端 (Electron 主进程)
+
 - Node.js child_process.spawn 执行命令
 - IPC 通信实现前后端数据交换
 - 工作目录状态管理
 - 跨平台 shell 支持（zsh/bash/cmd）
 
 ### 架构设计
+
 ```
 ┌─────────────────┐    IPC Events    ┌──────────────────┐
 │   Terminal.tsx  │ ◄──────────────► │ TerminalWindow.ts│
@@ -74,6 +83,7 @@
 ## 🎯 使用方法
 
 1. **启动应用**
+
    ```bash
    npm run dev
    ```
@@ -83,24 +93,25 @@
    - 或通过 URL: `http://localhost:5174/#/terminal`
 
 3. **基本操作**
+
    ```bash
    # 查看当前目录
    pwd
-   
+
    # 切换目录
    cd /path/to/directory
    cd ~/Documents
    cd ..
-   
+
    # 列出文件
    ls -la
-   
+
    # 执行 Git 命令
    git status
-   
+
    # 运行 Node.js
    node -v
-   
+
    # 清空终端
    clear
    ```
@@ -114,12 +125,14 @@
 ## 🔧 配置项
 
 ### 终端设置
+
 - 工作目录: 默认为用户主目录
 - Shell: macOS/Linux 使用 zsh/bash，Windows 使用 cmd
 - 超时时间: 30秒
 - 历史记录: 100条
 
 ### 窗口设置
+
 - 默认尺寸: 1200x800
 - 最小尺寸: 800x600
 - 支持调整大小
@@ -146,12 +159,14 @@
 ## 📝 代码文件说明
 
 ### 主要文件
+
 - `src/renderer/src/Terminal.tsx` - 终端 UI 组件
 - `src/main/electron/Terminal/Terminal.ts` - 终端逻辑处理
 - `src/main/electron/Terminal/TerminalWindow.ts` - 窗口管理
 - `src/common/EVENT.ts` - IPC 事件定义
 
 ### 依赖包
+
 - `ansi-to-html` - 处理终端颜色输出
 - `electron` - 跨平台桌面应用框架
 - `react` - 前端 UI 框架

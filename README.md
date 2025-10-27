@@ -33,30 +33,35 @@ VsGo 是一个基于 Electron 构建的桌面应用程序，旨在提升开发�
 ## 🎯 主要功能
 
 ### 1. 文件管理与快速访问
+
 - 智能扫描桌面和项目目录中的文件和文件夹
 - 支持通过 VS Code 或 Finder 打开文件
 - 文件访问历史记录，常用文件优先显示
 - 支持应用程序快速启动
 
 ### 2. 浮动浏览器窗口
+
 - 创建独立的浏览器窗口，不干扰主要工作流程
 - 支持网页导航，前进、后退功能
 - 自动保存浏览历史和书签
 - 始终置顶，方便参考
 
 ### 3. 书签管理系统
+
 - 从浏览器导入书签（支持 HTML 格式）
 - 智能去重，避免重复添加
 - 支持书签搜索和快速访问
 - 自动记录网站标题和图标
 
 ### 4. Cookie 管理工具
+
 - 保存和管理特定网站的 Cookie
 - 支持按 URL 和域名分类存储
 - 便于开发调试和测试
 - 安全的本地存储
 
 ### 5. 笔记功能
+
 - 基于 Slate.js 的富文本编辑器
 - 支持网页相关笔记记录
 - 自动保存，防止数据丢失
@@ -65,6 +70,7 @@ VsGo 是一个基于 Electron 构建的桌面应用程序，旨在提升开发�
 ## 🛠️ 技术栈
 
 ### 前端技术
+
 - **Electron** - 跨平台桌面应用框架
 - **React** - 用户界面构建
 - **TypeScript** - 类型安全的 JavaScript
@@ -72,11 +78,13 @@ VsGo 是一个基于 Electron 构建的桌面应用程序，旨在提升开发�
 - **Slate.js** - 富文本编辑器框架
 
 ### 构建工具
+
 - **Electron Vite** - 现代化的 Electron 构建工具
 - **Electron Builder** - 应用打包和分发
 - **ESLint & Prettier** - 代码质量和格式化
 
 ### 核心依赖
+
 - **electron-store** - 数据持久化存储
 - **electron-updater** - 自动更新功能
 - **cheerio** - HTML 解析（书签导入）
@@ -93,30 +101,34 @@ VsGo 是一个基于 Electron 构建的桌面应用程序，旨在提升开发�
 ### 安装步骤
 
 1. **克隆项目**
+
    ```bash
    git clone https://github.com/qirong77/vs-go.git
    cd vs-go
    ```
 
 2. **安装依赖**
+
    ```bash
    npm install
    ```
 
 3. **开发模式启动**
+
    ```bash
    npm run dev
    ```
 
 4. **构建应用**
+
    ```bash
-   
+
    # 构建 macOS 版
    npm run build:mac
-   
+
    # 构建 Windows 版
    npm run build:win
-   
+
    # 构建 Linux 版
    npm run build:linux
    ```
@@ -140,6 +152,7 @@ VsGo 是一个基于 Electron 构建的桌面应用程序，旨在提升开发�
 ### 配置文件
 
 应用会自动创建配置目录和默认工作空间：
+
 - **工作空间目录**: `~/Desktop/VsGo-Projects`
 - **配置文件**: 自动扫描 `.zshrc` 和 `.zprofile`
 - **VS Code 路径**: `/Applications/Visual Studio Code.app`

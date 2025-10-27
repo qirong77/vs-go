@@ -8,7 +8,7 @@ export default defineConfig(({ command, mode }) => {
   // `PRELOAD_VITE_` and `RENDERER_VITE_` are loaded,
   // unless the third parameter `prefixes` is changed.
   const env = loadEnv(mode);
-  console.log(env)
+  console.log(env);
   return {
     main: {
       envPrefix: "M_VITE_",

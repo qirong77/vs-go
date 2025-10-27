@@ -169,8 +169,6 @@ export const cookieByUrlStore = {
   },
 };
 
-
-
 // 文件访问历史存储方法
 export const fileAccessStore = {
   getFileAccessHistory(): Record<string, number> {

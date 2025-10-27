@@ -11,7 +11,7 @@ export function createTerminalWindow() {
     minWidth: 800,
     minHeight: 600,
     show: true,
-    titleBarStyle: 'default',
+    titleBarStyle: "default",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -52,7 +52,7 @@ export function createTerminalWindow() {
       const killed = terminal.killCurrentProcess();
       window.webContents.send(VS_GO_EVENT.TERMINAL_SEND_DATA, {
         type: killed ? "info" : "error",
-        content: killed ? "Process interrupted\n" : "No process to interrupt\n"
+        content: killed ? "Process interrupted\n" : "No process to interrupt\n",
       });
     }
   };
@@ -63,7 +63,7 @@ export function createTerminalWindow() {
       const cwd = terminal.getCurrentDirectory();
       window.webContents.send(VS_GO_EVENT.TERMINAL_SEND_DATA, {
         type: "cwd",
-        content: cwd
+        content: cwd,
       });
     }
   };
@@ -74,7 +74,7 @@ export function createTerminalWindow() {
   ipcMain.on(VS_GO_EVENT.TERMINAL_GET_CWD, handleGetCurrentDirectory);
 
   // 窗口关闭时清理
-  window.on('closed', () => {
+  window.on("closed", () => {
     terminal.dispose();
     // 移除事件监听器
     ipcMain.removeListener(VS_GO_EVENT.TERMINAL_RUN_COMMAND, handleTerminalCommand);
@@ -83,11 +83,11 @@ export function createTerminalWindow() {
   });
 
   // 发送初始工作目录
-  window.webContents.once('dom-ready', () => {
+  window.webContents.once("dom-ready", () => {
     setTimeout(() => {
       window.webContents.send(VS_GO_EVENT.TERMINAL_SEND_DATA, {
         type: "cwd",
-        content: terminal.getCurrentDirectory()
+        content: terminal.getCurrentDirectory(),
       });
     }, 500);
   });

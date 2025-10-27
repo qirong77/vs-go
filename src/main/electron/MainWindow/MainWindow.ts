@@ -37,11 +37,11 @@ function createMainWindow() {
       window.webContents.toggleDevTools();
     }
   });
-  window.on('maximize', () => {
+  window.on("maximize", () => {
     dialog.showMessageBox({
-      type: 'info',
-      message: 'Main窗口被最大化了！',
-      buttons: ['确定']
+      type: "info",
+      message: "Main窗口被最大化了！",
+      buttons: ["确定"],
     });
   });
   // 在docker栏隐藏,支持浮动

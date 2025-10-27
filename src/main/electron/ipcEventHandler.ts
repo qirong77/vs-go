@@ -7,7 +7,14 @@ import { execSync } from "child_process";
 import { getMainWindowFiles } from "./MainWindow/MainWindowFileManager";
 import { existsSync, readFileSync } from "fs";
 import { vscodeBase64 } from "../../common/vscodeBase64";
-import { BrowserItem, vsgoStore, cookieStore, cookieByUrlStore, fileAccessStore, monacoNotesStore } from "./store";
+import {
+  BrowserItem,
+  vsgoStore,
+  cookieStore,
+  cookieByUrlStore,
+  fileAccessStore,
+  monacoNotesStore,
+} from "./store";
 import { FloatingWindowManager } from "./FloateWindow";
 import { MainWindowManager } from "./MainWindow/MainWindow";
 
@@ -46,10 +53,10 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
     dialog.showErrorBox("文件不存在", `${filePath} 不存在`);
     return;
   }
-  
+
   // 记录文件访问时间
   fileAccessStore.updateFileAccessTime(filePath);
-  
+
   const isApp = file.filePath.includes("Applications");
   if (isApp) {
     const command = `open ${file.filePath}`;
@@ -109,7 +116,7 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_UPDATE, async (_event, arg) => {
 ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_CREATE, (_e, arg: BrowserItem) => {
   // 记录浏览器访问时间
   fileAccessStore.updateFileAccessTime(arg.url);
-  
+
   FloatingWindowManager.createFloatingWindow(arg.url);
   MainWindowManager.hide();
 });
@@ -389,15 +396,17 @@ ipcMain.handle("monaco-markdown-editor-get-content", async (_event, url?: string
   }
 });
 
-ipcMain.handle("monaco-markdown-editor-content-changed", async (_event, content: string, url?: string) => {
-  try {
-    const key = url || "global";
-    monacoNotesStore.saveMonacoNote(key, content);
-    console.log(`笔记已保存 ${key}:`, content.length + " 字符");
-    return { success: true };
-  } catch (error) {
-    console.error("保存笔记内容失败:", error);
-    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
+ipcMain.handle(
+  "monaco-markdown-editor-content-changed",
+  async (_event, content: string, url?: string) => {
+    try {
+      const key = url || "global";
+      monacoNotesStore.saveMonacoNote(key, content);
+      console.log(`笔记已保存 ${key}:`, content.length + " 字符");
+      return { success: true };
+    } catch (error) {
+      console.error("保存笔记内容失败:", error);
+      return { success: false, error: error instanceof Error ? error.message : "未知错误" };
+    }
   }
-});
-
+);

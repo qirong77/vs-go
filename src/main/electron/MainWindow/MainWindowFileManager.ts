@@ -15,13 +15,13 @@ export async function getMainWindowFiles() {
     return { fileName: item.name, filePath: item.url, browser: { ...item } };
   });
   const files = [...getWorkSpaceFiles(), ...getZshFile(), ...terminal, ...app, ..._browserList];
-  
+
   // 为所有文件添加最后访问时间信息
-  const filesWithAccessTime = files.map(file => ({
+  const filesWithAccessTime = files.map((file) => ({
     ...file,
-    lastAccessTime: fileAccessStore.getFileAccessTime(file.filePath)
+    lastAccessTime: fileAccessStore.getFileAccessTime(file.filePath),
   }));
-  
+
   return filesWithAccessTime;
 }
 
