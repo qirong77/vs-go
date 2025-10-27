@@ -3,28 +3,11 @@ import { ExtensionPopover } from "./ExtensionPopover";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { SavedCookieByUrl } from "../../../common/type";
 import { ipcRenderer } from "electron";
-
-interface ToastMessage {
-  id: string;
-  message: string;
-  type: "success" | "error" | "info";
-}
+import { showToast } from "../../utils/toast";
 
 export const ExtensionCookie: React.FC = () => {
   const [savedCookies, setSavedCookies] = useState<SavedCookieByUrl[]>([]);
   const [loading, setLoading] = useState(false);
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  // Toast 消息系统
-  const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
-    const id = Math.random().toString(36).slice(2);
-    const toast: ToastMessage = { id, message, type };
-    setToasts((prev) => [...prev, toast]);
-
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
-  };
 
   // 获取已保存的 Cookie 列表
   const loadSavedCookies = async () => {
@@ -45,13 +28,13 @@ export const ExtensionCookie: React.FC = () => {
 
       if (result.success) {
         await loadSavedCookies();
-        showToast("成功保存当前页面的所有 Cookie", "success");
+        showToast({ message: "成功保存当前页面的所有 Cookie", type: "success" });
       } else {
-        showToast(result.error || "保存 Cookie 失败", "error");
+        showToast({ message: result.error || "保存 Cookie 失败", type: "error" });
       }
     } catch (error) {
       console.error("保存 Cookie 失败:", error);
-      showToast("保存 Cookie 失败，请稍后重试", "error");
+      showToast({ message: "保存 Cookie 失败，请稍后重试", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -63,13 +46,13 @@ export const ExtensionCookie: React.FC = () => {
       const result = await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_DELETE_BY_URL, cookieId);
       if (result.success) {
         await loadSavedCookies();
-        showToast("Cookie 删除成功", "success");
+        showToast({ message: "Cookie 删除成功", type: "success" });
       } else {
-        showToast("删除 Cookie 失败", "error");
+        showToast({ message: "删除 Cookie 失败", type: "error" });
       }
     } catch (error) {
       console.error("删除 Cookie 失败:", error);
-      showToast("删除 Cookie 失败，请稍后重试", "error");
+      showToast({ message: "删除 Cookie 失败，请稍后重试", type: "error" });
     }
   };
 
@@ -84,17 +67,20 @@ export const ExtensionCookie: React.FC = () => {
       );
 
       if (result.success) {
-        showToast(`Cookie 应用成功，设置了 ${result.count} 个cookie，即将刷新页面...`, "success");
+        showToast({ 
+          message: `Cookie 应用成功，设置了 ${result.count} 个cookie，即将刷新页面...`, 
+          type: "success" 
+        });
         // 延迟刷新以显示成功消息
         setTimeout(() => {
           window.location.reload();
         }, 1000);
       } else {
-        showToast(`应用 Cookie 失败: ${result.error}`, "error");
+        showToast({ message: `应用 Cookie 失败: ${result.error}`, type: "error" });
       }
     } catch (error) {
       console.error("应用 Cookie 失败:", error);
-      showToast("应用 Cookie 失败，请稍后重试", "error");
+      showToast({ message: "应用 Cookie 失败，请稍后重试", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -112,10 +98,10 @@ export const ExtensionCookie: React.FC = () => {
         await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_DELETE_BY_URL, cookie.id);
       }
       await loadSavedCookies();
-      showToast("所有 Cookie 已清除", "success");
+      showToast({ message: "所有 Cookie 已清除", type: "success" });
     } catch (error) {
       console.error("清除 Cookie 失败:", error);
-      showToast("清除 Cookie 失败，请稍后重试", "error");
+      showToast({ message: "清除 Cookie 失败，请稍后重试", type: "error" });
     }
   };
 
@@ -128,10 +114,10 @@ export const ExtensionCookie: React.FC = () => {
       };
 
       await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
-      showToast("Cookie 数据已复制到剪贴板", "success");
+      showToast({ message: "Cookie 数据已复制到剪贴板", type: "success" });
     } catch (error) {
       console.error("导出 Cookie 失败:", error);
-      showToast("导出失败，请稍后重试", "error");
+      showToast({ message: "导出失败，请稍后重试", type: "error" });
     }
   };
 
@@ -143,16 +129,6 @@ export const ExtensionCookie: React.FC = () => {
   const cookieContent = (
     <>
       <style>{`
-        @keyframes slideIn {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
         .cookie-item:hover {
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
           transform: translateY(-1px);
@@ -162,33 +138,7 @@ export const ExtensionCookie: React.FC = () => {
         }
       `}</style>
       <div style={{ width: "400px", maxHeight: "500px", overflow: "scroll", position: "relative" }}>
-        {/* Toast 消息 */}
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            style={{
-              position: "fixed",
-              top: "20px",
-              right: "20px",
-              padding: "12px 16px",
-              borderRadius: "6px",
-              color: "white",
-              fontSize: "14px",
-              zIndex: 10000,
-              minWidth: "200px",
-              background:
-                toast.type === "success"
-                  ? "#10b981"
-                  : toast.type === "error"
-                    ? "#ef4444"
-                    : "#3b82f6",
-              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-              animation: "slideIn 0.3s ease-out",
-            }}
-          >
-            {toast.message}
-          </div>
-        ))}
+
 
         <h3 style={{ margin: "0 0 16px 0", fontSize: "16px", fontWeight: 600, color: "#1f2937" }}>
           Cookie 管理

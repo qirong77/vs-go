@@ -2,6 +2,7 @@ import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 import ReactDOM from "react-dom/client";
 import PreLoadComponent from "./PreloadComponent/PreloadComponent";
+import { autoLogin } from "./PreloadComponent/autoLogin";
 
 // Custom APIs for renderer
 const api = {};
@@ -48,4 +49,5 @@ window.addEventListener("load", () => {
   document.body.style.height = "auto";
   const rootInstance = ReactDOM.createRoot(root);
   rootInstance.render(<PreLoadComponent />);
+  autoLogin();
 });
