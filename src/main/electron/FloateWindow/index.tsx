@@ -3,6 +3,7 @@ import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { handleFloatWindowWebContentEvents } from "./registerFloatWindowEvents";
+import { showErrorDialog } from "../Dialog";
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
 session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -18,7 +19,12 @@ session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
   }
   callback({ cancel: false, responseHeaders });
 });
-function createFloatingWindow(url = "https://www.baidu.com") {
+function createFloatingWindow(url:string) {
+  if(!url) {
+    showErrorDialog("无法创建浮动窗口，URL 为空");
+    throw new Error("URL is empty");
+    return;
+  }
   const oldWindow = floatingWindows.find(
     (win) => !win.isDestroyed() && win.webContents.getURL() === url
   );
@@ -46,6 +52,7 @@ function createFloatingWindow(url = "https://www.baidu.com") {
   handleFloatWindowWebContentEvents({
     floatingWindow,
     url,
+    // @ts-ignore
     createFloatingWindow,
   });
   floatingWindow.on("close", () => {
@@ -83,7 +90,6 @@ function ShowAllFloatingWindows() {
   });
   const lastWindow = floatingWindows[floatingWindows.length - 1];
   lastWindow.webContents.send(VS_GO_EVENT.FLOATING_WINDOW_FOCUS_INPUT);
-  createFloatingWindow()
   lastWindow.show();
 }
 function toggleFloatingWindowVisible() {
