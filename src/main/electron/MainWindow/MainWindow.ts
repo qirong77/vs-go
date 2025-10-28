@@ -75,9 +75,7 @@ function toggleIsShowMainWindow() {
     showWindowOnCurrentDesktop();
   }
 }
-function toogleDevTools() {
-  _mainWindow.isVisible() && _mainWindow.webContents.toggleDevTools();
-}
+
 
 function setWindowSize(w: number, h: number) {
   _mainWindow.setSize(w, h);
@@ -92,7 +90,6 @@ function getMainWindow() {
 }
 export const MainWindowManager = {
   toggleIsShowMainWindow,
-  toogleDevTools,
   getMainWindow,
   hide,
   setWindowSize,

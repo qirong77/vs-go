@@ -130,9 +130,9 @@ function App() {
                 {file.browser && <span className="ml-1 text-lg">🌐</span>}
                 <span className="text-lg pl-[8px] flex-1 overflow-hidden text-ellipsis flex items-center flex-nowrap">
                   <span className=" text-nowrap">{file.fileName.replace(".app", "")} </span>
-                  <span className="ml-2 text-slate-300 text-sm">
+                  <span className="ml-2 text-slate-300 text-sm whitespace-nowrap">
                     {file.browser?.url
-                      ? file.browser.url.slice(0, 70) +
+                      ? file.browser.url.slice(0, 50) +
                         (file.browser.url.length > 50 ? "......" : "")
                       : ""}
                   </span>

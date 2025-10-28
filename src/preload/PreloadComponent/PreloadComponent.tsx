@@ -38,7 +38,6 @@ const PreLoadComponent: React.FC = () => {
 
   useEffect(() => {
     const handleDevToolsShortKey = (e: KeyboardEvent) => {
-      console.log(e);
       // if (e.key === "F12" || (e.key === "I" && e.ctrlKey && e.altKey)) {
       //   ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_TOGGLE_DEVTOOLS);
       // }
