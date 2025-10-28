@@ -26,7 +26,6 @@ function createMainWindow() {
   } else {
     window.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "/main-window" });
   }
-
   // 添加快捷键支持
   window.webContents.on("before-input-event", (_event, input) => {
     if (

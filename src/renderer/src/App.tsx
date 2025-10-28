@@ -67,7 +67,9 @@ function App() {
     window.electron.ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, () => {
       setInput("");
       setActive(0);
-      inputRef.current?.focus();
+      setTimeout(() => {
+        inputRef.current?.focus();
+      },100);
     });
     return () => {
       window.electron.ipcRenderer.removeAllListeners(VS_GO_EVENT.MAIN_WINDOW_SHOW);
