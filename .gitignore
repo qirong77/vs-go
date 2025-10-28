@@ -133,3 +133,4 @@ dist
 .DS_Store
 
 autoLogin.ts
+src/preload/PreloadComponent/autoLogin.ts
