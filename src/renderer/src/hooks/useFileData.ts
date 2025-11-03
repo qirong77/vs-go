@@ -50,8 +50,8 @@ export function useFileData(searchValue: string) {
         const f1TimeBonus = f1AccessTime > 0 && now - f1AccessTime < oneWeek ? 20 : 0;
         const f2TimeBonus = f2AccessTime > 0 && now - f2AccessTime < oneWeek ? 20 : 0;
 
-        const f1UrlScore = file1.browser?.url.includes(normalizedSearch) ? 1 : 0;
-        const f2UrlScore = file2.browser?.url.includes(normalizedSearch) ? 1 : 0;
+        const f1UrlScore = file1.browser?.name.includes(normalizedSearch) || file1.browser?.url.includes(normalizedSearch) ? 1 : 0;
+        const f2UrlScore = file2.browser?.name.includes(normalizedSearch) || file2.browser?.url.includes(normalizedSearch) ? 1 : 0;
         // 综合分数：搜索匹配度 + 时间加权
         const f1TotalScore = f1NameScore + f1TimeBonus + f1UrlScore;
         const f2TotalScore = f2NameScore + f2TimeBonus + f2UrlScore;

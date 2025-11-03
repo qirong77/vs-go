@@ -14,7 +14,7 @@ app.whenReady().then(async () => {
   import("./GlobalShortCut");
   import("./ipcEventHandler");
   import("./Tray");
-  createTerminalWindow();
+  // createTerminalWindow();
 });
 process.on("uncaughtException", (error) => {
   dialog.showErrorBox("Error", error.message);

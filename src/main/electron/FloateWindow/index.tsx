@@ -1,4 +1,4 @@
-import { BrowserWindow, session } from "electron";
+import { BrowserWindow, dialog, Menu, MenuItem, session } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
@@ -6,6 +6,7 @@ import { handleFloatWindowWebContentEvents } from "./registerFloatWindowEvents";
 import { showErrorDialog } from "../Dialog";
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
+
 session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
   const responseHeaders = details.responseHeaders || {};
   // 处理 X-Frame-Options 头
@@ -40,9 +41,9 @@ function createFloatingWindow(url: string) {
     width: 1200,
     height: 800,
     alwaysOnTop: false,
-
     webPreferences: {
       sandbox: false,
+      contextIsolation: false,
       preload: path.join(__dirname, "../preload/index.js"),
     },
   });

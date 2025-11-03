@@ -38,15 +38,15 @@ export function handleFloatWindowWebContentEvents(props: {
     const uniqueList = newBrowserList.slice(0, CACHE_SIZE);
     vsgoStore.set("browserList", uniqueList);
   });
-  floatingWindow.webContents.on("before-input-event", (_event, input) => {
-    if (
-      input.modifiers.includes("meta") &&
-      input.modifiers.includes("alt") &&
-      input.key.toLowerCase() === "i"
-    ) {
-      floatingWindow.webContents.toggleDevTools();
-    }
-  });
+  // floatingWindow.webContents.on("before-input-event", (_event, input) => {
+  //   if (
+  //     input.modifiers.includes("meta") &&
+  //     input.modifiers.includes("alt") &&
+  //     input.key.toLowerCase() === "i"
+  //   ) {
+  //     floatingWindow.webContents.toggleDevTools();
+  //   }
+  // });
   floatingWindow.webContents.on("did-navigate-in-page", (_event, url) => {
     console.log("in-page navigated to:", url);
     const canGoBack = floatingWindow.webContents.navigationHistory.canGoBack();
@@ -207,7 +207,22 @@ function handleContextMenu(
       },
       { type: "separator" },
       {
+        label: "检查元素",
+        click: () => {
+          floatingWindow.webContents.inspectElement(x, y);
+        },
+      },
+      {
+        label:"放大页面",
+        role: "zoomIn",
+      },
+      {
+        label: "缩小页面",
+        role: "zoomOut",
+      },
+      {
         label: "开发者工具",
+        accelerator: "CommandOrControl+Alt+I",
         click: () => {
           floatingWindow.webContents.toggleDevTools();
         },
