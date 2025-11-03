@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, Menu, MenuItem, session } from "electron";
+import { app, BrowserWindow, dialog, Menu, MenuItem, session } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
@@ -6,21 +6,22 @@ import { handleFloatWindowWebContentEvents } from "./registerFloatWindowEvents";
 import { showErrorDialog } from "../Dialog";
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
-
-session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-  const responseHeaders = details.responseHeaders || {};
-  // 处理 X-Frame-Options 头
-  if (responseHeaders["x-frame-options"] || responseHeaders["X-Frame-Options"]) {
-    delete responseHeaders["x-frame-options"];
-    delete responseHeaders["X-Frame-Options"];
-  }
-  // 处理 Content-Security-Policy 头
-  if (responseHeaders["content-security-policy"] || responseHeaders["Content-Security-Policy"]) {
-    responseHeaders["content-security-policy"] = [
-      "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;",
-    ];
-  }
-  callback({ cancel: false, responseHeaders });
+app.whenReady().then(() => {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = details.responseHeaders || {};
+    // 处理 X-Frame-Options 头
+    if (responseHeaders["x-frame-options"] || responseHeaders["X-Frame-Options"]) {
+      delete responseHeaders["x-frame-options"];
+      delete responseHeaders["X-Frame-Options"];
+    }
+    // 处理 Content-Security-Policy 头
+    if (responseHeaders["content-security-policy"] || responseHeaders["Content-Security-Policy"]) {
+      responseHeaders["content-security-policy"] = [
+        "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;",
+      ];
+    }
+    callback({ cancel: false, responseHeaders });
+  });
 });
 function createFloatingWindow(url: string) {
   if (!url) {

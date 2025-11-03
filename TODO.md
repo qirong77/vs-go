@@ -12,4 +12,4 @@
 10. [☑️]处理笔记
 11. [☑️]链接打不开：https://cooper.didichuxing.com/knowledge/2199671876754/2205301575016 (和loadMonacoEditorString执行时间有关)
 12. []终端窗口
-13. []只能放大不能缩小
+13. [☑️]只能放大不能缩小

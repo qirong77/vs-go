@@ -58,4 +58,6 @@ const contextMenu = Menu.buildFromTemplate([
     },
   },
 ]);
-tray.setContextMenu(contextMenu);
+app.whenReady().then(() => {
+  tray.setContextMenu(contextMenu);
+});
