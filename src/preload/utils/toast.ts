@@ -84,8 +84,3 @@ export function showToast({ message, type = "info", duration = 3000 }: ToastOpti
     }, 300);
   }, duration);
 }
-
-// 使用示例：
-// showToast({ message: '操作成功', type: 'success' });
-// showToast({ message: '发生错误', type: 'error' });
-// showToast({ message: '提示信息' }); // 默认为 info 类型
