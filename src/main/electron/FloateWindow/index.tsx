@@ -3,6 +3,7 @@ import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { showErrorDialog } from "../Dialog";
+import { setupContextMenu } from "../contextMenu";
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
 app.whenReady().then(() => {
@@ -63,6 +64,10 @@ function createFloatingWindow(url: string) {
   floatingWindow.on("moved", () => {
     MainWindowManager.hide();
   });
+  
+  // 设置右键菜单
+  setupContextMenu(floatingWindow);
+  
   floatingWindow.center();
   floatingWindow.show();
   return floatingWindow;

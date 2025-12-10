@@ -2,6 +2,7 @@ import { is } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
 import path from "path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
+import { setupContextMenu } from "../contextMenu";
 let _mainWindow: BrowserWindow;
 app.once("ready", () => {
   _mainWindow = createMainWindow();
@@ -32,6 +33,10 @@ function createMainWindow() {
   window.on("show", () => {
     window.webContents.send(VS_GO_EVENT.MAIN_WINDOW_SHOW);
   });
+  
+  // 设置右键菜单
+  setupContextMenu(window);
+  
   return window;
 }
 

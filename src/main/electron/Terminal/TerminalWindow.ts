@@ -3,6 +3,7 @@ import { BrowserWindow, ipcMain } from "electron";
 import path from "path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { createTerminal } from "./Terminal";
+import { setupContextMenu } from "../contextMenu";
 
 export function createTerminalWindow() {
   const window = new BrowserWindow({
@@ -68,6 +69,9 @@ export function createTerminalWindow() {
     }
   };
 
+  // 设置右键菜单
+  setupContextMenu(window);
+  
   // 注册事件监听器
   ipcMain.on(VS_GO_EVENT.TERMINAL_RUN_COMMAND, handleTerminalCommand);
   ipcMain.on(VS_GO_EVENT.TERMINAL_INTERRUPT, handleTerminalInterrupt);

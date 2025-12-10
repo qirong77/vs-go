@@ -1,6 +1,7 @@
 import { is } from "@electron-toolkit/utils";
 import { BrowserWindow } from "electron";
 import path from "path";
+import { setupContextMenu } from "../contextMenu";
 
 let browserSettingWindow: BrowserWindow | null = null;
 export function createBrowserSettingWindow() {
@@ -26,6 +27,9 @@ export function createBrowserSettingWindow() {
       hash: "browser-setting",
     });
   }
+  // 设置右键菜单
+  setupContextMenu(browserSettingWindow);
+  
   browserSettingWindow.on("closed", () => {
     browserSettingWindow = null;
   });
