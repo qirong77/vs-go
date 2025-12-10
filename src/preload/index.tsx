@@ -1,8 +1,5 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
-import ReactDOM from "react-dom/client";
-import PreLoadComponent from "./PreloadComponent/PreloadComponent";
-import { autoLogin } from "./PreloadComponent/autoLogin";
 
 // Custom APIs for renderer
 const api = {};
@@ -38,16 +35,4 @@ window.addEventListener("load", () => {
   // 添加到页面
   const root = document.createElement("div") as HTMLElement;
   root.id = "preload-root";
-
-  // 为root元素添加样式，使用fixed定位确保始终在顶部
-  root.style.cssText = `
-    position: sticky;
-    top: 0;
-    z-index: 9999;
-  `;
-  document.body.insertBefore(root, document.body.firstChild);
-  document.body.style.height = "auto";
-  const rootInstance = ReactDOM.createRoot(root);
-  rootInstance.render(<PreLoadComponent />);
-  autoLogin();
 });

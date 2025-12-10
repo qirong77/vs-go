@@ -1,8 +1,7 @@
-import { app, BrowserWindow, dialog, Menu, MenuItem, session } from "electron";
+import { app, BrowserWindow, session } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import { handleFloatWindowWebContentEvents } from "./registerFloatWindowEvents";
 import { showErrorDialog } from "../Dialog";
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
@@ -52,12 +51,6 @@ function createFloatingWindow(url: string) {
   floatingWindows.push(floatingWindow);
   floatingWindow.setVisibleOnAllWorkspaces(true, {
     visibleOnFullScreen: true, // 允许在全屏应用上显示
-  });
-  handleFloatWindowWebContentEvents({
-    floatingWindow,
-    url,
-    // @ts-ignore
-    createFloatingWindow,
   });
   floatingWindow.on("close", () => {
     lastWindowUrl = floatingWindow.webContents.getURL();

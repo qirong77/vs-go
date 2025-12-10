@@ -26,23 +26,6 @@ function createMainWindow() {
   } else {
     window.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "/main-window" });
   }
-  // 添加快捷键支持
-  window.webContents.on("before-input-event", (_event, input) => {
-    if (
-      input.modifiers.includes("meta") &&
-      input.modifiers.includes("alt") &&
-      input.key.toLowerCase() === "i"
-    ) {
-      window.webContents.toggleDevTools();
-    }
-  });
-  window.on("maximize", () => {
-    dialog.showMessageBox({
-      type: "info",
-      message: "Main窗口被最大化了！",
-      buttons: ["确定"],
-    });
-  });
   // 在docker栏隐藏,支持浮动
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   window.setAlwaysOnTop(true, "torn-off-menu", 10);
