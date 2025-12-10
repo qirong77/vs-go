@@ -26,7 +26,6 @@ function createFloatingWindow(url: string) {
   if (!url) {
     showErrorDialog("无法创建浮动窗口，URL 为空");
     throw new Error("URL is empty");
-    return;
   }
   const oldWindow = floatingWindows.find(
     (win) => !win.isDestroyed() && win.webContents.getURL() === url

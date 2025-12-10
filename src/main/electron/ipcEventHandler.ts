@@ -116,7 +116,6 @@ ipcMain.handle(VS_GO_EVENT.BROWSER_UPDATE, async (_event, arg) => {
 ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_CREATE, (_e, arg: BrowserItem) => {
   // 记录浏览器访问时间
   fileAccessStore.updateFileAccessTime(arg.url);
-
   FloatingWindowManager.createFloatingWindow(arg.url);
   MainWindowManager.hide();
 });

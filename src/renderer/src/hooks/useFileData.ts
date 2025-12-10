@@ -64,21 +64,6 @@ export function useFileData(searchValue: string) {
         return f2TotalScore - f1TotalScore;
       });
     const extra: IMainWindowFiles = [];
-    const isUrl = /^(http|https):\/\/[^ "]+$/.test(searchValue);
-    const googleSearchUrl = "https://www.google.com/search?q=" + searchValue;
-    const name = isUrl ? "打开链接🔗: " + searchValue : "搜索🔍: " + searchValue
-    extra.push({
-      fileName: name,
-      filePath: "",
-      useAppBase64: "",
-      iconBase64: "",
-      browser: {
-        name,
-        url: isUrl ? searchValue : googleSearchUrl,
-        id: new Date().toLocaleString(),
-        type: "history",
-      },
-    });
     setShowFiles([...newShowFiles,...extra]);
   }, [searchValue, allFiles]);
   return { showFiles, updateAllFiles };
