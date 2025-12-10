@@ -33,6 +33,7 @@
     "@udecode/plate-list": "^48.0.0",
     "@udecode/plate-paragraph": "^36.0.0",
     "ansi-to-html": "^0.7.2",
+    "antd": "^6.1.0",
     "autoprefixer": "^10.4.19",
     "cheerio": "^1.1.2",
     "electron-context-menu": "^4.1.1",

@@ -143,8 +143,8 @@ export const cookieByUrlStore = {
 
   saveCookieByUrl(cookieData: SavedCookieByUrl): void {
     const cookies = this.getSavedCookiesByUrl();
-    // 如果同一个URL已存在，则更新；否则添加新记录
-    const existingIndex = cookies.findIndex((cookie) => cookie.url === cookieData.url);
+    // 如果同一个域名已存在，则更新；否则添加新记录
+    const existingIndex = cookies.findIndex((cookie) => cookie.domain === cookieData.domain);
     if (existingIndex >= 0) {
       cookies[existingIndex] = cookieData;
     } else {

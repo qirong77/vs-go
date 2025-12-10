@@ -1,5 +1,6 @@
 import contextMenu from "electron-context-menu";
 import { BrowserWindow } from "electron";
+import { createCookieManagerWindow } from "./CookieManagerWindow";
 
 /**
  * 为窗口设置右键菜单
@@ -23,5 +24,19 @@ export function setupContextMenu(window: BrowserWindow) {
       saveImage: "图片另存为...",
       inspect: "检查元素",
     },
+    append: (_defaultActions, _parameters, browserWindow) => [
+      {
+        label: "查看保存的 Cookie",
+        click: () => {
+          let currentUrl = "";
+          if ("webContents" in browserWindow) {
+            currentUrl = browserWindow.webContents.getURL();
+          } else if ("getURL" in browserWindow) {
+            currentUrl = (browserWindow as any).getURL();
+          }
+          createCookieManagerWindow(currentUrl);
+        },
+      },
+    ],
   });
 }
