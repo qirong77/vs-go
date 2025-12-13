@@ -2,7 +2,6 @@ import { app, BrowserWindow, session } from "electron";
 import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import { showErrorDialog } from "../Dialog";
 import { setupContextMenu } from "../contextMenu";
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
@@ -25,7 +24,6 @@ app.whenReady().then(() => {
 });
 function createFloatingWindow(url: string) {
   if (!url) {
-    showErrorDialog("无法创建浮动窗口，URL 为空");
     throw new Error("URL is empty");
   }
   const oldWindow = floatingWindows.find(

@@ -1,8 +1,6 @@
 import { Menu, Tray, app, nativeImage } from "electron";
 import path, { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-
-import { showErrorDialog } from "./Dialog";
 import { is } from "@electron-toolkit/utils";
 const imageDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 /* 图片地址:
@@ -20,8 +18,6 @@ const image = nativeImage.createFromPath(is.dev ? imageDevPath : imagePath);
 image.setTemplateImage(true);
 const tray = new Tray(image);
 tray.setToolTip("VsGoTray");
-
-import { MainWindowManager } from "./MainWindow/MainWindow";
 import { createBrowserSettingWindow } from "./BrowserSettingWindow";
 import { createTerminalWindow } from "./Terminal/TerminalWindow";
 
@@ -42,19 +38,6 @@ const contextMenu = Menu.buildFromTemplate([
     label: "退出App",
     click() {
       app.quit();
-    },
-  },
-
-  {
-    label: "查看窗口状态",
-    click() {
-      const w = MainWindowManager.getMainWindow();
-      const infos: string[] = [];
-      infos.push("w.isDestroyed:" + w.isDestroyed() + "\n");
-      infos.push("w.webContents.isCrashed:" + w.webContents.isCrashed() + "\n");
-      infos.push("w.webContents.isDestroyed:" + w.webContents.isDestroyed() + "\n");
-      infos.push("w.webContents.isLoadingMainFrame:" + w.webContents.isLoadingMainFrame() + "\n");
-      showErrorDialog(infos.join(""));
     },
   },
 ]);

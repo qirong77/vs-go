@@ -12,7 +12,7 @@ export function setupContextMenu(window: BrowserWindow) {
     showSaveImageAs: true, // 图片右键保存
     showCopyImageAddress: true, // 复制图片地址
     showSearchWithGoogle: false, // 不显示用谷歌搜索（减少选项）
-    showInspectElement: true, // 显示检查元素
+    showInspectElement: false, // 手动添加检查元素到最后
     labels: {
       copy: "复制",
       paste: "粘贴",
@@ -22,7 +22,6 @@ export function setupContextMenu(window: BrowserWindow) {
       copyImage: "复制图片",
       copyImageAddress: "复制图片地址",
       saveImage: "图片另存为...",
-      inspect: "检查元素",
     },
     append: (_defaultActions, _parameters, browserWindow) => [
       {
@@ -35,6 +34,17 @@ export function setupContextMenu(window: BrowserWindow) {
             currentUrl = (browserWindow as any).getURL();
           }
           createCookieManagerWindow(currentUrl);
+        },
+      },
+      {
+        type: "separator",
+      },
+      {
+        label: "检查元素",
+        click: () => {
+          if ("webContents" in browserWindow) {
+            browserWindow.webContents.inspectElement(0, 0);
+          }
         },
       },
     ],
