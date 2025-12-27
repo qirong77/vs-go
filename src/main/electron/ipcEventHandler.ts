@@ -14,6 +14,7 @@ import {
   cookieByUrlStore,
   fileAccessStore,
   monacoNotesStore,
+  userNotesStore,
 } from "./store";
 import { FloatingWindowManager } from "./FloateWindow";
 import { MainWindowManager } from "./MainWindow/MainWindow";
@@ -409,3 +410,25 @@ ipcMain.handle(
     }
   }
 );
+
+// 用户笔记相关事件处理
+ipcMain.handle(VS_GO_EVENT.USER_NOTES_GET_CONTENT, async () => {
+  try {
+    const content = userNotesStore.getUserNoteContent();
+    return content;
+  } catch (error) {
+    console.error("获取用户笔记内容失败:", error);
+    return "";
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.USER_NOTES_SAVE_CONTENT, async (_event, content: string) => {
+  try {
+    userNotesStore.saveUserNoteContent(content);
+    console.log("用户笔记已保存:", content.length + " 字符");
+    return { success: true };
+  } catch (error) {
+    console.error("保存用户笔记内容失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
+  }
+});

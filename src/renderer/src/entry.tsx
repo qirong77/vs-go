@@ -3,6 +3,7 @@ import App from "./App";
 import BrowserSetting from "./BrowserSetting";
 import { Terminal } from "./Terminal";
 import CookieManager from "./CookieManager";
+import UserNotes from "./UserNotes";
 
 const hash = window.location.hash;
 const root = document.getElementById("root") as HTMLElement;
@@ -13,6 +14,8 @@ if (hash.includes("browser-setting")) {
   ReactDOM.createRoot(root).render(<Terminal />);
 } else if (hash.includes("cookie-manager")) {
   ReactDOM.createRoot(root).render(<CookieManager />);
+} else if (hash.includes("user-notes")) {
+  ReactDOM.createRoot(root).render(<UserNotes />);
 } else {
   ReactDOM.createRoot(root).render(<App />);
 }

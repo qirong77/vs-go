@@ -1,6 +1,7 @@
 import contextMenu from "electron-context-menu";
 import { BrowserWindow } from "electron";
 import { createCookieManagerWindow } from "./CookieManagerWindow";
+import { createUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 
 /**
  * 为窗口设置右键菜单
@@ -34,6 +35,12 @@ export function setupContextMenu(window: BrowserWindow) {
             currentUrl = (browserWindow as any).getURL();
           }
           createCookieManagerWindow(currentUrl);
+        },
+      },
+      {
+        label: "查看笔记",
+        click: () => {
+          createUserNotesWindow();
         },
       },
       {

@@ -23,3 +23,105 @@ li {
     border-radius: 2px;
   }
 }
+
+/* Milkdown 编辑器样式优化 */
+.milkdown {
+  padding: 2rem;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.milkdown .editor {
+  min-height: 500px;
+}
+
+.milkdown h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin: 1.5em 0 0.75em;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 0.3em;
+}
+
+.milkdown h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 1.25em 0 0.5em;
+}
+
+.milkdown h3 {
+  font-size: 1.25em;
+  font-weight: bold;
+  margin: 1em 0 0.5em;
+}
+
+.milkdown p {
+  margin: 0.75em 0;
+}
+
+.milkdown ul, .milkdown ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.milkdown ul {
+  list-style: disc;
+}
+
+.milkdown ol {
+  list-style: decimal;
+}
+
+.milkdown li {
+  list-style: inherit;
+  margin: 0.5em 0;
+}
+
+.milkdown code {
+  background-color: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.milkdown pre {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.milkdown pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.milkdown blockquote {
+  border-left: 4px solid #d1d5db;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.milkdown a {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.milkdown hr {
+  border: none;
+  border-top: 2px solid #e5e7eb;
+  margin: 2em 0;
+}
+
+.milkdown strong {
+  font-weight: bold;
+}
+
+.milkdown em {
+  font-style: italic;
+}

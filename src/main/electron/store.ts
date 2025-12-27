@@ -107,6 +107,11 @@ const schema = {
       type: "string",
     },
   },
+  // Plate.js用户笔记内容
+  userNoteContent: {
+    type: "string",
+    default: "",
+  },
 };
 
 const store = new Store({ schema });
@@ -216,5 +221,20 @@ export const monacoNotesStore = {
 
   clearAllMonacoNotes(): void {
     vsgoStore.set("monacoNotes", {});
+  },
+};
+
+// 用户笔记存储方法
+export const userNotesStore = {
+  getUserNoteContent(): string {
+    return vsgoStore.get("userNoteContent", "") as string;
+  },
+
+  saveUserNoteContent(content: string): void {
+    vsgoStore.set("userNoteContent", content);
+  },
+
+  clearUserNoteContent(): void {
+    vsgoStore.set("userNoteContent", "");
   },
 };
