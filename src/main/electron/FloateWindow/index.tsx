@@ -3,8 +3,27 @@ import path from "path";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { setupContextMenu } from "../contextMenu";
+
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
+
+// 从 URL 提取域名
+function extractDomain(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch (error) {
+    return "";
+  }
+}
+
+// 更新窗口标题
+function updateWindowTitle(window: BrowserWindow, pageTitle: string, url: string) {
+  const domain = extractDomain(url);
+  const title = domain ? `${pageTitle} - ${domain}` : pageTitle;
+  window.setTitle(title);
+}
+
 app.whenReady().then(() => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = details.responseHeaders || {};
@@ -22,19 +41,38 @@ app.whenReady().then(() => {
     callback({ cancel: false, responseHeaders });
   });
 });
+
 function createFloatingWindow(url: string) {
   if (!url) {
     throw new Error("URL is empty");
   }
-  const oldWindow = floatingWindows.find(
-    (win) => !win.isDestroyed() && win.webContents.getURL() === url
-  );
-  if (oldWindow) {
-    if (!oldWindow.isVisible()) {
-      oldWindow.showInactive();
+  
+  // 提取要访问的 URL 的域名
+  const targetDomain = extractDomain(url);
+  
+  // 检查是否已存在同域名的窗口
+  if (targetDomain) {
+    const existingWindow = floatingWindows.find((win) => {
+      if (win.isDestroyed()) return false;
+      const winUrl = win.webContents.getURL();
+      const winDomain = extractDomain(winUrl);
+      return winDomain === targetDomain;
+    });
+    
+    // 如果找到同域名窗口，复用它
+    if (existingWindow) {
+      if (!existingWindow.isVisible()) {
+        existingWindow.showInactive();
+      }
+      existingWindow.focus();
+      // 如果 URL 不同，导航到新 URL
+      if (existingWindow.webContents.getURL() !== url) {
+        existingWindow.loadURL(url);
+      }
+      return existingWindow;
     }
-    return oldWindow;
   }
+  
   const floatingWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -50,6 +88,21 @@ function createFloatingWindow(url: string) {
   floatingWindow.setVisibleOnAllWorkspaces(true, {
     visibleOnFullScreen: true, // 允许在全屏应用上显示
   });
+  
+  // 页面加载完成后设置标题
+  floatingWindow.webContents.on('did-finish-load', () => {
+    const pageTitle = floatingWindow.webContents.getTitle();
+    const currentUrl = floatingWindow.webContents.getURL();
+    updateWindowTitle(floatingWindow, pageTitle, currentUrl);
+  });
+  
+  // 监听页面标题变化
+  floatingWindow.webContents.on('page-title-updated', (event, title) => {
+    event.preventDefault(); // 阻止默认标题更新
+    const currentUrl = floatingWindow.webContents.getURL();
+    updateWindowTitle(floatingWindow, title, currentUrl);
+  });
+  
   floatingWindow.on("close", () => {
     lastWindowUrl = floatingWindow.webContents.getURL();
   });
