@@ -1,0 +1,209 @@
+.milkdown {
+    padding-top: 0;
+  box-shadow: none;
+  height: 100%;
+  width: 100%;
+}
+
+.milkdown .editor {
+  outline: none;
+  /* min-height: calc(100vh - 4rem); */
+  font-size: 16px;
+  line-height: 1.6;
+  color: #2e3440;
+}
+
+.milkdown .ProseMirror {
+  outline: none;
+}
+
+/* 标题样式 */
+.milkdown h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 1.5em 0 0.75em;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 0.3em;
+  color: #1f2937;
+}
+
+.milkdown h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 1.25em 0 0.5em;
+  color: #374151;
+}
+
+.milkdown h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 1em 0 0.5em;
+  color: #4b5563;
+}
+
+.milkdown h4 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 1em 0 0.5em;
+  color: #6b7280;
+}
+
+.milkdown h5,
+.milkdown h6 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 0.75em 0 0.5em;
+  color: #6b7280;
+}
+
+/* 段落 */
+.milkdown p {
+  margin: 0.75em 0;
+}
+
+/* 列表 */
+.milkdown ul,
+.milkdown ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.milkdown ul {
+  list-style: disc;
+}
+
+.milkdown ol {
+  list-style: decimal;
+}
+
+.milkdown li {
+  list-style: inherit;
+  margin: 0.5em 0;
+}
+
+.milkdown li p {
+  margin: 0.25em 0;
+}
+
+/* 代码 */
+.milkdown code {
+  background-color: #f3f4f6;
+  color: #ef4444;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.milkdown pre {
+  background-color: #1e293b;
+  border-radius: 6px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.milkdown pre code {
+  background-color: transparent;
+  color: #e2e8f0;
+  padding: 0;
+  font-size: 0.875em;
+  line-height: 1.7;
+}
+
+/* 引用 */
+.milkdown blockquote {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #6b7280;
+  font-style: italic;
+  background-color: #f9fafb;
+  padding: 0.5em 1em;
+  border-radius: 4px;
+}
+
+.milkdown blockquote p {
+  margin: 0.5em 0;
+}
+
+/* 链接 */
+.milkdown a {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.milkdown a:hover {
+  color: #2563eb;
+}
+
+/* 分割线 */
+.milkdown hr {
+  border: none;
+  border-top: 2px solid #e5e7eb;
+  margin: 2em 0;
+}
+
+/* 粗体 */
+.milkdown strong {
+  font-weight: 700;
+  color: #111827;
+}
+
+/* 斜体 */
+.milkdown em {
+  font-style: italic;
+  color: #374151;
+}
+
+/* 删除线 */
+.milkdown s {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+/* 表格 */
+.milkdown table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  overflow: hidden;
+}
+
+.milkdown table th,
+.milkdown table td {
+  border: 1px solid #e5e7eb;
+  padding: 0.5em 1em;
+  text-align: left;
+}
+
+.milkdown table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.milkdown table tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+/* 图片 */
+.milkdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 1em 0;
+}
+
+/* 选择文本 */
+.milkdown ::selection {
+  background-color: #dbeafe;
+}
+
+/* 占位符 */
+.milkdown .placeholder {
+  color: #9ca3af;
+  pointer-events: none;
+  position: absolute;
+}
