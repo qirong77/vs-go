@@ -20,6 +20,7 @@ const tray = new Tray(image);
 tray.setToolTip("VsGoTray");
 import { createBrowserSettingWindow } from "./BrowserSettingWindow";
 import { createTerminalWindow } from "./Terminal/TerminalWindow";
+import { createUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 
 const contextMenu = Menu.buildFromTemplate([
   {
@@ -32,6 +33,19 @@ const contextMenu = Menu.buildFromTemplate([
     label: "浏览器设置",
     click() {
       createBrowserSettingWindow();
+    },
+  },
+  {
+    label: "Notes",
+    click() {
+      createUserNotesWindow();
+    },
+  },
+  {
+    label: "重启App",
+    click() {
+      app.relaunch();
+      app.exit(0);
     },
   },
   {
