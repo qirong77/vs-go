@@ -7,6 +7,7 @@ import { listener, listenerCtx } from "@milkdown/plugin-listener";
 import { history } from "@milkdown/plugin-history";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { Plugin, PluginKey } from "@milkdown/prose/state";
+import { Decoration, DecorationSet } from "@milkdown/prose/view";
 import { $prose } from "@milkdown/utils";
 import "./userNotesStyles.css";
 
@@ -159,6 +160,195 @@ const pasteImagePlugin = () => {
   });
 };
 
+// 图片缩放插件
+const imageResizePlugin = () => {
+  return $prose(() => {
+    let currentResizing: {
+      pos: number;
+      startX: number;
+      startY: number;
+      startWidth: number;
+      startHeight: number;
+      img: HTMLImageElement;
+      view: any;
+      resizeType: 'width' | 'height' | 'both';
+    } | null = null;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!currentResizing) return;
+      
+      const deltaX = e.clientX - currentResizing.startX;
+      const deltaY = e.clientY - currentResizing.startY;
+      
+      if (currentResizing.resizeType === 'width') {
+        // 只调整宽度
+        const newWidth = Math.max(50, currentResizing.startWidth + deltaX);
+        currentResizing.img.style.width = `${newWidth}px`;
+      } else if (currentResizing.resizeType === 'height') {
+        // 只调整高度
+        const newHeight = Math.max(50, currentResizing.startHeight + deltaY);
+        currentResizing.img.style.height = `${newHeight}px`;
+      } else {
+        // 同时调整宽度和高度（对角线）
+        const newWidth = Math.max(50, currentResizing.startWidth + deltaX);
+        const newHeight = Math.max(50, currentResizing.startHeight + deltaY);
+        currentResizing.img.style.width = `${newWidth}px`;
+        currentResizing.img.style.height = `${newHeight}px`;
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (!currentResizing) return;
+      
+      const { view, pos, img } = currentResizing;
+      const newWidth = parseInt(img.style.width) || img.offsetWidth;
+      const newHeight = parseInt(img.style.height) || img.offsetHeight;
+      
+      // 更新 ProseMirror 文档中的图片属性
+      const node = view.state.doc.nodeAt(pos);
+      if (node) {
+        const tr = view.state.tr.setNodeMarkup(pos, null, {
+          ...node.attrs,
+          title: `width=${newWidth} height=${newHeight}`,
+        });
+        
+        view.dispatch(tr);
+      }
+      
+      currentResizing = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      img.style.cursor = '';
+    };
+
+    return new Plugin({
+      key: new PluginKey('imageResize'),
+      props: {
+        decorations(state) {
+          const decorations: Decoration[] = [];
+          
+          // 为每个图片节点应用宽度和高度
+          state.doc.descendants((node, pos) => {
+            if (node.type.name === 'image' && node.attrs.title) {
+              const widthMatch = node.attrs.title.match(/width=(\d+)/);
+              const heightMatch = node.attrs.title.match(/height=(\d+)/);
+              
+              if (widthMatch || heightMatch) {
+                const width = widthMatch ? widthMatch[1] : 'auto';
+                const height = heightMatch ? heightMatch[1] : 'auto';
+                const style = `width: ${width}${width !== 'auto' ? 'px' : ''}; height: ${height}${height !== 'auto' ? 'px' : ''};`;
+                
+                const decoration = Decoration.node(pos, pos + node.nodeSize, {
+                  style,
+                });
+                decorations.push(decoration);
+              }
+            }
+          });
+          
+          return DecorationSet.create(state.doc, decorations);
+        },
+        handleDOMEvents: {
+          mousedown(view, event) {
+            const target = event.target as HTMLElement;
+            
+            if (target.tagName === 'IMG') {
+              const img = target as HTMLImageElement;
+              const pos = view.posAtDOM(img, 0);
+              const node = view.state.doc.nodeAt(pos);
+              
+              if (!node || node.type.name !== 'image') return false;
+              
+              // 应用已保存的宽度和高度
+              if (node.attrs.title) {
+                const widthMatch = node.attrs.title.match(/width=(\d+)/);
+                const heightMatch = node.attrs.title.match(/height=(\d+)/);
+                
+                if (widthMatch && !img.style.width) {
+                  img.style.width = `${widthMatch[1]}px`;
+                }
+                if (heightMatch && !img.style.height) {
+                  img.style.height = `${heightMatch[1]}px`;
+                }
+              }
+              
+              // 检查是否点击了图片的边缘（用于调整大小）
+              const rect = img.getBoundingClientRect();
+              const edgeSize = 10; // 边缘敏感区域
+              const isRightEdge = event.clientX > rect.right - edgeSize;
+              const isBottomEdge = event.clientY > rect.bottom - edgeSize;
+              
+              if (isRightEdge || isBottomEdge) {
+                event.preventDefault();
+                
+                let resizeType: 'width' | 'height' | 'both';
+                let cursor: string;
+                
+                if (isRightEdge && isBottomEdge) {
+                  // 右下角：同时缩放宽度和高度
+                  resizeType = 'both';
+                  cursor = 'nwse-resize';
+                } else if (isRightEdge) {
+                  // 右边缘：只缩放宽度
+                  resizeType = 'width';
+                  cursor = 'ew-resize';
+                } else {
+                  // 底部边缘：只缩放高度
+                  resizeType = 'height';
+                  cursor = 'ns-resize';
+                }
+                
+                currentResizing = {
+                  pos,
+                  startX: event.clientX,
+                  startY: event.clientY,
+                  startWidth: img.offsetWidth,
+                  startHeight: img.offsetHeight,
+                  img,
+                  view,
+                  resizeType,
+                };
+                
+                img.style.cursor = cursor;
+                
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+                
+                return true;
+              }
+            }
+            
+            return false;
+          },
+          mousemove(_view, event) {
+            const target = event.target as HTMLElement;
+            
+            if (target.tagName === 'IMG' && !currentResizing) {
+              const img = target as HTMLImageElement;
+              const rect = img.getBoundingClientRect();
+              const edgeSize = 10;
+              const isRightEdge = event.clientX > rect.right - edgeSize;
+              const isBottomEdge = event.clientY > rect.bottom - edgeSize;
+              
+              if (isRightEdge && isBottomEdge) {
+                img.style.cursor = 'nwse-resize';
+              } else if (isRightEdge) {
+                img.style.cursor = 'ew-resize';
+              } else if (isBottomEdge) {
+                img.style.cursor = 'ns-resize';
+              } else {
+                img.style.cursor = 'pointer';
+              }
+            }
+            
+            return false;
+          },
+        },
+      },
+    });
+  });
+};
+
 // 编辑器组件
 const MilkdownEditor: React.FC<{
   initialContent: string;
@@ -184,7 +374,8 @@ const MilkdownEditor: React.FC<{
       .use(commonmark)
       .use(listener)
       .use(history)
-      .use(pasteImagePlugin());
+      .use(pasteImagePlugin())
+      .use(imageResizePlugin());
   });
 
   return <Milkdown />;

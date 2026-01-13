@@ -191,20 +191,59 @@
 /* 图片 */
 .milkdown img {
   max-width: 100%;
-  width: auto;
-  height: auto;
+  max-height: 100%;
   object-fit: contain;
   border-radius: 4px;
   margin: 1em 0;
   display: block;
   cursor: pointer;
   transition: outline 0.2s ease;
+  user-select: none;
+}
+
+.milkdown img[width] {
+  width: attr(width px);
+  max-width: 100%;
+}
+
+.milkdown img[height] {
+  height: attr(height px);
+  max-height: 100%;
+}
+
+.milkdown img[style*="width"],
+.milkdown img[style*="height"] {
+  object-fit: contain;
 }
 
 .milkdown img:focus,
 .milkdown img.ProseMirror-selectednode {
   outline: 3px solid #3b82f6;
   outline-offset: 2px;
+}
+
+/* 图片缩放提示 */
+.image-resize-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.image-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #3b82f6;
+  border: 1px solid white;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  right: -5px;
+  bottom: -5px;
+  display: none;
+}
+
+.milkdown img:hover + .image-resize-handle,
+.image-resize-handle:hover {
+  display: block;
 }
 
 /* 选择文本 */
