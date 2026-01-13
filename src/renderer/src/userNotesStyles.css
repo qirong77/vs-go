@@ -191,9 +191,20 @@
 /* 图片 */
 .milkdown img {
   max-width: 100%;
+  width: auto;
   height: auto;
+  object-fit: contain;
   border-radius: 4px;
   margin: 1em 0;
+  display: block;
+  cursor: pointer;
+  transition: outline 0.2s ease;
+}
+
+.milkdown img:focus,
+.milkdown img.ProseMirror-selectednode {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
 }
 
 /* 选择文本 */
