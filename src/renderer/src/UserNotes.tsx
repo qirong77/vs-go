@@ -9,6 +9,7 @@ import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { Plugin, PluginKey } from "@milkdown/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/prose/view";
 import { $prose } from "@milkdown/utils";
+import NoteFileTree from "./components/NoteFileTree";
 import "./userNotesStyles.css";
 
 // 图片压缩和转换工具函数
@@ -383,56 +384,89 @@ const MilkdownEditor: React.FC<{
 
 const UserNotes: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
-  const [content, setContent] = useState<string>("# 开始编写你的笔记\n\n在这里记录你的想法...");
+  const [content, setContent] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [editorKey, setEditorKey] = useState(0);
+  const [currentFileId, setCurrentFileId] = useState<string>("");
+  const [currentFileName, setCurrentFileName] = useState<string>("");
   const saveTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
-  // 加载笔记内容
+  // 加载当前文件
   useEffect(() => {
-    loadNoteContent();
+    loadCurrentFile();
   }, []);
 
-  const loadNoteContent = async () => {
+  const loadCurrentFile = async () => {
     try {
       setIsLoading(true);
-      const savedContent = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_GET_CONTENT
+      const fileId = await window.electron.ipcRenderer.invoke(
+        VS_GO_EVENT.USER_NOTES_GET_CURRENT_FILE
       );
       
-      if (savedContent && savedContent.trim()) {
-        setContent(savedContent);
-        setEditorKey(prev => prev + 1); // 触发编辑器重新渲染
+      if (fileId) {
+        const fileContent = await window.electron.ipcRenderer.invoke(
+          VS_GO_EVENT.USER_NOTES_GET_FILE,
+          fileId
+        );
+        setCurrentFileId(fileId);
+        setContent(fileContent || "");
+        setEditorKey(prev => prev + 1);
       }
     } catch (error) {
-      console.error("加载笔记内容失败:", error);
-      messageApi.error("加载笔记失败");
+      console.error("加载当前文件失败:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 保存笔记内容
-  const saveNoteContent = useCallback(async (newContent: string) => {
+  // 选择文件
+  const handleSelectFile = async (fileId: string, fileName: string) => {
+    if (fileId === currentFileId) return;
+    
     try {
-      const result = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_SAVE_CONTENT,
-        newContent
+      setIsLoading(true);
+      const fileContent = await window.electron.ipcRenderer.invoke(
+        VS_GO_EVENT.USER_NOTES_GET_FILE,
+        fileId
       );
       
-      if (result.success) {
-        console.log("笔记已自动保存");
-      }
+      setCurrentFileId(fileId);
+      setCurrentFileName(fileName);
+      setContent(fileContent || "");
+      setEditorKey(prev => prev + 1);
+      
+      // 保存当前文件ID
+      await window.electron.ipcRenderer.invoke(
+        VS_GO_EVENT.USER_NOTES_SET_CURRENT_FILE,
+        fileId
+      );
+    } catch (error) {
+      console.error("加载文件失败:", error);
+      messageApi.error("加载文件失败");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 保存文件内容
+  const saveFileContent = useCallback(async (newContent: string) => {
+    if (!currentFileId) return;
+    
+    try {
+      await window.electron.ipcRenderer.invoke(
+        VS_GO_EVENT.USER_NOTES_SAVE_FILE,
+        currentFileId,
+        newContent
+      );
+      console.log("笔记已自动保存");
     } catch (error) {
       console.error("保存笔记内容失败:", error);
     }
-  }, []);
+  }, [currentFileId]);
 
   // 处理编辑器内容变化
   const handleChange = useCallback(
     (markdown: string) => {
-      // 不再更新 content 状态，避免触发编辑器重新渲染
-      
       // 清除之前的定时器
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
@@ -440,10 +474,10 @@ const UserNotes: React.FC = () => {
 
       // 设置新的定时器，1秒后保存
       saveTimerRef.current = setTimeout(() => {
-        saveNoteContent(markdown);
+        saveFileContent(markdown);
       }, 1000);
     },
-    [saveNoteContent]
+    [saveFileContent]
   );
 
   // 组件卸载时清除定时器
@@ -455,23 +489,49 @@ const UserNotes: React.FC = () => {
     };
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-lg text-gray-600">加载中...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex bg-white user-notes-container">
       {contextHolder}
-      <div className="flex-1 overflow-auto">
-        <div>
-          <MilkdownProvider key={editorKey}>
-            <MilkdownEditor initialContent={content} onChange={handleChange} />
-          </MilkdownProvider>
-        </div>
+      
+      {/* 左侧文件树 */}
+      <div className="note-sidebar">
+        <NoteFileTree
+          onSelectFile={handleSelectFile}
+          selectedFileId={currentFileId}
+        />
+      </div>
+
+      {/* 右侧编辑区 */}
+      <div className="note-editor-area">
+        {currentFileId ? (
+          <>
+            {/* 文件名标题 */}
+            {currentFileName && (
+              <div className="note-editor-header">
+                <span className="note-file-name">{currentFileName}</span>
+              </div>
+            )}
+            
+            {/* 编辑器 */}
+            <div className="note-editor-content">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-lg text-gray-600">加载中...</div>
+                </div>
+              ) : (
+                <MilkdownProvider key={editorKey}>
+                  <MilkdownEditor initialContent={content} onChange={handleChange} />
+                </MilkdownProvider>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="note-empty-state">
+            <div className="note-empty-icon">📝</div>
+            <h3>开始记录你的笔记</h3>
+            <p>在左侧创建一个新文件开始编写</p>
+          </div>
+        )}
       </div>
     </div>
   );

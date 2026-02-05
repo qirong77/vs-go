@@ -257,3 +257,214 @@
   pointer-events: none;
   position: absolute;
 }
+
+/* ========== 笔记应用布局 ========== */
+.user-notes-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 左侧边栏 */
+.note-sidebar {
+  width: 240px;
+  min-width: 200px;
+  max-width: 400px;
+  background-color: #f5f5f5;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 文件树容器 */
+.note-file-tree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 文件树工具栏 */
+.tree-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f0f0f0;
+}
+
+.tree-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #666;
+  letter-spacing: 0.5px;
+}
+
+.tree-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.tree-action-btn {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: #666;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.tree-action-btn:hover {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+/* 文件树内容区域 */
+.tree-container {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+/* 空状态 */
+.tree-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  text-align: center;
+  padding: 20px;
+}
+
+.tree-empty p {
+  margin: 4px 0;
+  font-size: 13px;
+}
+
+.tree-empty-hint {
+  font-size: 12px;
+  color: #bbb;
+}
+
+/* antd Tree 样式覆盖 */
+.note-file-tree .ant-tree {
+  background: transparent;
+  font-size: 13px;
+}
+
+.note-file-tree .ant-tree-treenode {
+  padding: 0 4px;
+  width: 100%;
+}
+
+.note-file-tree .ant-tree-node-content-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.note-file-tree .ant-tree-node-content-wrapper:hover {
+  background-color: #e8e8e8;
+}
+
+.note-file-tree .ant-tree-node-selected .ant-tree-node-content-wrapper,
+.note-file-tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
+  background-color: #d0e5ff !important;
+}
+
+.note-file-tree .ant-tree-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-file-tree .tree-node-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.note-file-tree .ant-tree-iconEle {
+  color: #666;
+  margin-right: 4px;
+}
+
+.note-file-tree .ant-tree-switcher {
+  width: 20px;
+}
+
+/* 右侧编辑区域 */
+.note-editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: #fff;
+}
+
+/* 编辑器头部 */
+.note-editor-header {
+  padding: 8px 16px;
+  border-bottom: 1px solid #e5e5e5;
+  background-color: #fafafa;
+}
+
+.note-file-name {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+
+/* 编辑器内容区域 */
+.note-editor-content {
+  flex: 1;
+  overflow: auto;
+}
+
+.note-editor-content .milkdown {
+  padding: 16px 24px;
+  min-height: 100%;
+}
+
+/* 空状态 */
+.note-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  text-align: center;
+}
+
+.note-empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.note-empty-state h3 {
+  font-size: 18px;
+  font-weight: 500;
+  color: #666;
+  margin: 0 0 8px 0;
+}
+
+.note-empty-state p {
+  font-size: 14px;
+  color: #999;
+  margin: 0;
+}

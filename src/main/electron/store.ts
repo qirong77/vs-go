@@ -112,8 +112,60 @@ const schema = {
     type: "string",
     default: "",
   },
-};
+  // 用户笔记文件树
+  userNotesTree: {
+    type: "array",
+    default: [],
+  },
+  // 用户笔记文件内容
+  userNotesFiles: {
+    type: "object",
+    default: {},
+    additionalProperties: {
+      type: "string",
+    },
+  },
+  // 当前打开的笔记文件ID
+  userNotesCurrentFile: {
+    type: "string",
+    default: "",
+  },
+} as const;
 
+// 在创建 store 之前先检查并修复配置文件
+import { app } from 'electron';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import path from 'path';
+
+function migrateConfigBeforeLoad() {
+  try {
+    const userDataPath = app.getPath('userData');
+    const configPath = path.join(userDataPath, 'config.json');
+    
+    if (existsSync(configPath)) {
+      const configData = JSON.parse(readFileSync(configPath, 'utf-8'));
+      let needsSave = false;
+      
+      // 如果 userNotesTree 存在但不是数组，重置为空数组
+      if (configData.userNotesTree !== undefined && !Array.isArray(configData.userNotesTree)) {
+        configData.userNotesTree = [];
+        needsSave = true;
+      }
+      
+      if (needsSave) {
+        writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf-8');
+        console.log('Migrated config file successfully');
+      }
+    }
+  } catch (error) {
+    console.error('Failed to migrate config:', error);
+  }
+}
+
+// 执行迁移
+migrateConfigBeforeLoad();
+
+// 创建 store 实例
 const store = new Store({ schema });
 export const vsgoStore = store;
 
@@ -236,5 +288,181 @@ export const userNotesStore = {
 
   clearUserNoteContent(): void {
     vsgoStore.set("userNoteContent", "");
+  },
+};
+
+// 用户笔记文件树节点类型
+export interface NoteTreeNode {
+  key: string;
+  title: string;
+  isLeaf?: boolean;
+  children?: NoteTreeNode[];
+}
+
+// 用户笔记文件树存储方法
+export const userNotesTreeStore = {
+  getTree(): NoteTreeNode[] {
+    return vsgoStore.get("userNotesTree", []) as NoteTreeNode[];
+  },
+
+  saveTree(tree: NoteTreeNode[]): void {
+    vsgoStore.set("userNotesTree", tree);
+  },
+
+  getFileContent(fileId: string): string {
+    const files = vsgoStore.get("userNotesFiles", {}) as Record<string, string>;
+    return files[fileId] || "";
+  },
+
+  saveFileContent(fileId: string, content: string): void {
+    const files = vsgoStore.get("userNotesFiles", {}) as Record<string, string>;
+    files[fileId] = content;
+    vsgoStore.set("userNotesFiles", files);
+  },
+
+  deleteFileContent(fileId: string): void {
+    const files = vsgoStore.get("userNotesFiles", {}) as Record<string, string>;
+    delete files[fileId];
+    vsgoStore.set("userNotesFiles", files);
+  },
+
+  getCurrentFile(): string {
+    return vsgoStore.get("userNotesCurrentFile", "") as string;
+  },
+
+  setCurrentFile(fileId: string): void {
+    vsgoStore.set("userNotesCurrentFile", fileId);
+  },
+
+  // 生成唯一ID
+  generateId(): string {
+    return `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  },
+
+  // 在树中查找节点
+  findNode(tree: NoteTreeNode[], key: string): NoteTreeNode | null {
+    for (const node of tree) {
+      if (node.key === key) return node;
+      if (node.children) {
+        const found = this.findNode(node.children, key);
+        if (found) return found;
+      }
+    }
+    return null;
+  },
+
+  // 在树中查找父节点
+  findParent(tree: NoteTreeNode[], key: string): NoteTreeNode | null {
+    for (const node of tree) {
+      if (node.children) {
+        if (node.children.some(child => child.key === key)) {
+          return node;
+        }
+        const found = this.findParent(node.children, key);
+        if (found) return found;
+      }
+    }
+    return null;
+  },
+
+  // 创建文件
+  createFile(name: string, parentId?: string): NoteTreeNode {
+    const tree = this.getTree();
+    const newNode: NoteTreeNode = {
+      key: this.generateId(),
+      title: name.endsWith('.md') ? name : `${name}.md`,
+      isLeaf: true,
+    };
+
+    if (parentId) {
+      const parent = this.findNode(tree, parentId);
+      if (parent && !parent.isLeaf) {
+        if (!parent.children) parent.children = [];
+        parent.children.push(newNode);
+      }
+    } else {
+      tree.push(newNode);
+    }
+
+    this.saveTree(tree);
+    // 初始化文件内容
+    this.saveFileContent(newNode.key, `# ${name.replace('.md', '')}\n\n`);
+    return newNode;
+  },
+
+  // 创建文件夹
+  createFolder(name: string, parentId?: string): NoteTreeNode {
+    const tree = this.getTree();
+    const newNode: NoteTreeNode = {
+      key: this.generateId(),
+      title: name,
+      isLeaf: false,
+      children: [],
+    };
+
+    if (parentId) {
+      const parent = this.findNode(tree, parentId);
+      if (parent && !parent.isLeaf) {
+        if (!parent.children) parent.children = [];
+        parent.children.push(newNode);
+      }
+    } else {
+      tree.push(newNode);
+    }
+
+    this.saveTree(tree);
+    return newNode;
+  },
+
+  // 删除节点（递归删除子节点的文件内容）
+  deleteNode(nodeId: string): boolean {
+    const tree = this.getTree();
+    
+    const deleteRecursive = (nodes: NoteTreeNode[], key: string): boolean => {
+      const index = nodes.findIndex(n => n.key === key);
+      if (index !== -1) {
+        const node = nodes[index];
+        // 递归删除子节点的文件内容
+        const deleteContents = (n: NoteTreeNode) => {
+          if (n.isLeaf) {
+            this.deleteFileContent(n.key);
+          } else if (n.children) {
+            n.children.forEach(deleteContents);
+          }
+        };
+        deleteContents(node);
+        nodes.splice(index, 1);
+        return true;
+      }
+      
+      for (const node of nodes) {
+        if (node.children && deleteRecursive(node.children, key)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const result = deleteRecursive(tree, nodeId);
+    if (result) {
+      this.saveTree(tree);
+      // 如果删除的是当前文件，清空当前文件
+      if (this.getCurrentFile() === nodeId) {
+        this.setCurrentFile("");
+      }
+    }
+    return result;
+  },
+
+  // 重命名节点
+  renameNode(nodeId: string, newName: string): boolean {
+    const tree = this.getTree();
+    const node = this.findNode(tree, nodeId);
+    if (node) {
+      node.title = node.isLeaf && !newName.endsWith('.md') ? `${newName}.md` : newName;
+      this.saveTree(tree);
+      return true;
+    }
+    return false;
   },
 };
