@@ -1,5 +1,5 @@
 import { VS_GO_EVENT } from "./../../common/EVENT";
-import { dialog, ipcMain, session } from "electron";
+import { dialog, ipcMain, session, shell } from "electron";
 import { openFileByVscode } from "../utils/openFileByVsCode";
 import { is } from "@electron-toolkit/utils";
 import { IMainWindowFile } from "../../common/type";
@@ -518,6 +518,17 @@ ipcMain.handle(VS_GO_EVENT.USER_NOTES_SET_CURRENT_FILE, async (_event, fileId: s
     return { success: true };
   } catch (error) {
     console.error("设置当前笔记文件失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
+  }
+});
+
+// 打开外部链接
+ipcMain.handle(VS_GO_EVENT.OPEN_EXTERNAL_URL, async (_event, url: string) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    console.error("打开外部链接失败:", error);
     return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });

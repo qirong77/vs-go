@@ -12,6 +12,9 @@ import { $prose } from "@milkdown/utils";
 import NoteFileTree from "./components/NoteFileTree";
 import "./userNotesStyles.css";
 
+// URL 正则表达式
+const URL_REGEX = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
+
 // 图片压缩和转换工具函数
 const compressImage = async (file: File, maxSizeMB: number = 0.5): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -155,6 +158,82 @@ const pasteImagePlugin = () => {
           }
           
           return false;
+        },
+      },
+    });
+  });
+};
+
+// 创建链接粘贴识别插件
+const pasteLinkPlugin = () => {
+  return $prose(() => {
+    return new Plugin({
+      key: new PluginKey('pasteLink'),
+      props: {
+        handlePaste(view, event) {
+          const text = event.clipboardData?.getData('text/plain');
+          if (!text) return false;
+          
+          // 检查是否为纯 URL（没有其他文字）
+          const trimmedText = text.trim();
+          const urlMatch = trimmedText.match(URL_REGEX);
+          
+          if (urlMatch && urlMatch[0] === trimmedText) {
+            // 是纯 URL，转换为 Markdown 链接格式
+            event.preventDefault();
+            
+            const { tr } = view.state;
+            const linkNode = view.state.schema.marks.link;
+            
+            if (linkNode) {
+              // 创建带链接的文本节点
+              const linkMark = linkNode.create({ href: trimmedText });
+              const textNode = view.state.schema.text(trimmedText, [linkMark]);
+              
+              const transaction = tr.replaceSelectionWith(textNode, false);
+              view.dispatch(transaction);
+              
+              return true;
+            }
+          }
+          
+          return false;
+        },
+      },
+    });
+  });
+};
+
+// 创建链接点击打开插件
+const clickableLinkPlugin = () => {
+  return $prose(() => {
+    return new Plugin({
+      key: new PluginKey('clickableLink'),
+      props: {
+        handleDOMEvents: {
+          click(_view, event) {
+            const target = event.target as HTMLElement;
+            
+            // 检查是否点击了链接
+            if (target.tagName === 'A') {
+              event.preventDefault();
+              const href = (target as HTMLAnchorElement).href;
+              
+              if (href) {
+                // 调用 IPC 打开外部链接
+                window.electron.ipcRenderer.invoke(
+                  VS_GO_EVENT.OPEN_EXTERNAL_URL,
+                  href
+                ).catch((error) => {
+                  console.error('打开链接失败:', error);
+                });
+                
+                return true;
+              }
+            }
+            
+            return false;
+          },
         },
       },
     });
@@ -376,7 +455,9 @@ const MilkdownEditor: React.FC<{
       .use(listener)
       .use(history)
       .use(pasteImagePlugin())
-      .use(imageResizePlugin());
+      .use(imageResizePlugin())
+      .use(pasteLinkPlugin())
+      .use(clickableLinkPlugin());
   });
 
   return <Milkdown />;
