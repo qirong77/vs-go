@@ -169,6 +169,9 @@
   width: 100%;
   margin: 1em 0;
   overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  table-layout: auto;
 }
 
 .milkdown table th,
@@ -176,16 +179,34 @@
   border: 1px solid #e5e7eb;
   padding: 0.5em 1em;
   text-align: left;
+  min-width: 80px;
+  vertical-align: top;
 }
 
 .milkdown table th {
-  background-color: #f9fafb;
+  background-color: #f3f4f6;
   font-weight: 600;
   color: #374151;
 }
 
 .milkdown table tr:nth-child(even) {
   background-color: #f9fafb;
+}
+
+.milkdown table tr:hover {
+  background-color: #eef2ff;
+}
+
+/* 表格内容选中状态 */
+.milkdown table td.selectedCell,
+.milkdown table th.selectedCell {
+  background-color: #dbeafe;
+}
+
+/* 表格编辑光标 */
+.milkdown table td p,
+.milkdown table th p {
+  margin: 0;
 }
 
 /* 图片 */

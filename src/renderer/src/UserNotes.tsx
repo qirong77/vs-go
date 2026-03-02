@@ -3,6 +3,7 @@ import { message } from "antd";
 import { VS_GO_EVENT } from "../../common/EVENT";
 import { Editor, rootCtx, defaultValueCtx } from "@milkdown/core";
 import { commonmark } from "@milkdown/preset-commonmark";
+import { gfm } from "@milkdown/preset-gfm";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
 import { history } from "@milkdown/plugin-history";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
@@ -171,30 +172,59 @@ const pasteLinkPlugin = () => {
       key: new PluginKey('pasteLink'),
       props: {
         handlePaste(view, event) {
+          // 如果剪贴板有 HTML 内容，让编辑器默认处理（保留链接等格式）
+          const html = event.clipboardData?.getData('text/html');
+          if (html) return false;
+          
           const text = event.clipboardData?.getData('text/plain');
           if (!text) return false;
           
-          // 检查是否为纯 URL（没有其他文字）
           const trimmedText = text.trim();
-          const urlMatch = trimmedText.match(URL_REGEX);
           
-          if (urlMatch && urlMatch[0] === trimmedText) {
-            // 是纯 URL，转换为 Markdown 链接格式
-            event.preventDefault();
-            
-            const { tr } = view.state;
-            const linkNode = view.state.schema.marks.link;
-            
-            if (linkNode) {
-              // 创建带链接的文本节点
-              const linkMark = linkNode.create({ href: trimmedText });
-              const textNode = view.state.schema.text(trimmedText, [linkMark]);
-              
-              const transaction = tr.replaceSelectionWith(textNode, false);
-              view.dispatch(transaction);
-              
-              return true;
+          // 检查文本中是否包含 URL
+          const urlMatch = trimmedText.match(URL_REGEX);
+          if (!urlMatch) return false;
+          
+          event.preventDefault();
+          
+          const { tr } = view.state;
+          const linkMark = view.state.schema.marks.link;
+          if (!linkMark) return false;
+          
+          // 将文本按 URL 分段，分别创建普通文本节点和链接文本节点
+          const nodes: any[] = [];
+          let lastIndex = 0;
+          
+          // 重新创建正则以重置 lastIndex
+          const urlRegex = new RegExp(URL_REGEX.source, 'gi');
+          let match: RegExpExecArray | null;
+          
+          while ((match = urlRegex.exec(trimmedText)) !== null) {
+            // 添加 URL 前面的普通文本
+            if (match.index > lastIndex) {
+              const plainText = trimmedText.slice(lastIndex, match.index);
+              nodes.push(view.state.schema.text(plainText));
             }
+            
+            // 添加链接文本节点
+            const url = match[0];
+            const mark = linkMark.create({ href: url });
+            nodes.push(view.state.schema.text(url, [mark]));
+            
+            lastIndex = match.index + url.length;
+          }
+          
+          // 添加最后剩余的普通文本
+          if (lastIndex < trimmedText.length) {
+            const plainText = trimmedText.slice(lastIndex);
+            nodes.push(view.state.schema.text(plainText));
+          }
+          
+          if (nodes.length > 0) {
+            const fragment = view.state.schema.nodes.paragraph.create(null, nodes);
+            const transaction = tr.replaceSelectionWith(fragment, false);
+            view.dispatch(transaction);
+            return true;
           }
           
           return false;
@@ -452,6 +482,7 @@ const MilkdownEditor: React.FC<{
         });
       })
       .use(commonmark)
+      .use(gfm)
       .use(listener)
       .use(history)
       .use(pasteImagePlugin())
