@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
-import { 
-  FileAddOutlined, 
-  FolderAddOutlined, 
-  FileOutlined, 
-  FolderOutlined, 
+import {
+  FileAddOutlined,
+  FolderAddOutlined,
+  FileOutlined,
+  FolderOutlined,
   FolderOpenOutlined,
   EditOutlined,
-  DeleteOutlined 
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { Tree, Modal, message, Dropdown, Input } from "antd";
 import type { MenuProps, TreeProps } from "antd";
@@ -20,6 +20,142 @@ export interface NoteTreeNode {
   isLeaf?: boolean;
   children?: NoteTreeNode[];
 }
+
+// 仅保存排序结构（key 层级），不保存完整节点信息
+interface OrderNode {
+  key: string;
+  children?: OrderNode[];
+}
+
+const ORDER_STORAGE_KEY = "vs-go-notes-tree-order";
+
+// 从树中提取排序结构
+const extractOrder = (nodes: NoteTreeNode[]): OrderNode[] =>
+  nodes.map((n) => ({
+    key: n.key,
+    children: n.children?.length ? extractOrder(n.children) : undefined,
+  }));
+
+// 将后端树数据按保存的排序结构重新排列
+const applyOrderToTree = (
+  backendNodes: NoteTreeNode[],
+  orderNodes: OrderNode[]
+): NoteTreeNode[] => {
+  // 建立 key -> node 的完整映射（扁平化）
+  const nodeMap = new Map<string, NoteTreeNode>();
+  const collect = (nodes: NoteTreeNode[]) => {
+    nodes.forEach((n) => {
+      nodeMap.set(n.key, n);
+      if (n.children) collect(n.children);
+    });
+  };
+  collect(backendNodes);
+
+  const usedKeys = new Set<string>();
+
+  const buildOrdered = (orders: OrderNode[]): NoteTreeNode[] => {
+    const result: NoteTreeNode[] = [];
+    for (const o of orders) {
+      const node = nodeMap.get(o.key);
+      if (!node) continue;
+      usedKeys.add(o.key);
+      result.push(
+        o.children && node.children ? { ...node, children: buildOrdered(o.children) } : node
+      );
+    }
+    return result;
+  };
+
+  // 找出不在排序结构中的新增节点（追加到根或对应父节点末尾）
+  const appendUnused = (nodes: NoteTreeNode[]): NoteTreeNode[] => {
+    return nodes
+      .filter((n) => !usedKeys.has(n.key))
+      .map((n) => ({
+        ...n,
+        children: n.children ? appendUnused(n.children) : undefined,
+      }));
+  };
+
+  const ordered = buildOrdered(orderNodes);
+  const unused = appendUnused(backendNodes);
+  return [...ordered, ...unused];
+};
+
+// 从树中移除节点，返回 [新树, 被移除节点]
+const removeFromTree = (
+  nodes: NoteTreeNode[],
+  key: string
+): [NoteTreeNode[], NoteTreeNode | null] => {
+  let removed: NoteTreeNode | null = null;
+  const result = nodes
+    .filter((n) => {
+      if (n.key === key) {
+        removed = n;
+        return false;
+      }
+      return true;
+    })
+    .map((n) => {
+      if (n.children) {
+        const [newChildren, found] = removeFromTree(n.children, key);
+        if (found) {
+          removed = found;
+          return { ...n, children: newChildren };
+        }
+      }
+      return n;
+    });
+  return [result, removed];
+};
+
+// 将节点插入树中指定位置
+const insertIntoTree = (
+  nodes: NoteTreeNode[],
+  targetKey: string,
+  node: NoteTreeNode,
+  dropPosition: number // -1: 目标之前; 1: 目标之后; 0: 目标内部
+): NoteTreeNode[] => {
+  const result: NoteTreeNode[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const cur = nodes[i];
+    if (cur.key === targetKey) {
+      if (dropPosition < 0) {
+        result.push(node, cur);
+      } else if (dropPosition > 0) {
+        result.push(cur, node);
+      } else {
+        // 插入文件夹内部（末尾）
+        const children = cur.children ? [...cur.children, node] : [node];
+        result.push({ ...cur, children });
+      }
+    } else {
+      if (cur.children) {
+        result.push({
+          ...cur,
+          children: insertIntoTree(cur.children, targetKey, node, dropPosition),
+        });
+      } else {
+        result.push(cur);
+      }
+    }
+  }
+  return result;
+};
+
+const saveOrder = (nodes: NoteTreeNode[]) => {
+  try {
+    localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(extractOrder(nodes)));
+  } catch (_) {}
+};
+
+const loadOrder = (): OrderNode[] | null => {
+  try {
+    const raw = localStorage.getItem(ORDER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+};
 
 interface NoteFileTreeProps {
   onSelectFile: (fileId: string, fileName: string) => void;
@@ -36,16 +172,12 @@ const convertToDataNode = (nodes: NoteTreeNode[]): DataNode[] => {
     icon: node.isLeaf ? (
       <FileOutlined />
     ) : (
-      (props: any) =>
-        props.expanded ? <FolderOpenOutlined /> : <FolderOutlined />
+      (props: any) => (props.expanded ? <FolderOpenOutlined /> : <FolderOutlined />)
     ),
   }));
 };
 
-const NoteFileTree: React.FC<NoteFileTreeProps> = ({
-  onSelectFile,
-  selectedFileId,
-}) => {
+const NoteFileTree: React.FC<NoteFileTreeProps> = ({ onSelectFile, selectedFileId }) => {
   const [treeData, setTreeData] = useState<NoteTreeNode[]>([]);
   const [dataNodes, setDataNodes] = useState<DataNode[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
@@ -59,11 +191,15 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({
   // 加载文件树数据
   const loadTree = async () => {
     try {
-      const tree = await window.electron.ipcRenderer.invoke(
+      const tree: NoteTreeNode[] = await window.electron.ipcRenderer.invoke(
         VS_GO_EVENT.USER_NOTES_GET_TREE
       );
-      setTreeData(tree || []);
-      setDataNodes(convertToDataNode(tree || []));
+      const rawTree = tree || [];
+      // 应用本地保存的排序顺序
+      const savedOrder = loadOrder();
+      const orderedTree = savedOrder ? applyOrderToTree(rawTree, savedOrder) : rawTree;
+      setTreeData(orderedTree);
+      setDataNodes(convertToDataNode(orderedTree));
     } catch (error) {
       console.error("加载文件树失败:", error);
       messageApi.error("加载文件树失败");
@@ -100,7 +236,7 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({
   };
 
   // 树节点选择事件
-  const onSelect: TreeProps['onSelect'] = (selectedKeys) => {
+  const onSelect: TreeProps["onSelect"] = (selectedKeys) => {
     if (selectedKeys.length > 0) {
       const key = selectedKeys[0] as string;
       setSelectedKeys([key]);
@@ -112,42 +248,40 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({
   };
 
   // 树节点展开事件
-  const onExpand: TreeProps['onExpand'] = (expandedKeys) => {
+  const onExpand: TreeProps["onExpand"] = (expandedKeys) => {
     setExpandedKeys(expandedKeys);
   };
 
   // 拖拽事件处理
-  const onDrop: TreeProps['onDrop'] = async (info) => {
-    const dropKey = info.node.key;
-    const dragKey = info.dragNode.key;
+  const onDrop: TreeProps["onDrop"] = (info) => {
+    const dropKey = info.node.key as string;
+    const dragKey = info.dragNode.key as string;
 
-    // 找到拖拽节点和目标节点
-    const dragNode = findNode(treeData, dragKey as string);
-    const dropNode = findNode(treeData, dropKey as string);
+    if (dragKey === dropKey) return;
 
+    // 计算相对插入位置
+    const dropPos = info.node.pos.split("-");
+    const relativePosition = info.dropPosition - Number(dropPos[dropPos.length - 1]);
+
+    // 先从树中移除拖拽节点
+    const [treeWithoutDrag, dragNode] = removeFromTree(treeData, dragKey);
     if (!dragNode) return;
 
-    try {
-      // 判断是拖拽到文件夹内还是调整排序
-      if (info.dropToGap) {
-        // 拖拽到节点之间，调整排序
-        messageApi.info('排序功能需要后端支持，暂未实现');
-      } else {
-        // 拖拽到文件夹内
-        if (dropNode && !dropNode.isLeaf) {
-          // 这里调用后端接口移动节点
-          // await window.electron.ipcRenderer.invoke(
-          //   VS_GO_EVENT.USER_NOTES_MOVE_NODE,
-          //   dragKey,
-          //   dropKey
-          // );
-          messageApi.info('移动功能需要后端支持，暂未实现');
-          // await loadTree();
-        }
-      }
-    } catch (error) {
-      messageApi.error('操作失败');
+    let newTree: NoteTreeNode[];
+
+    if (info.dropToGap) {
+      // 拖拽到节点间隙，调整排序（relativePosition: -1 前, 1 后）
+      newTree = insertIntoTree(treeWithoutDrag, dropKey, dragNode, relativePosition);
+    } else {
+      // 拖拽到节点上：仅允许拖入文件夹
+      const dropNode = findNode(treeWithoutDrag, dropKey);
+      if (!dropNode || dropNode.isLeaf) return;
+      newTree = insertIntoTree(treeWithoutDrag, dropKey, dragNode, 0);
     }
+
+    setTreeData(newTree);
+    setDataNodes(convertToDataNode(newTree));
+    saveOrder(newTree);
   };
 
   // 创建新文件
@@ -231,21 +365,23 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({
   // 删除节点
   const handleDeleteNode = (node: NoteTreeNode) => {
     const isFolder = !node.isLeaf;
-    
+
     modal.confirm({
       title: "确认删除",
       content: (
         <div>
           <p>确定要删除 "{node.title}" 吗？</p>
           {isFolder && (
-            <div style={{
-              marginTop: 8,
-              padding: 8,
-              background: 'rgba(252, 175, 62, 0.2)',
-              borderLeft: '3px solid #fcaf3e',
-              fontSize: 12,
-              borderRadius: 2
-            }}>
+            <div
+              style={{
+                marginTop: 8,
+                padding: 8,
+                background: "rgba(252, 175, 62, 0.2)",
+                borderLeft: "3px solid #fcaf3e",
+                fontSize: 12,
+                borderRadius: 2,
+              }}
+            >
               文件夹内的所有内容也会被删除。
             </div>
           )}
@@ -277,58 +413,57 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({
   };
 
   // 右键菜单配置
-  const getContextMenuItems = (node: NoteTreeNode | null): MenuProps['items'] => {
+  const getContextMenuItems = (node: NoteTreeNode | null): MenuProps["items"] => {
     const isFolder = node && !node.isLeaf;
-
     if (!node) {
       // 空白区域右键菜单
       return [
         {
-          key: 'newFile',
-          label: '新建文件',
+          key: "newFile",
+          label: "新建文件",
           icon: <FileOutlined />,
           onClick: () => handleCreateFile(),
         },
         {
-          key: 'newFolder',
-          label: '新建文件夹',
+          key: "newFolder",
+          label: "新建文件夹",
           icon: <FolderOutlined />,
           onClick: () => handleCreateFolder(),
         },
       ];
     }
 
-    const items: MenuProps['items'] = [];
+    const items: MenuProps["items"] = [];
 
     if (isFolder) {
       items.push(
         {
-          key: 'newFile',
-          label: '新建文件',
+          key: "newFile",
+          label: "新建文件",
           icon: <FileOutlined />,
           onClick: () => handleCreateFile(node.key),
         },
         {
-          key: 'newFolder',
-          label: '新建文件夹',
+          key: "newFolder",
+          label: "新建文件夹",
           icon: <FolderOutlined />,
           onClick: () => handleCreateFolder(node.key),
         },
-        { type: 'divider' }
+        { type: "divider" }
       );
     }
 
     items.push(
       {
-        key: 'rename',
-        label: '重命名',
+        key: "rename",
+        label: "重命名",
         icon: <EditOutlined />,
         onClick: () => handleStartRename(node),
       },
-      { type: 'divider' },
+      { type: "divider" },
       {
-        key: 'delete',
-        label: '删除',
+        key: "delete",
+        label: "删除",
         icon: <DeleteOutlined />,
         danger: true,
         onClick: () => handleDeleteNode(node),
@@ -352,25 +487,22 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({
           onBlur={handleFinishRename}
           onPressEnter={handleFinishRename}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') {
+            if (e.key === "Escape") {
               handleCancelRename();
             }
             e.stopPropagation();
           }}
           onClick={(e) => e.stopPropagation()}
           size="small"
-          style={{ width: '100%' }}
+          style={{ width: "100%" }}
         />
       );
     }
 
     return (
-      <Dropdown
-        menu={{ items: getContextMenuItems(node) }}
-        trigger={['contextMenu']}
-      >
-        <span 
-          style={{ userSelect: 'none', display: 'inline-block', width: '100%' }}
+      <Dropdown menu={{ items: getContextMenuItems(node) }} trigger={["contextMenu"]}>
+        <span
+          style={{ userSelect: "none", display: "inline-block", width: "100%" }}
           onContextMenu={(e) => e.stopPropagation()}
         >
           {nodeData.title as React.ReactNode}
@@ -383,16 +515,12 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({
     <div className="note-file-tree">
       {contextHolder}
       {modalContextHolder}
-      
+
       {/* 工具栏 */}
       <div className="tree-toolbar">
         <span className="tree-title">笔记</span>
         <div className="tree-actions">
-          <button
-            className="tree-action-btn"
-            onClick={() => handleCreateFile()}
-            title="新建文件"
-          >
+          <button className="tree-action-btn" onClick={() => handleCreateFile()} title="新建文件">
             <FileAddOutlined />
           </button>
           <button
@@ -408,11 +536,8 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({
       {/* 文件树 */}
       <div className="tree-container">
         {dataNodes.length > 0 ? (
-          <Dropdown
-            menu={{ items: getContextMenuItems(null) }}
-            trigger={['contextMenu']}
-          >
-            <div style={{ height: '100%' }}>
+          <Dropdown menu={{ items: getContextMenuItems(null) }} trigger={["contextMenu"]}>
+            <div style={{ height: "100%" }}>
               <Tree
                 treeData={dataNodes}
                 selectedKeys={selectedKeys}
@@ -439,4 +564,3 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({
 };
 
 export default NoteFileTree;
-
