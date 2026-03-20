@@ -532,3 +532,23 @@ ipcMain.handle(VS_GO_EVENT.OPEN_EXTERNAL_URL, async (_event, url: string) => {
     return { success: false, error: error instanceof Error ? error.message : "未知错误" };
   }
 });
+
+// App 设置相关事件处理
+ipcMain.handle(VS_GO_EVENT.APP_SETTINGS_GET, async () => {
+  try {
+    return vsgoStore.get("appSettings", { defaultEditor: "vscode" });
+  } catch (error) {
+    console.error("获取 App 设置失败:", error);
+    return { defaultEditor: "vscode" };
+  }
+});
+
+ipcMain.handle(VS_GO_EVENT.APP_SETTINGS_SET, async (_event, settings: { defaultEditor: string }) => {
+  try {
+    vsgoStore.set("appSettings", settings);
+    return { success: true };
+  } catch (error) {
+    console.error("保存 App 设置失败:", error);
+    return { success: false, error: error instanceof Error ? error.message : "未知错误" };
+  }
+});

@@ -59,4 +59,8 @@ export enum VS_GO_EVENT {
 
   // 打开外部链接
   OPEN_EXTERNAL_URL = "OPEN_EXTERNAL_URL",
+
+  // App 设置相关
+  APP_SETTINGS_GET = "APP_SETTINGS_GET",
+  APP_SETTINGS_SET = "APP_SETTINGS_SET",
 }

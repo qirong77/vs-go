@@ -130,6 +130,14 @@ const schema = {
     type: "string",
     default: "",
   },
+  // App 设置
+  appSettings: {
+    type: "object",
+    default: { defaultEditor: "vscode" },
+    properties: {
+      defaultEditor: { type: "string" },
+    },
+  },
 } as const;
 
 // 在创建 store 之前先检查并修复配置文件
