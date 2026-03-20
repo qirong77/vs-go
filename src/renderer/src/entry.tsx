@@ -1,5 +1,6 @@
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import AppSetting from "./AppSetting";
 import BrowserSetting from "./BrowserSetting";
 import { Terminal } from "./Terminal";
 import CookieManager from "./CookieManager";
@@ -16,6 +17,8 @@ if (hash.includes("browser-setting")) {
   ReactDOM.createRoot(root).render(<CookieManager />);
 } else if (hash.includes("user-notes")) {
   ReactDOM.createRoot(root).render(<UserNotes />);
+} else if (hash.includes("app-setting")) {
+  ReactDOM.createRoot(root).render(<AppSetting />);
 } else {
   ReactDOM.createRoot(root).render(<App />);
 }

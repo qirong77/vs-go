@@ -8,10 +8,6 @@ type BrowserItem = {
   url: string;
 };
 
-type AppSettings = {
-  defaultEditor: "vscode" | "cursor";
-};
-
 function uuid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -27,8 +23,6 @@ function BrowserSetting() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importBookmarks, setImportBookmarks] = useState<BrowserItem[]>([]);
   const [importing, setImporting] = useState(false);
-  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
-  const [appSettings, setAppSettings] = useState<AppSettings>({ defaultEditor: "vscode" });
 
   // 获取列表
   const fetchList = async () => {
@@ -37,24 +31,9 @@ function BrowserSetting() {
     setList(res || []);
     setLoading(false);
   };
-
-  // 获取 App 设置
-  const fetchAppSettings = async () => {
-    const res = await ipcRenderer.invoke(VS_GO_EVENT.APP_SETTINGS_GET);
-    if (res) setAppSettings(res);
-  };
-
   useEffect(() => {
     fetchList();
-    fetchAppSettings();
   }, []);
-
-  // 保存 App 设置
-  const handleSaveAppSettings = async (newSettings: AppSettings) => {
-    await ipcRenderer.invoke(VS_GO_EVENT.APP_SETTINGS_SET, newSettings);
-    setAppSettings(newSettings);
-    setAppSettingsOpen(false);
-  };
 
   // 添加
   const handleAdd = async () => {
@@ -144,13 +123,7 @@ function BrowserSetting() {
         </span>
         <span className="text-xl font-bold "> 浏览器设置</span>
         <button
-          className="bg-gray-200 text px-3 py-1 rounded ml-auto hover:bg-gray-300 transition-colors"
-          onClick={() => setAppSettingsOpen(true)}
-        >
-          ⚙️ App 设置
-        </button>
-        <button
-          className="bg-gray-200 text px-3 py-1 rounded ml-4 hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-gray-200 text px-3 py-1 rounded ml-auto hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleImportBookmarks}
           disabled={importing}
         >
@@ -224,86 +197,6 @@ function BrowserSetting() {
         onClose={handleCloseImportModal}
         onImport={handleConfirmImport}
       />
-
-      {/* App 设置弹窗 */}
-      {appSettingsOpen && (
-        <AppSettingsModal
-          settings={appSettings}
-          onClose={() => setAppSettingsOpen(false)}
-          onSave={handleSaveAppSettings}
-        />
-      )}
-    </div>
-  );
-}
-
-// App 设置弹窗组件
-function AppSettingsModal({
-  settings,
-  onClose,
-  onSave,
-}: {
-  settings: AppSettings;
-  onClose: () => void;
-  onSave: (settings: AppSettings) => void;
-}) {
-  const [editor, setEditor] = useState<"vscode" | "cursor">(settings.defaultEditor);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-80 p-6">
-        <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-100">⚙️ App 设置</h3>
-
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            默认打开项目的编辑器
-          </label>
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="editor"
-                value="vscode"
-                checked={editor === "vscode"}
-                onChange={() => setEditor("vscode")}
-                className="w-4 h-4 accent-blue-500"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-200">
-                Visual Studio Code
-              </span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer opacity-50">
-              <input
-                type="radio"
-                name="editor"
-                value="cursor"
-                checked={editor === "cursor"}
-                onChange={() => setEditor("cursor")}
-                disabled
-                className="w-4 h-4"
-              />
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Cursor <span className="text-xs text-gray-400">（暂不支持）</span>
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <button
-            className="px-4 py-1.5 rounded bg-gray-200 dark:bg-gray-600 text-sm hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
-            onClick={onClose}
-          >
-            取消
-          </button>
-          <button
-            className="px-4 py-1.5 rounded bg-blue-500 text-white text-sm hover:bg-blue-600 transition-colors"
-            onClick={() => onSave({ defaultEditor: editor })}
-          >
-            保存
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

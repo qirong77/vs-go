@@ -1,6 +1,7 @@
 import { VS_GO_EVENT } from "./../../common/EVENT";
 import { dialog, ipcMain, session, shell } from "electron";
 import { openFileByVscode } from "../utils/openFileByVsCode";
+import { openFileByCursor } from "../utils/openFileByCursor";
 import { is } from "@electron-toolkit/utils";
 import { IMainWindowFile } from "../../common/type";
 import { execSync } from "child_process";
@@ -69,7 +70,12 @@ ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
   const isOpenFileByVsCode = file.useAppBase64 === vscodeBase64;
   if (isOpenFileByVsCode) {
     MainWindowManager.hide();
-    openFileByVscode(filePath);
+    const appSettings = vsgoStore.get("appSettings", { defaultEditor: "vscode" }) as { defaultEditor: string };
+    if (appSettings.defaultEditor === "cursor") {
+      openFileByCursor(filePath);
+    } else {
+      openFileByVscode(filePath);
+    }
     return;
   }
   const command = `open -R ${file.filePath}`;

@@ -11,5 +11,6 @@ const vsGoConfig = {
   workSpaceDirectories: [ProjectPath, resolve(homedir(), "Desktop")],
   workSpaceFiles: getDefaultWorkSpaceFile(),
   codeAppPath: "/Applications/Visual Studio Code.app",
+  cursorAppPath: "/Applications/Cursor.app",
 };
 export { vsGoConfig };

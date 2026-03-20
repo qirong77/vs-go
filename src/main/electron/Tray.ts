@@ -21,6 +21,7 @@ tray.setToolTip("VsGoTray");
 import { createBrowserSettingWindow } from "./BrowserSettingWindow";
 import { createTerminalWindow } from "./Terminal/TerminalWindow";
 import { createUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
+import { createAppSettingWindow } from "./AppSettingWindow";
 
 const contextMenu = Menu.buildFromTemplate([
   {
@@ -41,6 +42,14 @@ const contextMenu = Menu.buildFromTemplate([
       createUserNotesWindow();
     },
   },
+  { type: "separator" },
+  {
+    label: "App 设置",
+    click() {
+      createAppSettingWindow();
+    },
+  },
+  { type: "separator" },
   {
     label: "重启App",
     click() {
