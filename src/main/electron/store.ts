@@ -1,15 +1,17 @@
 import Store from "electron-store";
-import { SavedCookie, SavedCookieByUrl } from "../../common/type";
+import { app } from "electron";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import type {
+  SavedCookie,
+  SavedCookieByUrl,
+  NoteTreeNode,
+} from "../../common/type";
+import { generateId } from "../../common/utils";
 
-// Define or import BrowserItem type
-export type BrowserItem = {
-  // Add appropriate fields here, for example:
-  id: string;
-  name: string;
-  url: string;
-  lastVisit?: number;
-  type: "bookmark" | "history";
-};
+// ============================================================
+// Schema 定义
+// ============================================================
 
 const schema = {
   browserList: {
@@ -27,9 +29,7 @@ const schema = {
   fileAccessHistory: {
     type: "object",
     default: {},
-    additionalProperties: {
-      type: "number",
-    },
+    additionalProperties: { type: "number" },
   },
   savedCookies: {
     type: "array",
@@ -99,38 +99,28 @@ const schema = {
       updateTimeDisplay: { type: "string" },
     },
   },
-  // Monaco编辑器笔记存储
   monacoNotes: {
     type: "object",
     default: {},
-    additionalProperties: {
-      type: "string",
-    },
+    additionalProperties: { type: "string" },
   },
-  // Plate.js用户笔记内容
   userNoteContent: {
     type: "string",
     default: "",
   },
-  // 用户笔记文件树
   userNotesTree: {
     type: "array",
     default: [],
   },
-  // 用户笔记文件内容
   userNotesFiles: {
     type: "object",
     default: {},
-    additionalProperties: {
-      type: "string",
-    },
+    additionalProperties: { type: "string" },
   },
-  // 当前打开的笔记文件ID
   userNotesCurrentFile: {
     type: "string",
     default: "",
   },
-  // App 设置
   appSettings: {
     type: "object",
     default: { defaultEditor: "vscode" },
@@ -140,76 +130,71 @@ const schema = {
   },
 } as const;
 
-// 在创建 store 之前先检查并修复配置文件
-import { app } from 'electron';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import path from 'path';
+// ============================================================
+// 数据迁移（在创建 store 之前执行）
+// ============================================================
 
-function migrateConfigBeforeLoad() {
+function migrateConfigBeforeLoad(): void {
   try {
-    const userDataPath = app.getPath('userData');
-    const configPath = path.join(userDataPath, 'config.json');
-    
-    if (existsSync(configPath)) {
-      const configData = JSON.parse(readFileSync(configPath, 'utf-8'));
-      let needsSave = false;
-      
-      // 如果 userNotesTree 存在但不是数组，重置为空数组
-      if (configData.userNotesTree !== undefined && !Array.isArray(configData.userNotesTree)) {
-        configData.userNotesTree = [];
-        needsSave = true;
-      }
-      
-      if (needsSave) {
-        writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf-8');
-        console.log('Migrated config file successfully');
-      }
+    const userDataPath = app.getPath("userData");
+    const configPath = path.join(userDataPath, "config.json");
+
+    if (!existsSync(configPath)) return;
+
+    const configData = JSON.parse(readFileSync(configPath, "utf-8"));
+    let needsSave = false;
+
+    if (configData.userNotesTree !== undefined && !Array.isArray(configData.userNotesTree)) {
+      configData.userNotesTree = [];
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      writeFileSync(configPath, JSON.stringify(configData, null, 2), "utf-8");
     }
   } catch (error) {
-    console.error('Failed to migrate config:', error);
+    console.error("Failed to migrate config:", error);
   }
 }
 
-// 执行迁移
 migrateConfigBeforeLoad();
 
-// 创建 store 实例
+// ============================================================
+// Store 实例
+// ============================================================
+
 const store = new Store({ schema });
 export const vsgoStore = store;
 
-// Cookie 存储相关方法
+// ============================================================
+// 领域存储方法
+// ============================================================
+
 export const cookieStore = {
   getSavedCookies(): SavedCookie[] {
     return vsgoStore.get("savedCookies", []) as SavedCookie[];
   },
-
   saveCookie(cookie: SavedCookie): void {
     const cookies = this.getSavedCookies();
     cookies.push(cookie);
     vsgoStore.set("savedCookies", cookies);
   },
-
   deleteCookie(id: string): void {
-    const cookies = this.getSavedCookies();
-    const filteredCookies = cookies.filter((cookie) => cookie.id !== id);
-    vsgoStore.set("savedCookies", filteredCookies);
+    const filtered = this.getSavedCookies().filter((c) => c.id !== id);
+    vsgoStore.set("savedCookies", filtered);
   },
-
-  clearAllCookies(): void {
+  clearAll(): void {
     vsgoStore.set("savedCookies", []);
   },
 };
 
-// 新的基于URL的Cookie存储方法
 export const cookieByUrlStore = {
-  getSavedCookiesByUrl(): SavedCookieByUrl[] {
+  getAll(): SavedCookieByUrl[] {
     return vsgoStore.get("savedCookiesByUrl", []) as SavedCookieByUrl[];
   },
-
-  saveCookieByUrl(cookieData: SavedCookieByUrl): void {
-    const cookies = this.getSavedCookiesByUrl();
-    // 如果同一个域名已存在，则更新；否则添加新记录
-    const existingIndex = cookies.findIndex((cookie) => cookie.domain === cookieData.domain);
+  save(cookieData: SavedCookieByUrl): void {
+    const cookies = this.getAll();
+    const existingIndex = cookies.findIndex((c) => c.domain === cookieData.domain);
     if (existingIndex >= 0) {
       cookies[existingIndex] = cookieData;
     } else {
@@ -217,97 +202,69 @@ export const cookieByUrlStore = {
     }
     vsgoStore.set("savedCookiesByUrl", cookies);
   },
-
-  deleteCookieByUrl(id: string): void {
-    const cookies = this.getSavedCookiesByUrl();
-    const filteredCookies = cookies.filter((cookie) => cookie.id !== id);
-    vsgoStore.set("savedCookiesByUrl", filteredCookies);
+  delete(id: string): void {
+    const filtered = this.getAll().filter((c) => c.id !== id);
+    vsgoStore.set("savedCookiesByUrl", filtered);
   },
-
-  getCookieByUrl(url: string): SavedCookieByUrl | undefined {
-    const cookies = this.getSavedCookiesByUrl();
-    return cookies.find((cookie) => cookie.url === url);
+  getByUrl(url: string): SavedCookieByUrl | undefined {
+    return this.getAll().find((c) => c.url === url);
   },
-
-  clearAllCookiesByUrl(): void {
+  clearAll(): void {
     vsgoStore.set("savedCookiesByUrl", []);
   },
 };
 
-// 文件访问历史存储方法
 export const fileAccessStore = {
-  getFileAccessHistory(): Record<string, number> {
+  getHistory(): Record<string, number> {
     return vsgoStore.get("fileAccessHistory", {}) as Record<string, number>;
   },
-
-  updateFileAccessTime(filePath: string): void {
-    const history = this.getFileAccessHistory();
+  updateAccessTime(filePath: string): void {
+    const history = this.getHistory();
     history[filePath] = Date.now();
     vsgoStore.set("fileAccessHistory", history);
   },
-
-  getFileAccessTime(filePath: string): number | undefined {
-    const history = this.getFileAccessHistory();
-    return history[filePath];
+  getAccessTime(filePath: string): number | undefined {
+    return this.getHistory()[filePath];
   },
-
-  clearFileAccessHistory(): void {
+  clearAll(): void {
     vsgoStore.set("fileAccessHistory", {});
   },
 };
 
-// Monaco编辑器笔记存储方法
 export const monacoNotesStore = {
-  getMonacoNotes(): Record<string, string> {
+  getAll(): Record<string, string> {
     return vsgoStore.get("monacoNotes", {}) as Record<string, string>;
   },
-
-  getMonacoNote(key: string): string {
-    const notes = this.getMonacoNotes();
-    return notes[key] || "";
+  get(key: string): string {
+    return this.getAll()[key] || "";
   },
-
-  saveMonacoNote(key: string, content: string): void {
-    const notes = this.getMonacoNotes();
+  save(key: string, content: string): void {
+    const notes = this.getAll();
     notes[key] = content;
     vsgoStore.set("monacoNotes", notes);
   },
-
-  deleteMonacoNote(key: string): void {
-    const notes = this.getMonacoNotes();
+  delete(key: string): void {
+    const notes = this.getAll();
     delete notes[key];
     vsgoStore.set("monacoNotes", notes);
   },
-
-  clearAllMonacoNotes(): void {
+  clearAll(): void {
     vsgoStore.set("monacoNotes", {});
   },
 };
 
-// 用户笔记存储方法
 export const userNotesStore = {
-  getUserNoteContent(): string {
+  getContent(): string {
     return vsgoStore.get("userNoteContent", "") as string;
   },
-
-  saveUserNoteContent(content: string): void {
+  saveContent(content: string): void {
     vsgoStore.set("userNoteContent", content);
   },
-
-  clearUserNoteContent(): void {
+  clearContent(): void {
     vsgoStore.set("userNoteContent", "");
   },
 };
 
-// 用户笔记文件树节点类型
-export interface NoteTreeNode {
-  key: string;
-  title: string;
-  isLeaf?: boolean;
-  children?: NoteTreeNode[];
-}
-
-// 用户笔记文件树存储方法
 export const userNotesTreeStore = {
   getTree(): NoteTreeNode[] {
     return vsgoStore.get("userNotesTree", []) as NoteTreeNode[];
@@ -342,12 +299,6 @@ export const userNotesTreeStore = {
     vsgoStore.set("userNotesCurrentFile", fileId);
   },
 
-  // 生成唯一ID
-  generateId(): string {
-    return `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  },
-
-  // 在树中查找节点
   findNode(tree: NoteTreeNode[], key: string): NoteTreeNode | null {
     for (const node of tree) {
       if (node.key === key) return node;
@@ -359,13 +310,10 @@ export const userNotesTreeStore = {
     return null;
   },
 
-  // 在树中查找父节点
   findParent(tree: NoteTreeNode[], key: string): NoteTreeNode | null {
     for (const node of tree) {
       if (node.children) {
-        if (node.children.some(child => child.key === key)) {
-          return node;
-        }
+        if (node.children.some((child) => child.key === key)) return node;
         const found = this.findParent(node.children, key);
         if (found) return found;
       }
@@ -373,12 +321,11 @@ export const userNotesTreeStore = {
     return null;
   },
 
-  // 创建文件
   createFile(name: string, parentId?: string): NoteTreeNode {
     const tree = this.getTree();
     const newNode: NoteTreeNode = {
-      key: this.generateId(),
-      title: name.endsWith('.md') ? name : `${name}.md`,
+      key: generateId("note"),
+      title: name.endsWith(".md") ? name : `${name}.md`,
       isLeaf: true,
     };
 
@@ -393,16 +340,14 @@ export const userNotesTreeStore = {
     }
 
     this.saveTree(tree);
-    // 初始化文件内容
-    this.saveFileContent(newNode.key, `# ${name.replace('.md', '')}\n\n`);
+    this.saveFileContent(newNode.key, `# ${name.replace(".md", "")}\n\n`);
     return newNode;
   },
 
-  // 创建文件夹
   createFolder(name: string, parentId?: string): NoteTreeNode {
     const tree = this.getTree();
     const newNode: NoteTreeNode = {
-      key: this.generateId(),
+      key: generateId("note"),
       title: name,
       isLeaf: false,
       children: [],
@@ -422,16 +367,14 @@ export const userNotesTreeStore = {
     return newNode;
   },
 
-  // 删除节点（递归删除子节点的文件内容）
   deleteNode(nodeId: string): boolean {
     const tree = this.getTree();
-    
+
     const deleteRecursive = (nodes: NoteTreeNode[], key: string): boolean => {
-      const index = nodes.findIndex(n => n.key === key);
+      const index = nodes.findIndex((n) => n.key === key);
       if (index !== -1) {
         const node = nodes[index];
-        // 递归删除子节点的文件内容
-        const deleteContents = (n: NoteTreeNode) => {
+        const deleteContents = (n: NoteTreeNode): void => {
           if (n.isLeaf) {
             this.deleteFileContent(n.key);
           } else if (n.children) {
@@ -442,7 +385,7 @@ export const userNotesTreeStore = {
         nodes.splice(index, 1);
         return true;
       }
-      
+
       for (const node of nodes) {
         if (node.children && deleteRecursive(node.children, key)) {
           return true;
@@ -454,7 +397,6 @@ export const userNotesTreeStore = {
     const result = deleteRecursive(tree, nodeId);
     if (result) {
       this.saveTree(tree);
-      // 如果删除的是当前文件，清空当前文件
       if (this.getCurrentFile() === nodeId) {
         this.setCurrentFile("");
       }
@@ -462,12 +404,11 @@ export const userNotesTreeStore = {
     return result;
   },
 
-  // 重命名节点
   renameNode(nodeId: string, newName: string): boolean {
     const tree = this.getTree();
     const node = this.findNode(tree, nodeId);
     if (node) {
-      node.title = node.isLeaf && !newName.endsWith('.md') ? `${newName}.md` : newName;
+      node.title = node.isLeaf && !newName.endsWith(".md") ? `${newName}.md` : newName;
       this.saveTree(tree);
       return true;
     }

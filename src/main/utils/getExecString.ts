@@ -1,9 +1,10 @@
-import { execSync } from "child_process";
+import { execSync } from "node:child_process";
 
-export function getExecString(command = "") {
+export function getExecString(command: string): string {
   try {
     return execSync(command).toString();
-  } catch {
-    throw new Error("");
+  } catch (error) {
+    console.error(`Command execution failed: ${command}`, error);
+    return "";
   }
 }

@@ -1,35 +1,24 @@
-import { is } from "@electron-toolkit/utils";
 import { BrowserWindow } from "electron";
-import path from "path";
+import { createSubWindow } from "../createWindow";
 import { setupContextMenu } from "../contextMenu";
 
 let browserSettingWindow: BrowserWindow | null = null;
-export function createBrowserSettingWindow() {
+
+export function createBrowserSettingWindow(): void {
   if (browserSettingWindow && !browserSettingWindow.isDestroyed()) {
     browserSettingWindow.focus();
     return;
   }
-  browserSettingWindow = new BrowserWindow({
+
+  browserSettingWindow = createSubWindow({
     width: 800,
     height: 600,
     title: "浏览器设置",
-    webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
-      sandbox: false,
-    },
-    autoHideMenuBar: true,
-    resizable: true,
+    hash: "browser-setting",
   });
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    browserSettingWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/browser-setting");
-  } else {
-    browserSettingWindow.loadFile(path.join(__dirname, "../renderer/index.html"), {
-      hash: "browser-setting",
-    });
-  }
-  // 设置右键菜单
+
   setupContextMenu(browserSettingWindow);
-  
+
   browserSettingWindow.on("closed", () => {
     browserSettingWindow = null;
   });

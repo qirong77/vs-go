@@ -1,43 +1,40 @@
 import React, { useState, useEffect } from "react";
 import { Button, message, Empty, Card, Typography } from "antd";
 import { VS_GO_EVENT } from "../../common/EVENT";
-import { SavedCookieByUrl } from "../../common/type";
+import type { SavedCookieByUrl } from "../../common/type";
 
 const { Title, Text } = Typography;
+const { ipcRenderer } = window.electron;
 
 const CookieManager: React.FC = () => {
   const [savedCookies, setSavedCookies] = useState<SavedCookieByUrl[]>([]);
-  const [currentUrl, setCurrentUrl] = useState<string>("");
+  const [currentUrl, setCurrentUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
     loadSavedCookies();
 
-    // 监听当前URL更新
-    window.electron.ipcRenderer.on("update-current-url", (_event, url: string) => {
-      setCurrentUrl(url);
-    });
+    const handleUrlUpdate = (_event: unknown, url: string) => setCurrentUrl(url);
+    ipcRenderer.on(VS_GO_EVENT.COOKIE_UPDATE_CURRENT_URL, handleUrlUpdate);
 
     return () => {
-      window.electron.ipcRenderer.removeAllListeners("update-current-url");
+      ipcRenderer.removeAllListeners(VS_GO_EVENT.COOKIE_UPDATE_CURRENT_URL);
     };
   }, []);
 
   const loadSavedCookies = async () => {
     try {
-      const cookies = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.COOKIE_GET_SAVED_LIST_BY_URL
-      );
+      const cookies = await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_GET_SAVED_LIST_BY_URL);
       setSavedCookies(cookies);
     } catch (error) {
-      console.error("加载Cookie列表失败:", error);
+      console.error("加载 Cookie 列表失败:", error);
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      const result = await window.electron.ipcRenderer.invoke(VS_GO_EVENT.COOKIE_DELETE_BY_URL, id);
+      const result = await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_DELETE_BY_URL, id);
       if (result.success) {
         messageApi.success("删除成功");
         await loadSavedCookies();
@@ -45,8 +42,8 @@ const CookieManager: React.FC = () => {
         messageApi.error(`删除失败: ${result.error}`);
       }
     } catch (error) {
-      console.error("删除Cookie失败:", error);
-      messageApi.error("删除Cookie失败");
+      console.error("删除 Cookie 失败:", error);
+      messageApi.error("删除 Cookie 失败");
     }
   };
 
@@ -58,19 +55,15 @@ const CookieManager: React.FC = () => {
 
     setLoading(true);
     try {
-      const result = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.COOKIE_APPLY_BY_URL,
-        cookie,
-        currentUrl
-      );
+      const result = await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_APPLY_BY_URL, cookie, currentUrl);
       if (result.success) {
-        messageApi.success(`成功应用 ${result.count} 个Cookie`);
+        messageApi.success(`成功应用 ${result.count} 个 Cookie`);
       } else {
         messageApi.error(`应用失败: ${result.error}`);
       }
     } catch (error) {
-      console.error("应用Cookie失败:", error);
-      messageApi.error("应用Cookie失败");
+      console.error("应用 Cookie 失败:", error);
+      messageApi.error("应用 Cookie 失败");
     } finally {
       setLoading(false);
     }
@@ -84,10 +77,7 @@ const CookieManager: React.FC = () => {
 
     setLoading(true);
     try {
-      const result = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.COOKIE_SAVE_BY_URL,
-        currentUrl
-      );
+      const result = await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_SAVE_BY_URL, currentUrl);
       if (result.success) {
         messageApi.success(`成功保存 ${result.cookie.domain} 的 Cookie`);
         await loadSavedCookies();
@@ -95,8 +85,8 @@ const CookieManager: React.FC = () => {
         messageApi.error(`保存失败: ${result.error}`);
       }
     } catch (error) {
-      console.error("保存Cookie失败:", error);
-      messageApi.error("保存Cookie失败");
+      console.error("保存 Cookie 失败:", error);
+      messageApi.error("保存 Cookie 失败");
     } finally {
       setLoading(false);
     }
@@ -143,14 +133,10 @@ const CookieManager: React.FC = () => {
                       <Text strong className="truncate block">
                         {cookie.domain}
                       </Text>
-                      <Text
-                        type="secondary"
-                        className="ml-4 whitespace-nowrap"
-                      >
+                      <Text type="secondary" className="ml-4 whitespace-nowrap">
                         {cookie.saveTimeDisplay}
                       </Text>
                     </div>
-
                     <Button
                       type="primary"
                       onClick={() => handleApply(cookie)}

@@ -1,10 +1,5 @@
 import { useState, useEffect } from "react";
-
-type BrowserItem = {
-  id: string;
-  name: string;
-  url: string;
-};
+import type { BrowserItem } from "../../../common/type";
 
 interface BookmarkImportModalProps {
   isOpen: boolean;
@@ -19,57 +14,54 @@ export default function BookmarkImportModal({
   onClose,
   onImport,
 }: BookmarkImportModalProps) {
-  const [selectedBookmarks, setSelectedBookmarks] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // 初始化时选中所有书签
   useEffect(() => {
     if (bookmarks.length > 0) {
-      setSelectedBookmarks(new Set(bookmarks.map((b) => b.id)));
+      setSelectedIds(new Set(bookmarks.map((b) => b.id)));
       setSelectAll(true);
     }
   }, [bookmarks]);
 
-  const handleToggleBookmark = (id: string) => {
-    const newSelected = new Set(selectedBookmarks);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
+  const filteredBookmarks = bookmarks.filter(
+    (b) =>
+      b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      b.url.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleToggle = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
     } else {
-      newSelected.add(id);
+      next.add(id);
     }
-    setSelectedBookmarks(newSelected);
-    setSelectAll(newSelected.size === bookmarks.length);
+    setSelectedIds(next);
+    setSelectAll(next.size === bookmarks.length);
   };
 
   const handleSelectAll = () => {
     if (selectAll) {
-      setSelectedBookmarks(new Set());
+      setSelectedIds(new Set());
     } else {
-      setSelectedBookmarks(new Set(filteredBookmarks.map((b) => b.id)));
+      setSelectedIds(new Set(filteredBookmarks.map((b) => b.id)));
     }
     setSelectAll(!selectAll);
   };
 
   const handleImport = () => {
-    const selected = bookmarks.filter((bookmark) => selectedBookmarks.has(bookmark.id));
-    onImport(selected);
+    onImport(bookmarks.filter((b) => selectedIds.has(b.id)));
   };
 
-  const filteredBookmarks = bookmarks.filter(
-    (bookmark) =>
-      bookmark.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bookmark.url.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const selectedCount = selectedBookmarks.size;
-
   if (!isOpen) return null;
+
+  const selectedCount = selectedIds.size;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-4xl max-h-5/6 flex flex-col">
-        {/* 头部 */}
         <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">导入书签</h2>
@@ -85,7 +77,6 @@ export default function BookmarkImportModal({
           </button>
         </div>
 
-        {/* 工具栏 */}
         <div className="p-4 border-b dark:border-gray-700 space-y-3">
           <div className="flex gap-3">
             <input
@@ -104,7 +95,6 @@ export default function BookmarkImportModal({
           </div>
         </div>
 
-        {/* 书签列表 */}
         <div className="flex-1 overflow-auto p-4">
           {filteredBookmarks.length === 0 ? (
             <div className="text-center text-gray-500 dark:text-gray-400 py-8">
@@ -119,8 +109,8 @@ export default function BookmarkImportModal({
                 >
                   <input
                     type="checkbox"
-                    checked={selectedBookmarks.has(bookmark.id)}
-                    onChange={() => handleToggleBookmark(bookmark.id)}
+                    checked={selectedIds.has(bookmark.id)}
+                    onChange={() => handleToggle(bookmark.id)}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                   />
                   <div className="flex-1 min-w-0">
@@ -146,7 +136,6 @@ export default function BookmarkImportModal({
           )}
         </div>
 
-        {/* 底部按钮 */}
         <div className="flex items-center justify-between p-6 border-t dark:border-gray-700">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             将导入 {selectedCount} 个书签

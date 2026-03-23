@@ -12,14 +12,8 @@ import { Tree, Modal, message, Dropdown, Input } from "antd";
 import type { MenuProps, TreeProps } from "antd";
 import type { DataNode } from "antd/es/tree";
 import { VS_GO_EVENT } from "../../../common/EVENT";
+import type { NoteTreeNode } from "../../../common/type";
 import "./NoteFileTree.css";
-
-export interface NoteTreeNode {
-  key: string;
-  title: string;
-  isLeaf?: boolean;
-  children?: NoteTreeNode[];
-}
 
 // 仅保存排序结构（key 层级），不保存完整节点信息
 interface OrderNode {

@@ -1,26 +1,50 @@
-import { BrowserItem } from "../main/electron/store";
-export type IMainWindowFile = {
+// ============================================================
+// 共享类型定义 - 所有跨进程 (main/renderer) 使用的类型
+// ============================================================
+
+// --- 编辑器 & App 设置 ---
+
+export type DefaultEditor = "vscode" | "cursor";
+
+export interface AppSettings {
+  defaultEditor: DefaultEditor;
+}
+
+// --- 浏览器 / 书签 ---
+
+export interface BrowserItem {
+  id: string;
+  name: string;
+  url: string;
+  lastVisit?: number;
+  type: "bookmark" | "history";
+}
+
+// --- 主窗口文件列表 ---
+
+export interface IMainWindowFile {
   useAppBase64: string;
   iconBase64: string;
   filePath: string;
   fileName: string;
   browser?: BrowserItem;
   lastAccessTime?: number;
-};
+}
+
 export type IMainWindowFiles = IMainWindowFile[];
 
-// Cookie 相关类型定义 - 新的基于URL的存储方式
-export type SavedCookieByUrl = {
+// --- Cookie ---
+
+export interface SavedCookieByUrl {
   id: string;
   url: string;
   domain: string;
-  cookieString: string; // 完整的cookie字符串
-  saveTime: number; // 保存时间戳
-  saveTimeDisplay: string; // 格式化的保存时间
-};
+  cookieString: string;
+  saveTime: number;
+  saveTimeDisplay: string;
+}
 
-// 保持旧的类型定义用于兼容性
-export type SavedCookie = {
+export interface SavedCookie {
   id: string;
   domain: string;
   name: string;
@@ -30,16 +54,20 @@ export type SavedCookie = {
   httpOnly?: boolean;
   expirationDate?: number;
   sameSite?: "unspecified" | "no_restriction" | "lax" | "strict";
-  saveTime: number; // 保存时间戳
-  saveTimeDisplay: string; // 格式化的保存时间
-};
+  saveTime: number;
+  saveTimeDisplay: string;
+}
 
-export type CookieData = {
-  cookies: SavedCookie[];
-};
+// --- 笔记 ---
 
-// 保持旧的类型定义用于兼容性（如果需要的话）
-export type NoteItem = {
+export interface NoteTreeNode {
+  key: string;
+  title: string;
+  isLeaf?: boolean;
+  children?: NoteTreeNode[];
+}
+
+export interface NoteItem {
   id: string;
   url: string;
   domain: string;
@@ -49,8 +77,12 @@ export type NoteItem = {
   updateTime: number;
   createTimeDisplay: string;
   updateTimeDisplay: string;
-};
+}
 
-export type NotesData = {
-  notes: NoteItem[];
-};
+// --- IPC 响应通用类型 ---
+
+export interface IpcResult<T = undefined> {
+  success: boolean;
+  error?: string;
+  data?: T;
+}

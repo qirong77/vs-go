@@ -3,17 +3,13 @@ import { BrowserWindow } from "electron";
 import { createCookieManagerWindow } from "./CookieManagerWindow";
 import { createUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 
-/**
- * 为窗口设置右键菜单
- * 包含常用操作：复制、粘贴、剪切、全选、刷新、开发者工具
- */
-export function setupContextMenu(window: BrowserWindow) {
+export function setupContextMenu(window: BrowserWindow): void {
   contextMenu({
     window,
-    showSaveImageAs: true, // 图片右键保存
-    showCopyImageAddress: true, // 复制图片地址
-    showSearchWithGoogle: false, // 不显示用谷歌搜索（减少选项）
-    showInspectElement: false, // 手动添加检查元素到最后
+    showSaveImageAs: true,
+    showCopyImageAddress: true,
+    showSearchWithGoogle: false,
+    showInspectElement: false,
     labels: {
       copy: "复制",
       paste: "粘贴",
@@ -30,27 +26,21 @@ export function setupContextMenu(window: BrowserWindow) {
         click: () => {
           let currentUrl = "";
           if ("webContents" in browserWindow) {
-            currentUrl = browserWindow.webContents.getURL();
-          } else if ("getURL" in browserWindow) {
-            currentUrl = (browserWindow as any).getURL();
+            currentUrl = (browserWindow as BrowserWindow).webContents.getURL();
           }
           createCookieManagerWindow(currentUrl);
         },
       },
       {
         label: "查看笔记",
-        click: () => {
-          createUserNotesWindow();
-        },
+        click: () => createUserNotesWindow(),
       },
-      {
-        type: "separator",
-      },
+      { type: "separator" },
       {
         label: "检查元素",
         click: () => {
           if ("webContents" in browserWindow) {
-            browserWindow.webContents.inspectElement(0, 0);
+            (browserWindow as BrowserWindow).webContents.inspectElement(0, 0);
           }
         },
       },

@@ -1,36 +1,20 @@
 import { BrowserWindow } from "electron";
-import path from "path";
-import { is } from "@electron-toolkit/utils";
+import { createSubWindow } from "../createWindow";
 
 let userNotesWindow: BrowserWindow | null = null;
 
-export function createUserNotesWindow() {
+export function createUserNotesWindow(): BrowserWindow {
   if (userNotesWindow && !userNotesWindow.isDestroyed()) {
     userNotesWindow.focus();
     return userNotesWindow;
   }
 
-  userNotesWindow = new BrowserWindow({
+  userNotesWindow = createSubWindow({
     width: 1000,
     height: 700,
     title: "用户笔记",
-    webPreferences: {
-      sandbox: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, "../preload/index.js"),
-    },
+    hash: "user-notes",
   });
-
-  // Load the user notes page with hash
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    userNotesWindow.loadURL(
-      `${process.env["ELECTRON_RENDERER_URL"]}#user-notes`
-    );
-  } else {
-    userNotesWindow.loadFile(path.join(__dirname, "../renderer/index.html"), {
-      hash: "user-notes"
-    });
-  }
 
   userNotesWindow.on("closed", () => {
     userNotesWindow = null;
@@ -39,6 +23,6 @@ export function createUserNotesWindow() {
   return userNotesWindow;
 }
 
-export function getUserNotesWindow() {
+export function getUserNotesWindow(): BrowserWindow | null {
   return userNotesWindow;
 }

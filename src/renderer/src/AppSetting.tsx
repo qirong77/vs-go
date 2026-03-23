@@ -1,25 +1,12 @@
 import { useState, useEffect } from "react";
 import { VS_GO_EVENT } from "../../common/EVENT";
-
-type DefaultEditor = "vscode" | "cursor";
-
-type AppSettings = {
-  defaultEditor: DefaultEditor;
-};
+import type { DefaultEditor, AppSettings } from "../../common/type";
 
 const { ipcRenderer } = window.electron;
 
 const EDITORS: { value: DefaultEditor; label: string; desc: string }[] = [
-  {
-    value: "vscode",
-    label: "Visual Studio Code",
-    desc: "使用 VS Code 打开项目",
-  },
-  {
-    value: "cursor",
-    label: "Cursor",
-    desc: "使用 Cursor 打开项目",
-  },
+  { value: "vscode", label: "Visual Studio Code", desc: "使用 VS Code 打开项目" },
+  { value: "cursor", label: "Cursor", desc: "使用 Cursor 打开项目" },
 ];
 
 function AppSetting() {
@@ -35,7 +22,9 @@ function AppSetting() {
 
   const handleSave = async () => {
     setSaving(true);
-    await ipcRenderer.invoke(VS_GO_EVENT.APP_SETTINGS_SET, { defaultEditor: editor });
+    await ipcRenderer.invoke(VS_GO_EVENT.APP_SETTINGS_SET, {
+      defaultEditor: editor,
+    } satisfies AppSettings);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -44,7 +33,9 @@ function AppSetting() {
   return (
     <div className="p-6 w-full h-full flex flex-col bg-white dark:bg-gray-900">
       <h2 className="mb-6 flex items-center gap-2">
-        <span role="img" aria-label="settings">⚙️</span>
+        <span role="img" aria-label="settings">
+          ⚙️
+        </span>
         <span className="text-xl font-bold text-gray-800 dark:text-gray-100">App 设置</span>
       </h2>
 
