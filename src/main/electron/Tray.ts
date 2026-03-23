@@ -1,17 +1,22 @@
 import { Menu, Tray, app, nativeImage } from "electron";
 import path from "node:path";
-import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { is } from "@electron-toolkit/utils";
 import { createBrowserSettingWindow } from "./BrowserSettingWindow";
 import { createUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 import { createAppSettingWindow } from "./AppSettingWindow";
 
-const imageDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const imagePath = path.join(imageDir, "rocket-takeoff@2x.png");
-const imageDevPath = join(dirname(dirname(__dirname)), "build", "rocket-takeoff@2x.png");
+// dev:   build/rocket-takeoff@2x.png（项目根目录下）
+// prod:  out/rocket-takeoff@2x.png（通过 copyTrayIconPlugin 自动拷贝）
+const thisFile = fileURLToPath(import.meta.url);
+const outDir = path.resolve(path.dirname(thisFile), ".."); // out/
+const projectRoot = path.resolve(outDir, "..");
 
-const image = nativeImage.createFromPath(is.dev ? imageDevPath : imagePath);
+const imagePath = is.dev
+  ? path.join(projectRoot, "build", "rocket-takeoff@2x.png")
+  : path.join(outDir, "rocket-takeoff@2x.png");
+
+const image = nativeImage.createFromPath(imagePath);
 image.setTemplateImage(true);
 
 const tray = new Tray(image);
