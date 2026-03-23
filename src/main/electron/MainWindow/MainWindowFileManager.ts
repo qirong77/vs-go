@@ -8,13 +8,12 @@ import { existsSync, mkdirSync } from "node:fs";
 import { getIconBuffers } from "../../utils/getIconPath";
 import { BrowserItem, vsgoStore, fileAccessStore } from "../store";
 export async function getMainWindowFiles() {
-  const terminal = await getTerminallPath();
   const app = await getApp();
   const browserList = vsgoStore.get("browserList") as BrowserItem[];
   const _browserList = browserList.map((item) => {
     return { fileName: item.name, filePath: item.url, browser: { ...item } };
   });
-  const files = [...getWorkSpaceFiles(), ...getZshFile(), ...terminal, ...app, ..._browserList];
+  const files = [...getWorkSpaceFiles(), ...getZshFile(), ...app, ..._browserList];
 
   // 为所有文件添加最后访问时间信息
   const filesWithAccessTime = files.map((file) => ({
@@ -81,19 +80,6 @@ function getZshFile() {
     });
   }
   return results;
-}
-
-async function getTerminallPath() {
-  const terminalPasth = "/System/Applications/Utilities/Terminal.app";
-  const terMinalIcon = await getIconBuffers([terminalPasth]);
-  return [
-    {
-      filePath: terminalPasth,
-      fileName: "Terminal",
-      iconBase64: terMinalIcon,
-      useAppBase64: "",
-    },
-  ];
 }
 
 async function getApp() {

@@ -28,7 +28,6 @@ window.addEventListener("load", () => {
   }
   if (
     window.location.href.includes("browser-setting") ||
-    window.location.href.includes("terminal") ||
     window.location.href.includes("main-window")
   ) {
     return;

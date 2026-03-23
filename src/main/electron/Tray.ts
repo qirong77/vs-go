@@ -19,17 +19,10 @@ image.setTemplateImage(true);
 const tray = new Tray(image);
 tray.setToolTip("VsGoTray");
 import { createBrowserSettingWindow } from "./BrowserSettingWindow";
-import { createTerminalWindow } from "./Terminal/TerminalWindow";
 import { createUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 import { createAppSettingWindow } from "./AppSettingWindow";
 
 const contextMenu = Menu.buildFromTemplate([
-  {
-    label: "新建终端",
-    click() {
-      createTerminalWindow();
-    },
-  },
   {
     label: "浏览器设置",
     click() {
