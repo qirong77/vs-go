@@ -4,7 +4,7 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync } from "n
 import path from "node:path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 
-const HELPER_VERSION = 6;
+const HELPER_VERSION = 7;
 
 type HelperMode = "native" | "ddc" | "unsupported";
 
@@ -804,14 +804,15 @@ function mapDisplays(
   helperDisplays: HelperDisplayInfo[],
 ): Map<number, HelperDisplayInfo> {
   const mapping = new Map<number, HelperDisplayInfo>();
-  const remaining = new Set(helperDisplays.map((item) => item.nativeId));
+  const remainingHelperIds = new Set(helperDisplays.map((item) => item.nativeId));
+  const remainingDisplayIds = new Set(displays.map((item) => item.id));
 
   for (const display of displays) {
     let bestMatch: HelperDisplayInfo | undefined;
     let bestScore = -1;
 
     for (const helperDisplay of helperDisplays) {
-      if (!remaining.has(helperDisplay.nativeId)) continue;
+      if (!remainingHelperIds.has(helperDisplay.nativeId)) continue;
       const score = scoreDisplayMatch(display, helperDisplay);
       if (score > bestScore) {
         bestScore = score;
@@ -821,8 +822,44 @@ function mapDisplays(
 
     if (bestMatch && bestScore > 0) {
       mapping.set(display.id, bestMatch);
-      remaining.delete(bestMatch.nativeId);
+      remainingHelperIds.delete(bestMatch.nativeId);
+      remainingDisplayIds.delete(display.id);
     }
+  }
+
+  // Fallback 1: pair remaining displays/helpers by internal/external group and order.
+  const fallbackPair = (internal: boolean) => {
+    const remainingDisplays = displays.filter(
+      (display) => remainingDisplayIds.has(display.id) && display.internal === internal,
+    );
+    const remainingHelpers = helperDisplays.filter(
+      (helperDisplay) =>
+        remainingHelperIds.has(helperDisplay.nativeId) && helperDisplay.internal === internal,
+    );
+
+    for (let index = 0; index < Math.min(remainingDisplays.length, remainingHelpers.length); index++) {
+      const display = remainingDisplays[index];
+      const helperDisplay = remainingHelpers[index];
+      mapping.set(display.id, helperDisplay);
+      remainingDisplayIds.delete(display.id);
+      remainingHelperIds.delete(helperDisplay.nativeId);
+    }
+  };
+
+  fallbackPair(true);
+  fallbackPair(false);
+
+  // Fallback 2: if counts still line up, pair whatever is left by order.
+  const leftoverDisplays = displays.filter((display) => remainingDisplayIds.has(display.id));
+  const leftoverHelpers = helperDisplays.filter((helperDisplay) =>
+    remainingHelperIds.has(helperDisplay.nativeId),
+  );
+  for (let index = 0; index < Math.min(leftoverDisplays.length, leftoverHelpers.length); index++) {
+    const display = leftoverDisplays[index];
+    const helperDisplay = leftoverHelpers[index];
+    mapping.set(display.id, helperDisplay);
+    remainingDisplayIds.delete(display.id);
+    remainingHelperIds.delete(helperDisplay.nativeId);
   }
 
   return mapping;
