@@ -4,12 +4,14 @@ import AppSetting from "./AppSetting";
 import BrowserSetting from "./BrowserSetting";
 import CookieManager from "./CookieManager";
 import UserNotes from "./UserNotes";
+import DisplayManager from "./DisplayManager";
 
 const ROUTES: Record<string, React.FC> = {
   "browser-setting": BrowserSetting,
   "cookie-manager": CookieManager,
   "user-notes": UserNotes,
   "app-setting": AppSetting,
+  "display-manager": DisplayManager,
 };
 
 const hash = window.location.hash;
