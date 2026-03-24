@@ -4,7 +4,7 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync } from "n
 import path from "node:path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 
-const HELPER_VERSION = 5;
+const HELPER_VERSION = 6;
 
 type HelperMode = "native" | "ddc" | "unsupported";
 
@@ -665,7 +665,8 @@ let compilePromise: Promise<string> | null = null;
 const electronToNativeDisplayId = new Map<number, number>();
 
 function getHelperDir(): string {
-  const dir = path.join(app.getPath("userData"), "native-helpers");
+  // Use a stable appData subdirectory so dev/prod don't compile to different helper caches.
+  const dir = path.join(app.getPath("appData"), "vsgo", "native-helpers");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return dir;
 }
