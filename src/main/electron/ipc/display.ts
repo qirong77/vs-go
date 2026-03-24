@@ -4,7 +4,7 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync } from "n
 import path from "node:path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 
-const HELPER_VERSION = 4;
+const HELPER_VERSION = 5;
 
 type HelperMode = "native" | "ddc" | "unsupported";
 
@@ -36,16 +36,27 @@ const C_SOURCE = String.raw`
 extern io_service_t CGDisplayIOServicePort(CGDirectDisplayID display) __attribute__((weak_import));
 typedef CFTypeRef IOAVServiceRef;
 extern IOAVServiceRef IOAVServiceCreateWithService(CFAllocatorRef allocator, io_service_t service);
-extern IOAVServiceRef IOAVServiceCreateWithLocation(CFAllocatorRef allocator, uint32_t location);
 extern IOReturn IOAVServiceCopyEDID(IOAVServiceRef service, CFDataRef* x1);
+extern IOReturn IOAVServiceReadI2C(IOAVServiceRef service, uint32_t chipAddress, uint32_t offset, void* outputBuffer, uint32_t outputBufferSize);
 extern IOReturn IOAVServiceWriteI2C(IOAVServiceRef service, uint32_t chipAddress, uint32_t dataAddress, void* inputBuffer, uint32_t inputBufferSize);
 
 typedef int (*GetBrightnessFn)(uint32_t, float *);
 typedef int (*SetBrightnessFn)(uint32_t, float);
+typedef CFDictionaryRef (*CoreDisplayCreateInfoDictionaryFn)(CGDirectDisplayID);
+
+#define ARM64_DDC_7BIT_ADDRESS 0x37
+#define ARM64_DDC_DATA_ADDRESS 0x51
+#define ARM64_DDC_WRITE_SLEEP_US 10000
+#define ARM64_DDC_READ_SLEEP_US 50000
+#define ARM64_DDC_RETRY_SLEEP_US 20000
+#define ARM64_DDC_WRITE_CYCLES 2
+#define ARM64_DDC_RETRY_ATTEMPTS 4
 
 static GetBrightnessFn displayServicesGetBrightness = NULL;
 static SetBrightnessFn displayServicesSetBrightness = NULL;
 static bool displayServicesLoaded = false;
+static CoreDisplayCreateInfoDictionaryFn coreDisplayCreateInfoDictionary = NULL;
+static bool coreDisplayLoaded = false;
 
 static void loadDisplayServices(void) {
     if (displayServicesLoaded) return;
@@ -54,6 +65,15 @@ static void loadDisplayServices(void) {
     if (!handle) return;
     displayServicesGetBrightness = (GetBrightnessFn)dlsym(handle, "DisplayServicesGetBrightness");
     displayServicesSetBrightness = (SetBrightnessFn)dlsym(handle, "DisplayServicesSetBrightness");
+}
+
+static void loadCoreDisplay(void) {
+    if (coreDisplayLoaded) return;
+    coreDisplayLoaded = true;
+    void *handle = dlopen("/System/Library/PrivateFrameworks/CoreDisplay.framework/CoreDisplay", RTLD_NOW);
+    if (!handle) return;
+    coreDisplayCreateInfoDictionary =
+        (CoreDisplayCreateInfoDictionaryFn)dlsym(handle, "CoreDisplay_DisplayCreateInfoDictionary");
 }
 
 static bool getNativeBrightness(CGDirectDisplayID displayID, float *value) {
@@ -269,13 +289,184 @@ static bool edidMatchesDisplay(const UInt8 *edidBytes, CFIndex edidLength, CGDir
     return vendorMatches && productMatches && serialMatches;
 }
 
-static io_service_t findAVServicePort(CGDirectDisplayID displayID) {
-    io_registry_entry_t root = IORegistryGetRootEntry(kIOMasterPortDefault);
+static bool getDisplayIOLocation(CGDirectDisplayID displayID, char *buffer, size_t bufferSize) {
+    if (!buffer || bufferSize == 0) return false;
+    buffer[0] = '\0';
+
+    loadCoreDisplay();
+    if (!coreDisplayCreateInfoDictionary) return false;
+
+    CFDictionaryRef info = coreDisplayCreateInfoDictionary(displayID);
+    if (!info) return false;
+
+    CFStringRef ioLocation = (CFStringRef)CFDictionaryGetValue(info, CFSTR("IODisplayLocation"));
+    bool success = ioLocation && CFStringGetCString(ioLocation, buffer, bufferSize, kCFStringEncodingUTF8);
+    CFRelease(info);
+    return success;
+}
+
+static UInt8 ddcChecksum(UInt8 chk, const unsigned char *data, size_t start, size_t end) {
+    UInt8 value = chk;
+    for (size_t i = start; i <= end; i++) {
+        value ^= data[i];
+    }
+    return value;
+}
+
+static bool avServicePerformDDCCommunication(
+    IOAVServiceRef service,
+    unsigned char *send,
+    size_t sendLength,
+    unsigned char *reply,
+    size_t replyLength
+) {
+    if (!service || !send || sendLength == 0) return false;
+
+    unsigned char packet[16] = {0};
+    size_t packetLength = sendLength + 3;
+    packet[0] = (unsigned char)(0x80 | (sendLength + 1));
+    packet[1] = (unsigned char)sendLength;
+    memcpy(&packet[2], send, sendLength);
+    packet[packetLength - 1] = ddcChecksum(
+        sendLength == 1 ? (ARM64_DDC_7BIT_ADDRESS << 1) : ((ARM64_DDC_7BIT_ADDRESS << 1) ^ ARM64_DDC_DATA_ADDRESS),
+        packet,
+        0,
+        packetLength - 2
+    );
+
+    for (int attempt = 0; attempt <= ARM64_DDC_RETRY_ATTEMPTS; attempt++) {
+        bool success = false;
+
+        for (int cycle = 0; cycle < ARM64_DDC_WRITE_CYCLES; cycle++) {
+            usleep(ARM64_DDC_WRITE_SLEEP_US);
+            success = IOAVServiceWriteI2C(
+                service,
+                ARM64_DDC_7BIT_ADDRESS,
+                ARM64_DDC_DATA_ADDRESS,
+                packet,
+                (uint32_t)packetLength
+            ) == KERN_SUCCESS;
+        }
+
+        if (success && reply && replyLength > 0) {
+            memset(reply, 0, replyLength);
+            usleep(ARM64_DDC_READ_SLEEP_US);
+            if (IOAVServiceReadI2C(
+                    service,
+                    ARM64_DDC_7BIT_ADDRESS,
+                    ARM64_DDC_DATA_ADDRESS,
+                    reply,
+                    (uint32_t)replyLength
+                ) == KERN_SUCCESS) {
+                success = ddcChecksum(0x50, reply, 0, replyLength - 2) == reply[replyLength - 1];
+            } else {
+                success = false;
+            }
+        }
+
+        if (success) return true;
+        usleep(ARM64_DDC_RETRY_SLEEP_US);
+    }
+
+    return false;
+}
+
+static bool avServiceReadBrightness(IOAVServiceRef service, uint16_t *currentValue, uint16_t *maxValue) {
+    if (!service || !currentValue || !maxValue) return false;
+
+    unsigned char send[1] = {0x10};
+    unsigned char reply[11] = {0};
+    if (!avServicePerformDDCCommunication(service, send, sizeof(send), reply, sizeof(reply))) {
+        return false;
+    }
+
+    *maxValue = (uint16_t)((reply[6] << 8) | reply[7]);
+    *currentValue = (uint16_t)((reply[8] << 8) | reply[9]);
+    return *maxValue > 0;
+}
+
+static bool avServiceWriteBrightnessValue(IOAVServiceRef service, uint16_t value) {
+    if (!service) return false;
+
+    unsigned char send[3] = {
+        0x10,
+        (unsigned char)((value >> 8) & 0xFF),
+        (unsigned char)(value & 0xFF)
+    };
+    return avServicePerformDDCCommunication(service, send, sizeof(send), NULL, 0);
+}
+
+static io_service_t findAVServicePortByLocation(CGDirectDisplayID displayID) {
+    char displayLocation[4096] = {0};
+    if (!getDisplayIOLocation(displayID, displayLocation, sizeof(displayLocation))) {
+        return MACH_PORT_NULL;
+    }
+
+    io_registry_entry_t root = IORegistryGetRootEntry(kIOMainPortDefault);
     if (root == MACH_PORT_NULL) return MACH_PORT_NULL;
 
     io_iterator_t iterator = MACH_PORT_NULL;
     kern_return_t result =
-        IORegistryEntryCreateIterator(root, "IOService", kIORegistryIterateRecursively, &iterator);
+        IORegistryEntryCreateIterator(root, kIOServicePlane, kIORegistryIterateRecursively, &iterator);
+    IOObjectRelease(root);
+    if (result != KERN_SUCCESS) return MACH_PORT_NULL;
+
+    io_service_t service = MACH_PORT_NULL;
+    io_service_t matched = MACH_PORT_NULL;
+
+    while ((service = IOIteratorNext(iterator)) != MACH_PORT_NULL) {
+        io_string_t servicePath = {0};
+        IORegistryEntryGetPath(service, kIOServicePlane, servicePath);
+
+        if (strcmp(servicePath, displayLocation) != 0) {
+            IOObjectRelease(service);
+            continue;
+        }
+
+        IOObjectRelease(service);
+        while ((service = IOIteratorNext(iterator)) != MACH_PORT_NULL) {
+            io_name_t name = {0};
+            IORegistryEntryGetName(service, name);
+            if (strcmp(name, "DCPAVServiceProxy") != 0) {
+                IOObjectRelease(service);
+                continue;
+            }
+
+            CFTypeRef location = IORegistryEntrySearchCFProperty(
+                service,
+                kIOServicePlane,
+                CFSTR("Location"),
+                kCFAllocatorDefault,
+                kIORegistryIterateRecursively
+            );
+            bool isExternal =
+                location &&
+                CFGetTypeID(location) == CFStringGetTypeID() &&
+                CFStringCompare((CFStringRef)location, CFSTR("External"), 0) == kCFCompareEqualTo;
+            if (location) CFRelease(location);
+
+            if (isExternal) {
+                matched = service;
+                break;
+            }
+
+            IOObjectRelease(service);
+        }
+
+        break;
+    }
+
+    IOObjectRelease(iterator);
+    return matched;
+}
+
+static io_service_t findAVServicePortByEDID(CGDirectDisplayID displayID) {
+    io_registry_entry_t root = IORegistryGetRootEntry(kIOMainPortDefault);
+    if (root == MACH_PORT_NULL) return MACH_PORT_NULL;
+
+    io_iterator_t iterator = MACH_PORT_NULL;
+    kern_return_t result =
+        IORegistryEntryCreateIterator(root, kIOServicePlane, kIORegistryIterateRecursively, &iterator);
     IOObjectRelease(root);
     if (result != KERN_SUCCESS) return MACH_PORT_NULL;
 
@@ -323,17 +514,19 @@ static io_service_t findAVServicePort(CGDirectDisplayID displayID) {
 }
 
 static IOAVServiceRef createAVServiceForDisplay(CGDirectDisplayID displayID) {
-    if (CGDisplayIsBuiltin(displayID)) return false;
+    if (CGDisplayIsBuiltin(displayID)) return NULL;
 
-    io_service_t servicePort = findAVServicePort(displayID);
-    if (servicePort != MACH_PORT_NULL) {
-        IOAVServiceRef service = IOAVServiceCreateWithService(kCFAllocatorDefault, servicePort);
-        IOObjectRelease(servicePort);
-        if (service) return service;
+    io_service_t servicePort = findAVServicePortByLocation(displayID);
+    if (servicePort == MACH_PORT_NULL) {
+        servicePort = findAVServicePortByEDID(displayID);
+    }
+    if (servicePort == MACH_PORT_NULL) {
+        return NULL;
     }
 
-    IOAVServiceRef fallbackService = IOAVServiceCreateWithLocation(kCFAllocatorDefault, 0);
-    return fallbackService;
+    IOAVServiceRef service = IOAVServiceCreateWithService(kCFAllocatorDefault, servicePort);
+    IOObjectRelease(servicePort);
+    return service;
 }
 
 static bool canUseAVService(CGDirectDisplayID displayID) {
@@ -352,22 +545,16 @@ static bool avServiceWriteBrightness(CGDirectDisplayID displayID, float normaliz
     if (normalizedValue < 0.0f) normalizedValue = 0.0f;
     if (normalizedValue > 1.0f) normalizedValue = 1.0f;
 
-    uint16_t targetValue = (uint16_t)lroundf(normalizedValue * 100.0f);
-    unsigned char data[6] = {0};
-    data[0] = 0x84;
-    data[1] = 0x03;
-    data[2] = 0x10;
-    data[3] = (targetValue >> 8) & 0xFF;
-    data[4] = targetValue & 0xFF;
-    data[5] = 0x6E ^ 0x51 ^ data[0] ^ data[1] ^ data[2] ^ data[3] ^ data[4];
-
-    bool success = false;
-    for (int i = 0; i < 3; i++) {
-        IOReturn result = IOAVServiceWriteI2C(service, 0x37, 0x51, data, sizeof(data));
-        if (result == KERN_SUCCESS) success = true;
-        usleep(32000);
+    uint16_t currentValue = 0;
+    uint16_t maxValue = 100;
+    if (avServiceReadBrightness(service, &currentValue, &maxValue) && maxValue > 0) {
+        (void)currentValue;
+    } else {
+        maxValue = 100;
     }
 
+    uint16_t targetValue = (uint16_t)lroundf(normalizedValue * maxValue);
+    bool success = avServiceWriteBrightnessValue(service, targetValue);
     CFRelease(service);
     return success;
 }
@@ -400,8 +587,17 @@ static void printDisplayInfo(CGDirectDisplayID displayID) {
         return;
     }
 
-    if (canUseAVService(displayID)) {
-        printf("%u|%d|%d|%d|%d|%d|ddc|unknown\n", displayID, internal, x, y, width, height);
+    IOAVServiceRef avService = createAVServiceForDisplay(displayID);
+    if (avService) {
+        uint16_t currentValue = 0;
+        uint16_t maxValue = 0;
+        if (avServiceReadBrightness(avService, &currentValue, &maxValue) && maxValue > 0) {
+            double brightness = (double)currentValue / (double)maxValue;
+            printf("%u|%d|%d|%d|%d|%d|ddc|%.6f\n", displayID, internal, x, y, width, height, brightness);
+        } else {
+            printf("%u|%d|%d|%d|%d|%d|ddc|unknown\n", displayID, internal, x, y, width, height);
+        }
+        CFRelease(avService);
         return;
     }
 
