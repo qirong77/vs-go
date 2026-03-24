@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { VS_GO_EVENT } from "../../common/EVENT";
 
 const { ipcRenderer } = window.electron;
@@ -11,12 +11,20 @@ interface DisplayInfo {
   scaleFactor: number;
   rotation: number;
   internal: boolean;
-  brightness: number;
+  brightness: number | null;
+  brightnessSupported: boolean;
 }
 
 function DisplayManager() {
   const [displays, setDisplays] = useState<DisplayInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const debounceTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+
+  useEffect(() => {
+    return () => {
+      for (const timer of debounceTimers.current.values()) clearTimeout(timer);
+    };
+  }, []);
 
   const fetchDisplays = useCallback(async () => {
     setLoading(true);
@@ -29,11 +37,20 @@ function DisplayManager() {
     fetchDisplays();
   }, [fetchDisplays]);
 
-  const handleBrightnessChange = async (displayId: number, value: number) => {
+  const handleBrightnessChange = (displayId: number, value: number) => {
     setDisplays((prev) =>
       prev.map((d) => (d.id === displayId ? { ...d, brightness: value } : d)),
     );
-    await ipcRenderer.invoke(VS_GO_EVENT.DISPLAY_SET_BRIGHTNESS, displayId, value);
+
+    const existing = debounceTimers.current.get(displayId);
+    if (existing) clearTimeout(existing);
+    debounceTimers.current.set(
+      displayId,
+      setTimeout(() => {
+        debounceTimers.current.delete(displayId);
+        ipcRenderer.invoke(VS_GO_EVENT.DISPLAY_SET_BRIGHTNESS, displayId, value);
+      }, 50),
+    );
   };
 
   const primaryId = displays.find((d) => d.bounds.x === 0 && d.bounds.y === 0)?.id;
@@ -60,10 +77,7 @@ function DisplayManager() {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto space-y-4">
-          {/* 布局预览 */}
           <DisplayLayoutPreview displays={displays} primaryId={primaryId} />
-
-          {/* 每个显示器的详情与亮度控制 */}
           {displays.map((d) => (
             <DisplayCard
               key={d.id}
@@ -137,7 +151,7 @@ function DisplayCard({
   isPrimary: boolean;
   onBrightnessChange: (id: number, val: number) => void;
 }) {
-  const { id, label, bounds, size, scaleFactor, rotation, internal, brightness } = display;
+  const { id, label, bounds, size, scaleFactor, rotation, internal, brightness, brightnessSupported } = display;
 
   return (
     <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -168,23 +182,35 @@ function DisplayCard({
         {rotation !== 0 && <div>旋转: {rotation}°</div>}
       </div>
 
-      {/* 亮度滑块 */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-gray-500 dark:text-gray-400 w-10 shrink-0">亮度</span>
-        <SunIcon className="w-4 h-4 text-gray-400" dim />
-        <input
-          type="range"
-          min={5}
-          max={100}
-          value={brightness}
-          onChange={(e) => onBrightnessChange(id, Number(e.target.value))}
-          className="flex-1 h-2 rounded-full appearance-none cursor-pointer accent-blue-500 bg-gray-200 dark:bg-gray-600"
-        />
-        <SunIcon className="w-5 h-5 text-yellow-500" />
-        <span className="text-sm text-gray-600 dark:text-gray-300 w-10 text-right tabular-nums">
-          {brightness}%
-        </span>
-      </div>
+      {brightnessSupported ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500 dark:text-gray-400 w-10 shrink-0">亮度</span>
+            <SunIcon className="w-4 h-4 text-gray-400" dim />
+            <input
+              type="range"
+              min={1}
+              max={100}
+              value={brightness ?? 50}
+              onChange={(e) => onBrightnessChange(id, Number(e.target.value))}
+              className="flex-1 h-2 rounded-full appearance-none cursor-pointer accent-blue-500 bg-gray-200 dark:bg-gray-600"
+            />
+            <SunIcon className="w-5 h-5 text-yellow-500" />
+            <span className="text-sm text-gray-600 dark:text-gray-300 w-10 text-right tabular-nums">
+              {brightness != null ? `${brightness}%` : "--"}
+            </span>
+          </div>
+          {brightness == null && (
+            <div className="text-xs text-gray-400 dark:text-gray-500">
+              当前亮度值读取失败，但仍可尝试拖动调节。
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-sm text-gray-400 dark:text-gray-500 italic">
+          此显示器不支持亮度调节
+        </div>
+      )}
     </div>
   );
 }
