@@ -1,6 +1,5 @@
 import { contextBridge } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
-import { autoLogin } from "./autoLogin";
 
 // Custom APIs for renderer
 const api = {};
@@ -35,5 +34,4 @@ window.addEventListener("load", () => {
   // 添加到页面
   const root = document.createElement("div") as HTMLElement;
   root.id = "preload-root";
-  autoLogin();
 });
