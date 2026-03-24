@@ -25,22 +25,23 @@ tray.setToolTip("VsGo");
 
 const contextMenu = Menu.buildFromTemplate([
   {
-    label: "浏览器设置",
-    click: () => createBrowserSettingWindow(),
-  },
-  {
     label: "笔记",
     click: () => createUserNotesWindow(),
   },
+
   {
     label: "屏幕管理",
     click: () => createDisplayWindow(),
   },
-  { type: "separator" },
   {
     label: "App 设置",
     click: () => createAppSettingWindow(),
   },
+  {
+    label: "浏览器设置",
+    click: () => createBrowserSettingWindow(),
+  },
+
   { type: "separator" },
 
   {
