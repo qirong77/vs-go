@@ -9,7 +9,7 @@ let lastWindowUrl = "";
 
 function extractDomain(url: string): string {
   try {
-    return new URL(url).hostname;
+    return new URL(url).host;
   } catch {
     return "";
   }
