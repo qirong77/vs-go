@@ -5,6 +5,7 @@ import BrowserSetting from "./BrowserSetting";
 import CookieManager from "./CookieManager";
 import UserNotes from "./UserNotes";
 import DisplayManager from "./DisplayManager";
+import ScriptEditor from "./ScriptEditor";
 
 const ROUTES: Record<string, React.FC> = {
   "browser-setting": BrowserSetting,
@@ -12,6 +13,7 @@ const ROUTES: Record<string, React.FC> = {
   "user-notes": UserNotes,
   "app-setting": AppSetting,
   "display-manager": DisplayManager,
+  "script-editor": ScriptEditor,
 };
 
 const hash = window.location.hash;

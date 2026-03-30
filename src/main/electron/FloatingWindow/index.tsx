@@ -1,8 +1,9 @@
-import { app, BrowserWindow, session } from "electron";
+import { app, BrowserWindow, session, type WebContents } from "electron";
 import path from "node:path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 import { setupContextMenu } from "../contextMenu";
+import { windowScriptStore } from "../store";
 
 const floatingWindows: BrowserWindow[] = [];
 let lastWindowUrl = "";
@@ -18,6 +19,14 @@ function extractDomain(url: string): string {
 function updateWindowTitle(window: BrowserWindow, pageTitle: string, url: string): void {
   const domain = extractDomain(url);
   window.setTitle(domain ? `${pageTitle} - ${domain}` : pageTitle);
+}
+
+function runFloatingWindowUserScript(webContents: WebContents): void {
+  const script = windowScriptStore.get().trim();
+  if (!script) return;
+  webContents.executeJavaScript(script, false).catch((err) => {
+    console.error("[VsGo] 用户脚本执行失败:", err);
+  });
 }
 
 app.whenReady().then(() => {
@@ -75,6 +84,7 @@ function createFloatingWindow(url: string): BrowserWindow {
     const pageTitle = floatingWindow.webContents.getTitle();
     const currentUrl = floatingWindow.webContents.getURL();
     updateWindowTitle(floatingWindow, pageTitle, currentUrl);
+    runFloatingWindowUserScript(floatingWindow.webContents);
   });
 
   floatingWindow.webContents.on("page-title-updated", (event, title) => {

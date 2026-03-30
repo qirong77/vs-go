@@ -128,6 +128,10 @@ const schema = {
       defaultEditor: { type: "string" },
     },
   },
+  floatingWindowUserScript: {
+    type: "string",
+    default: "",
+  },
 } as const;
 
 // ============================================================
@@ -262,6 +266,15 @@ export const userNotesStore = {
   },
   clearContent(): void {
     vsgoStore.set("userNoteContent", "");
+  },
+};
+
+export const windowScriptStore = {
+  get(): string {
+    return vsgoStore.get("floatingWindowUserScript", "") as string;
+  },
+  save(content: string): void {
+    vsgoStore.set("floatingWindowUserScript", content);
   },
 };
 

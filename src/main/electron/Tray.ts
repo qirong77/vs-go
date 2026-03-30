@@ -6,6 +6,7 @@ import { createBrowserSettingWindow } from "./BrowserSettingWindow";
 import { createUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 import { createAppSettingWindow } from "./AppSettingWindow";
 import { createDisplayWindow } from "./DisplayWindow";
+import { createScriptEditorWindow } from "./ScriptEditorWindow";
 
 // dev:   build/rocket-takeoff@2x.png（项目根目录下）
 // prod:  out/rocket-takeoff@2x.png（通过 copyTrayIconPlugin 自动拷贝）
@@ -41,9 +42,11 @@ const contextMenu = Menu.buildFromTemplate([
     label: "浏览器设置",
     click: () => createBrowserSettingWindow(),
   },
-
+  {
+    label: "脚本",
+    click: () => createScriptEditorWindow(),
+  },
   { type: "separator" },
-
   {
     label: "重启 App",
     click: () => {
