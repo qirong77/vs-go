@@ -1,11 +1,11 @@
 import { BrowserWindow } from "electron";
-import { createSubWindow } from "../createWindow";
+import { createSubWindow, presentWindowOnCurrentDesktop } from "../createWindow";
 
 let userNotesWindow: BrowserWindow | null = null;
 
 export function createUserNotesWindow(): BrowserWindow {
   if (userNotesWindow && !userNotesWindow.isDestroyed()) {
-    userNotesWindow.focus();
+    presentWindowOnCurrentDesktop(userNotesWindow);
     return userNotesWindow;
   }
 
@@ -20,6 +20,7 @@ export function createUserNotesWindow(): BrowserWindow {
     userNotesWindow = null;
   });
 
+  presentWindowOnCurrentDesktop(userNotesWindow);
   return userNotesWindow;
 }
 
@@ -27,16 +28,19 @@ export function getUserNotesWindow(): BrowserWindow | null {
   return userNotesWindow;
 }
 
-/** 无窗口则创建并显示；已显示则隐藏；已隐藏则显示并聚焦 */
+/**
+ * 与 MainWindowManager.toggleIsShowMainWindow 相同结构：
+ * 无实例则创建后 present；可见则 hide；否则 center + show + focus。
+ */
 export function toggleUserNotesWindow(): void {
   if (!userNotesWindow || userNotesWindow.isDestroyed()) {
     createUserNotesWindow();
     return;
   }
+
   if (userNotesWindow.isVisible()) {
     userNotesWindow.hide();
   } else {
-    userNotesWindow.show();
-    userNotesWindow.focus();
+    presentWindowOnCurrentDesktop(userNotesWindow);
   }
 }

@@ -1,12 +1,12 @@
 import { BrowserWindow } from "electron";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import { createSubWindow } from "../createWindow";
+import { createSubWindow, presentWindowOnCurrentDesktop } from "../createWindow";
 
 let cookieManagerWindow: BrowserWindow | null = null;
 
 export function createCookieManagerWindow(currentUrl?: string): BrowserWindow {
   if (cookieManagerWindow && !cookieManagerWindow.isDestroyed()) {
-    cookieManagerWindow.focus();
+    presentWindowOnCurrentDesktop(cookieManagerWindow);
     if (currentUrl) {
       cookieManagerWindow.webContents.send(VS_GO_EVENT.COOKIE_UPDATE_CURRENT_URL, currentUrl);
     }
@@ -30,6 +30,7 @@ export function createCookieManagerWindow(currentUrl?: string): BrowserWindow {
     cookieManagerWindow = null;
   });
 
+  presentWindowOnCurrentDesktop(cookieManagerWindow);
   return cookieManagerWindow;
 }
 

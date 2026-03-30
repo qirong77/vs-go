@@ -38,3 +38,10 @@ export function createSubWindow(options: WindowOptions): BrowserWindow {
 
   return window;
 }
+
+/** 与 MainWindowManager.showOnCurrentDesktop 一致：居中到当前屏并显示、聚焦 */
+export function presentWindowOnCurrentDesktop(window: BrowserWindow): void {
+  window.center();
+  window.show();
+  window.focus();
+}

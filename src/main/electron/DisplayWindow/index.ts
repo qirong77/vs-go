@@ -1,11 +1,11 @@
 import { BrowserWindow } from "electron";
-import { createSubWindow } from "../createWindow";
+import { createSubWindow, presentWindowOnCurrentDesktop } from "../createWindow";
 
 let displayWindow: BrowserWindow | null = null;
 
 export function createDisplayWindow(): void {
   if (displayWindow && !displayWindow.isDestroyed()) {
-    displayWindow.focus();
+    presentWindowOnCurrentDesktop(displayWindow);
     return;
   }
 
@@ -20,4 +20,6 @@ export function createDisplayWindow(): void {
   displayWindow.on("closed", () => {
     displayWindow = null;
   });
+
+  presentWindowOnCurrentDesktop(displayWindow);
 }

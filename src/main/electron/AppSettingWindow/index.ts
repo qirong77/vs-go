@@ -1,12 +1,12 @@
 import { BrowserWindow } from "electron";
-import { createSubWindow } from "../createWindow";
+import { createSubWindow, presentWindowOnCurrentDesktop } from "../createWindow";
 import { setupContextMenu } from "../contextMenu";
 
 let appSettingWindow: BrowserWindow | null = null;
 
 export function createAppSettingWindow(): void {
   if (appSettingWindow && !appSettingWindow.isDestroyed()) {
-    appSettingWindow.focus();
+    presentWindowOnCurrentDesktop(appSettingWindow);
     return;
   }
 
@@ -23,4 +23,6 @@ export function createAppSettingWindow(): void {
   appSettingWindow.on("closed", () => {
     appSettingWindow = null;
   });
+
+  presentWindowOnCurrentDesktop(appSettingWindow);
 }

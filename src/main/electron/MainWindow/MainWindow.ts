@@ -1,6 +1,7 @@
 import { is } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
+import { presentWindowOnCurrentDesktop } from "../createWindow";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { setupContextMenu } from "../contextMenu";
 
@@ -43,9 +44,7 @@ function createMainWindow(): BrowserWindow {
 }
 
 function showOnCurrentDesktop(): void {
-  _mainWindow.center();
-  _mainWindow.show();
-  _mainWindow.focus();
+  presentWindowOnCurrentDesktop(_mainWindow);
 }
 
 function toggleIsShowMainWindow(): void {
