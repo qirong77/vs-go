@@ -26,3 +26,17 @@ export function createUserNotesWindow(): BrowserWindow {
 export function getUserNotesWindow(): BrowserWindow | null {
   return userNotesWindow;
 }
+
+/** 无窗口则创建并显示；已显示则隐藏；已隐藏则显示并聚焦 */
+export function toggleUserNotesWindow(): void {
+  if (!userNotesWindow || userNotesWindow.isDestroyed()) {
+    createUserNotesWindow();
+    return;
+  }
+  if (userNotesWindow.isVisible()) {
+    userNotesWindow.hide();
+  } else {
+    userNotesWindow.show();
+    userNotesWindow.focus();
+  }
+}
