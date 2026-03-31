@@ -11,8 +11,6 @@ import { Milkdown, MilkdownProvider, useEditor, useInstance } from "@milkdown/re
 import { Plugin, PluginKey, TextSelection } from "@milkdown/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/prose/view";
 import { $prose } from "@milkdown/utils";
-import { insertTableCommand } from "@milkdown/preset-gfm";
-import { createCodeBlockCommand, insertHrCommand } from "@milkdown/preset-commonmark";
 import NoteFileTree from "./components/NoteFileTree";
 import NoteHistoryDrawer from "./components/NoteHistoryDrawer";
 import { codeBlockCollapseView } from "./milkdownCodeBlockCollapse";
@@ -473,8 +471,10 @@ const SlashMenu: React.FC<{
   show: boolean;
   pos: { top: number; left: number };
   slashPos: number | null;
+  /** 与 handleTextInput 同步写入，执行命令时优先用 ref，避免 state 滞后导致删错位置 */
+  slashPosRef: React.MutableRefObject<number | null>;
   onClose: () => void;
-}> = ({ show, pos, slashPos, onClose }) => {
+}> = ({ show, pos, slashPos, slashPosRef, onClose }) => {
   // useInstance 返回 [loading, getInstance]：就绪时第一项为 false，第二项返回 Editor
   const [, getInstance] = useInstance();
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -491,36 +491,43 @@ const SlashMenu: React.FC<{
     selectedIndexRef.current = 0;
   }, [show]);
 
+  // 使用命令注册名（与 $command('InsertTable', …) 一致），勿用 *.key：首屏 useMemo 时 key 可能尚未注入
   const items = useMemo(
-    () => [
-      { label: "表格", icon: "📊", command: insertTableCommand.key },
-      // { label: "一级标题", icon: "H1", command: wrapInHeadingCommand.key, args: 1 },
-      // { label: "二级标题", icon: "H2", command: wrapInHeadingCommand.key, args: 2 },
-      // { label: "三级标题", icon: "H3", command: wrapInHeadingCommand.key, args: 3 },
-      // { label: "无序列表", icon: "•", command: wrapInBulletListCommand.key },
-      // { label: "有序列表", icon: "1.", command: wrapInOrderedListCommand.key },
-      { label: "代码块", icon: "```", command: createCodeBlockCommand.key },
-      { label: "分割线", icon: "—", command: insertHrCommand.key },
-    ],
+    () =>
+      [
+        { label: "表格", icon: "📊", command: "InsertTable" as const },
+        // { label: "一级标题", icon: "H1", command: wrapInHeadingCommand.key, args: 1 },
+        // { label: "二级标题", icon: "H2", command: wrapInHeadingCommand.key, args: 2 },
+        // { label: "三级标题", icon: "H3", command: wrapInHeadingCommand.key, args: 3 },
+        // { label: "无序列表", icon: "•", command: wrapInBulletListCommand.key },
+        // { label: "有序列表", icon: "1.", command: wrapInOrderedListCommand.key },
+        { label: "代码块", icon: "```", command: "CreateCodeBlock" as const },
+        { label: "分割线", icon: "—", command: "InsertHr" as const },
+      ] as const,
     []
   );
 
   const executeCommand = useCallback(
     (item: any) => {
+      const pos = slashPosRef.current ?? slashPos;
       const editor = getInstance();
       if (!editor) return;
       editor.action((ctx) => {
         const view = ctx.get(editorViewCtx);
         const commands = ctx.get(commandsCtx);
 
-        // 点击菜单会先让编辑器失焦，选区丢失会导致 insertTable 等依赖 selection 的命令失败
         view.focus();
 
         let { state } = view;
-        if (slashPos !== null) {
-          const tr = state.tr.delete(slashPos, slashPos + 1);
-          view.dispatch(tr.setSelection(TextSelection.create(tr.doc, slashPos)));
-          state = view.state;
+        if (pos !== null) {
+          const max = state.doc.content.size;
+          if (pos >= 0 && pos + 1 <= max) {
+            view.dispatch(state.tr.delete(pos, pos + 1));
+            state = view.state;
+            const anchor = Math.min(pos, state.doc.content.size);
+            const $pos = state.doc.resolve(anchor);
+            view.dispatch(state.tr.setSelection(TextSelection.near($pos)));
+          }
         }
 
         if (item.args !== undefined) {
@@ -531,7 +538,7 @@ const SlashMenu: React.FC<{
       });
       onClose();
     },
-    [getInstance, slashPos, onClose]
+    [getInstance, slashPos, onClose, slashPosRef]
   );
 
   useEffect(() => {
@@ -567,7 +574,10 @@ const SlashMenu: React.FC<{
     <div
       className="slash-menu"
       style={{ top: pos.top, left: pos.left }}
-      onMouseDown={(e) => e.preventDefault()}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
     >
       {items.map((item, index) => (
         <div
@@ -698,6 +708,7 @@ const MilkdownEditor: React.FC<{
         show={slashState.show}
         pos={slashState.pos}
         slashPos={slashPos}
+        slashPosRef={slashPosRef}
         onClose={() => {
           setSlashState({ show: false, pos: { top: 0, left: 0 } });
           slashPosRef.current = null;
