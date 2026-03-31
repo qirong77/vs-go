@@ -36,6 +36,7 @@
     "@milkdown/react": "^7.17.3",
     "@milkdown/theme-nord": "^7.17.3",
     "@types/cheerio": "^0.22.35",
+    "@types/prismjs": "^1.26.6",
     "ansi-to-html": "^0.7.2",
     "antd": "^6.1.0",
     "autoprefixer": "^10.4.19",
@@ -46,6 +47,7 @@
     "monaco-editor": "^0.54.0",
     "p-map": "^5.5.0",
     "pinyin": "^4.0.0-alpha.0",
+    "prismjs": "^1.30.0",
     "tailwindcss": "^3.4.3"
   },
   "devDependencies": {

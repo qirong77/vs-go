@@ -1,5 +1,5 @@
 .milkdown {
-    padding-top: 0;
+  padding-top: 0;
   box-shadow: none;
   height: 100%;
   width: 100%;
@@ -91,7 +91,7 @@
   color: #ef4444;
   padding: 0.2em 0.4em;
   border-radius: 3px;
-  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-family: "Monaco", "Menlo", "Courier New", monospace;
   font-size: 0.9em;
 }
 
@@ -488,4 +488,107 @@
   font-size: 14px;
   color: #999;
   margin: 0;
+}
+.milkdown table {
+  border: 1px solid #e1e4e8;;
+  overflow: visible;
+}
+
+/* ========== Prism.js 代码高亮 - 亮色主题 ========== */
+
+/* 覆盖默认暗色 pre 背景 */
+.milkdown pre {
+  background-color: #fbfbfb;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 0.6em;
+  overflow-x: auto;
+  margin: 1em 0;
+  position: relative;
+}
+
+.milkdown pre code {
+  background-color: transparent;
+  color: #24292e;
+  padding: 0;
+  font-size: 0.875em;
+  line-height: 1.7;
+  font-family: "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace;
+}
+
+/* Prism 亮色主题 token 颜色 */
+.milkdown .token.comment,
+.milkdown .token.prolog,
+.milkdown .token.doctype,
+.milkdown .token.cdata {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.milkdown .token.punctuation {
+  color: #24292e;
+}
+
+.milkdown .token.property,
+.milkdown .token.tag,
+.milkdown .token.boolean,
+.milkdown .token.number,
+.milkdown .token.constant,
+.milkdown .token.symbol,
+.milkdown .token.deleted {
+  color: #005cc5;
+}
+
+.milkdown .token.selector,
+.milkdown .token.attr-name,
+.milkdown .token.string,
+.milkdown .token.char,
+.milkdown .token.builtin,
+.milkdown .token.inserted {
+  color: #032f62;
+}
+
+.milkdown .token.operator,
+.milkdown .token.entity,
+.milkdown .token.url,
+.milkdown .language-css .token.string,
+.milkdown .style .token.string {
+  color: #d73a49;
+}
+
+.milkdown .token.atrule,
+.milkdown .token.attr-value,
+.milkdown .token.keyword {
+  color: #d73a49;
+}
+
+.milkdown .token.function,
+.milkdown .token.class-name {
+  color: #6f42c1;
+}
+
+.milkdown .token.regex,
+.milkdown .token.important,
+.milkdown .token.variable {
+  color: #e36209;
+}
+
+.milkdown .token.important,
+.milkdown .token.bold {
+  font-weight: bold;
+}
+
+.milkdown .token.italic {
+  font-style: italic;
+}
+
+.milkdown .token.entity {
+  cursor: help;
+}
+
+/* ========== 代码块语言选择器 ========== */
+
+/* 代码块容器需要相对定位，以便选择器绝对定位 */
+.milkdown pre {
+  position: relative;
 }
