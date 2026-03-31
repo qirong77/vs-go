@@ -439,9 +439,53 @@
 
 /* 编辑器头部 */
 .note-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 8px 16px;
   border-bottom: 1px solid #e5e5e5;
   background-color: #fafafa;
+}
+
+.note-history-trigger.ant-btn {
+  color: #595959;
+  flex-shrink: 0;
+}
+
+.note-history-trigger.ant-btn:hover {
+  color: #1677ff;
+  background: rgba(22, 119, 255, 0.06);
+}
+
+.note-history-drawer-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-history-hint {
+  margin-bottom: 12px !important;
+  font-size: 12px;
+}
+
+.note-history-list-item .ant-list-item-action {
+  margin-inline-start: 8px;
+}
+
+.note-history-preview {
+  margin: 0;
+  max-height: 55vh;
+  overflow: auto;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f6f8fa;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 .note-file-name {

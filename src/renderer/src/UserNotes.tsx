@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { message } from "antd";
+import { message, Button } from "antd";
+import { HistoryOutlined } from "@ant-design/icons";
 import { VS_GO_EVENT } from "../../common/EVENT";
 import { Editor, rootCtx, defaultValueCtx, editorViewCtx, commandsCtx } from "@milkdown/core";
 import { commonmark } from "@milkdown/preset-commonmark";
@@ -13,8 +14,12 @@ import { $prose } from "@milkdown/utils";
 import { insertTableCommand } from "@milkdown/preset-gfm";
 import { createCodeBlockCommand, insertHrCommand } from "@milkdown/preset-commonmark";
 import NoteFileTree from "./components/NoteFileTree";
+import NoteHistoryDrawer from "./components/NoteHistoryDrawer";
 
 import "./userNotesStyles.css";
+
+/** 停止编辑超过该时间后，保存一条历史快照（每次编辑会重新计时） */
+const NOTE_HISTORY_IDLE_MS = 30 * 60 * 1000;
 
 // URL 正则表达式
 const URL_REGEX =
@@ -694,7 +699,25 @@ const UserNotes: React.FC = () => {
   const [editorKey, setEditorKey] = useState(0);
   const [currentFileId, setCurrentFileId] = useState<string>("");
   const [currentFileName, setCurrentFileName] = useState<string>("");
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const saveTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const contentRef = useRef("");
+  const historyIdleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
+
+  const clearHistoryIdleTimer = useCallback(() => {
+    if (historyIdleTimerRef.current) {
+      clearTimeout(historyIdleTimerRef.current);
+      historyIdleTimerRef.current = undefined;
+    }
+  }, []);
+
+  useEffect(() => {
+    clearHistoryIdleTimer();
+  }, [currentFileId, clearHistoryIdleTimer]);
 
   // 加载当前文件
   useEffect(() => {
@@ -769,20 +792,44 @@ const UserNotes: React.FC = () => {
     [currentFileId]
   );
 
-  // 处理编辑器内容变化
+  // 处理编辑器内容变化（含：防抖落盘 + 30 分钟无编辑则记一条历史快照）
   const handleChange = useCallback(
     (markdown: string) => {
-      // 清除之前的定时器
+      contentRef.current = markdown;
+
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
       }
-
-      // 设置新的定时器，1秒后保存
       saveTimerRef.current = setTimeout(() => {
         saveFileContent(markdown);
       }, 1000);
+
+      clearHistoryIdleTimer();
+      if (!currentFileId) return;
+      historyIdleTimerRef.current = setTimeout(async () => {
+        try {
+          await window.electron.ipcRenderer.invoke(
+            VS_GO_EVENT.USER_NOTES_HISTORY_APPEND_SNAPSHOT,
+            currentFileId,
+            contentRef.current
+          );
+          messageApi.success("已保存一条历史版本");
+        } catch (error) {
+          console.error("保存历史版本失败:", error);
+        }
+      }, NOTE_HISTORY_IDLE_MS);
     },
-    [saveFileContent]
+    [currentFileId, saveFileContent, clearHistoryIdleTimer, messageApi]
+  );
+
+  const handleRestoreFromHistory = useCallback(
+    async (markdown: string) => {
+      setContent(markdown);
+      setEditorKey((k) => k + 1);
+      await saveFileContent(markdown);
+      messageApi.success("已恢复为该历史版本");
+    },
+    [saveFileContent, messageApi]
   );
 
   // 组件卸载时清除定时器
@@ -791,8 +838,9 @@ const UserNotes: React.FC = () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
       }
+      clearHistoryIdleTimer();
     };
-  }, []);
+  }, [clearHistoryIdleTimer]);
 
   return (
     <div className="h-screen flex bg-white user-notes-container">
@@ -807,12 +855,18 @@ const UserNotes: React.FC = () => {
       <div className="note-editor-area">
         {currentFileId ? (
           <>
-            {/* 文件名标题 */}
-            {currentFileName && (
-              <div className="note-editor-header">
-                <span className="note-file-name">{currentFileName}</span>
-              </div>
-            )}
+            <div className="note-editor-header">
+              <span className="note-file-name">{currentFileName || "笔记"}</span>
+              <Button
+                type="text"
+                size="small"
+                className="note-history-trigger"
+                icon={<HistoryOutlined />}
+                onClick={() => setHistoryDrawerOpen(true)}
+              >
+                历史版本
+              </Button>
+            </div>
 
             {/* 编辑器 */}
             <div className="note-editor-content">
@@ -826,6 +880,13 @@ const UserNotes: React.FC = () => {
                 </MilkdownProvider>
               )}
             </div>
+
+            <NoteHistoryDrawer
+              fileId={currentFileId}
+              open={historyDrawerOpen}
+              onClose={() => setHistoryDrawerOpen(false)}
+              onRestore={handleRestoreFromHistory}
+            />
           </>
         ) : (
           <div className="note-empty-state">

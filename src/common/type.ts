@@ -67,6 +67,19 @@ export interface NoteTreeNode {
   children?: NoteTreeNode[];
 }
 
+/** 单条笔记文件的历史快照（全量内容，每文件最多保留 10 条） */
+export interface UserNoteHistoryEntry {
+  id: string;
+  savedAt: number;
+  content: string;
+}
+
+/** 历史列表展示用（不含正文） */
+export interface UserNoteHistoryMeta {
+  id: string;
+  savedAt: number;
+}
+
 export interface NoteItem {
   id: string;
   url: string;

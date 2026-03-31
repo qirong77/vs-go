@@ -1,7 +1,12 @@
 import { ipcMain } from "electron";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import { formatError } from "../../../common/utils";
-import { monacoNotesStore, userNotesStore, userNotesTreeStore } from "../store";
+import {
+  monacoNotesStore,
+  userNotesStore,
+  userNotesTreeStore,
+  userNotesHistoryStore,
+} from "../store";
 
 export function registerNotesHandlers(): void {
   // --- Monaco 编辑器笔记 ---
@@ -141,4 +146,38 @@ export function registerNotesHandlers(): void {
       return { success: false, error: formatError(error) };
     }
   });
+
+  ipcMain.handle(VS_GO_EVENT.USER_NOTES_HISTORY_LIST, async (_event, fileId: string) => {
+    try {
+      return userNotesHistoryStore.listMetaForFile(fileId);
+    } catch (error) {
+      console.error("获取笔记历史列表失败:", error);
+      return [];
+    }
+  });
+
+  ipcMain.handle(
+    VS_GO_EVENT.USER_NOTES_HISTORY_GET,
+    async (_event, fileId: string, versionId: string) => {
+      try {
+        const entry = userNotesHistoryStore.getEntry(fileId, versionId);
+        return entry?.content ?? "";
+      } catch (error) {
+        console.error("读取笔记历史版本失败:", error);
+        return "";
+      }
+    }
+  );
+
+  ipcMain.handle(
+    VS_GO_EVENT.USER_NOTES_HISTORY_APPEND_SNAPSHOT,
+    async (_event, fileId: string, content: string) => {
+      try {
+        userNotesHistoryStore.appendSnapshot(fileId, content);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: formatError(error) };
+      }
+    }
+  );
 }

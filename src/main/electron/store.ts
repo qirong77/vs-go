@@ -6,6 +6,8 @@ import type {
   SavedCookie,
   SavedCookieByUrl,
   NoteTreeNode,
+  UserNoteHistoryEntry,
+  UserNoteHistoryMeta,
 } from "../../common/type";
 import { generateId } from "../../common/utils";
 
@@ -120,6 +122,21 @@ const schema = {
   userNotesCurrentFile: {
     type: "string",
     default: "",
+  },
+  userNotesFileHistory: {
+    type: "object",
+    default: {},
+    additionalProperties: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          savedAt: { type: "number" },
+          content: { type: "string" },
+        },
+      },
+    },
   },
   appSettings: {
     type: "object",
@@ -269,6 +286,58 @@ export const userNotesStore = {
   },
 };
 
+const MAX_NOTE_HISTORY_VERSIONS = 10;
+
+export const userNotesHistoryStore = {
+  getAll(): Record<string, UserNoteHistoryEntry[]> {
+    return vsgoStore.get("userNotesFileHistory", {}) as Record<string, UserNoteHistoryEntry[]>;
+  },
+
+  /** 列表元数据，从新到旧 */
+  listMetaForFile(fileId: string): UserNoteHistoryMeta[] {
+    const list = this.getAll()[fileId] || [];
+    return [...list]
+      .reverse()
+      .map(({ id, savedAt }) => ({ id, savedAt }));
+  },
+
+  getEntry(fileId: string, versionId: string): UserNoteHistoryEntry | undefined {
+    const list = this.getAll()[fileId] || [];
+    return list.find((e) => e.id === versionId);
+  },
+
+  /**
+   * 在队列尾部追加一条快照（最旧在前、最新在后）；超过条数则丢弃最旧。
+   * 若与上一条内容完全相同则跳过。
+   */
+  appendSnapshot(fileId: string, content: string): void {
+    const all = this.getAll();
+    const prev = [...(all[fileId] || [])];
+    const last = prev[prev.length - 1];
+    if (last && last.content === content) {
+      return;
+    }
+    const entry: UserNoteHistoryEntry = {
+      id: generateId("hist"),
+      savedAt: Date.now(),
+      content,
+    };
+    prev.push(entry);
+    while (prev.length > MAX_NOTE_HISTORY_VERSIONS) {
+      prev.shift();
+    }
+    all[fileId] = prev;
+    vsgoStore.set("userNotesFileHistory", all);
+  },
+
+  deleteForFile(fileId: string): void {
+    const all = this.getAll();
+    if (!all[fileId]) return;
+    delete all[fileId];
+    vsgoStore.set("userNotesFileHistory", all);
+  },
+};
+
 export const windowScriptStore = {
   get(): string {
     return vsgoStore.get("floatingWindowUserScript", "") as string;
@@ -390,6 +459,7 @@ export const userNotesTreeStore = {
         const deleteContents = (n: NoteTreeNode): void => {
           if (n.isLeaf) {
             this.deleteFileContent(n.key);
+            userNotesHistoryStore.deleteForFile(n.key);
           } else if (n.children) {
             n.children.forEach(deleteContents);
           }
