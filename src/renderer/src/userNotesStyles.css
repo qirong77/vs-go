@@ -490,7 +490,7 @@
   margin: 0;
 }
 .milkdown table {
-  border: 1px solid #e1e4e8;;
+  border: 1px solid #e1e4e8;
   overflow: visible;
 }
 
@@ -591,4 +591,67 @@
 /* 代码块容器需要相对定位，以便选择器绝对定位 */
 .milkdown pre {
   position: relative;
+}
+
+/* 斜杠菜单样式 */
+.slash-menu {
+  position: fixed;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  padding: 4px;
+  z-index: 1000;
+  min-width: 180px;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.slash-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: all 0.15s ease;
+}
+
+.slash-menu-item:hover,
+.slash-menu-item.selected {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.slash-menu-item .icon {
+  font-size: 16px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f9fafb;
+  border-radius: 4px;
+  color: #6b7280;
+}
+
+.slash-menu-item.selected .icon {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.slash-menu-item .label {
+  flex: 1;
+}
+
+.slash-menu-item .shortcut {
+  font-size: 11px;
+  color: #9ca3af;
+  background: #f3f4f6;
+  padding: 2px 4px;
+  border-radius: 3px;
 }
