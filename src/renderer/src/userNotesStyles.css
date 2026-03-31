@@ -181,6 +181,7 @@
 }
 
 .milkdown table th {
+  font-weight: 400;
   background-color: #f3f4f6;
   color: #374151;
 }
