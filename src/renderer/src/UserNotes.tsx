@@ -11,13 +11,7 @@ import { Plugin, PluginKey } from "@milkdown/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/prose/view";
 import { $prose } from "@milkdown/utils";
 import { insertTableCommand } from "@milkdown/preset-gfm";
-import {
-  wrapInHeadingCommand,
-  wrapInBulletListCommand,
-  wrapInOrderedListCommand,
-  createCodeBlockCommand,
-  insertHrCommand,
-} from "@milkdown/preset-commonmark";
+import { createCodeBlockCommand, insertHrCommand } from "@milkdown/preset-commonmark";
 import NoteFileTree from "./components/NoteFileTree";
 
 import "./userNotesStyles.css";
@@ -478,15 +472,27 @@ const SlashMenu: React.FC<{
   // useInstance 返回 [loading, getInstance]：就绪时第一项为 false，第二项返回 Editor
   const [loading, getInstance] = useInstance();
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const selectedIndexRef = useRef(0);
+
+  useEffect(() => {
+    selectedIndexRef.current = selectedIndex;
+  }, [selectedIndex]);
+
+  // 仅在菜单打开时重置高亮，不可放在「监听键盘」的 effect 里，否则会随 selectedIndex 变化反复执行并清零
+  useEffect(() => {
+    if (!show) return;
+    setSelectedIndex(0);
+    selectedIndexRef.current = 0;
+  }, [show]);
 
   const items = useMemo(
     () => [
       { label: "表格", icon: "📊", command: insertTableCommand.key },
-      { label: "一级标题", icon: "H1", command: wrapInHeadingCommand.key, args: 1 },
-      { label: "二级标题", icon: "H2", command: wrapInHeadingCommand.key, args: 2 },
-      { label: "三级标题", icon: "H3", command: wrapInHeadingCommand.key, args: 3 },
-      { label: "无序列表", icon: "•", command: wrapInBulletListCommand.key },
-      { label: "有序列表", icon: "1.", command: wrapInOrderedListCommand.key },
+      // { label: "一级标题", icon: "H1", command: wrapInHeadingCommand.key, args: 1 },
+      // { label: "二级标题", icon: "H2", command: wrapInHeadingCommand.key, args: 2 },
+      // { label: "三级标题", icon: "H3", command: wrapInHeadingCommand.key, args: 3 },
+      // { label: "无序列表", icon: "•", command: wrapInBulletListCommand.key },
+      // { label: "有序列表", icon: "1.", command: wrapInOrderedListCommand.key },
       { label: "代码块", icon: "```", command: createCodeBlockCommand.key },
       { label: "分割线", icon: "—", command: insertHrCommand.key },
     ],
@@ -523,7 +529,6 @@ const SlashMenu: React.FC<{
 
   useEffect(() => {
     if (!show) return;
-    setSelectedIndex(0);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowDown") {
@@ -537,7 +542,7 @@ const SlashMenu: React.FC<{
       } else if (e.key === "Enter") {
         e.preventDefault();
         e.stopPropagation();
-        executeCommand(items[selectedIndex]);
+        executeCommand(items[selectedIndexRef.current]);
       } else if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
@@ -547,7 +552,7 @@ const SlashMenu: React.FC<{
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [show, selectedIndex, items, executeCommand, onClose]);
+  }, [show, items, executeCommand, onClose]);
 
   if (!show) return null;
 
@@ -558,7 +563,10 @@ const SlashMenu: React.FC<{
           key={item.label}
           className={`slash-menu-item ${index === selectedIndex ? "selected" : ""}`}
           onClick={() => executeCommand(item)}
-          onMouseEnter={() => setSelectedIndex(index)}
+          onMouseEnter={() => {
+            setSelectedIndex(index);
+            selectedIndexRef.current = index;
+          }}
         >
           <div className="icon">{item.icon}</div>
           <div className="label">{item.label}</div>
