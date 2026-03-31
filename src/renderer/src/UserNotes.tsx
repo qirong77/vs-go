@@ -574,6 +574,7 @@ const MilkdownEditor: React.FC<{
   const [slashState, setSlashState] = useState({ show: false, pos: { top: 0, left: 0 } });
   const slashStateRef = useRef(setSlashState);
   const slashPosRef = useRef<number | null>(null);
+  const slashShowRef = useRef(false);
 
   // 保持 onChange 引用最新
   useEffect(() => {
@@ -582,6 +583,7 @@ const MilkdownEditor: React.FC<{
 
   useEffect(() => {
     slashStateRef.current = setSlashState;
+    slashShowRef.current = false;
   }, []);
 
   useEditor((root) => {
@@ -611,20 +613,39 @@ const MilkdownEditor: React.FC<{
                 handleTextInput(view, from, _to, text) {
                   if (text === "/") {
                     const coords = view.coordsAtPos(from);
-                    slashPosRef.current = from; // 保存斜杠位置
+                    slashPosRef.current = from;
+                    slashShowRef.current = true;
                     slashStateRef.current({
                       show: true,
                       pos: { top: coords.bottom + 5, left: coords.left },
                     });
                   } else {
+                    slashShowRef.current = false;
                     slashStateRef.current((s) => (s.show ? { ...s, show: false } : s));
+                    slashPosRef.current = null;
                   }
                   return false;
                 },
                 handleKeyDown(_view, event) {
                   if (event.key === "Escape" || event.key === "Backspace") {
+                    slashShowRef.current = false;
                     slashStateRef.current((s) => (s.show ? { ...s, show: false } : s));
                     slashPosRef.current = null;
+                    return false;
+                  }
+                  if (slashShowRef.current) {
+                    const chars = "/-·*+1.#!_~`";
+                    if (
+                      !chars.includes(event.key) &&
+                      !event.ctrlKey &&
+                      !event.metaKey &&
+                      event.key.length === 1
+                    ) {
+                      slashShowRef.current = false;
+                      slashStateRef.current({ show: false, pos: { top: 0, left: 0 } });
+                      slashPosRef.current = null;
+                      return false;
+                    }
                   }
                   return false;
                 },
