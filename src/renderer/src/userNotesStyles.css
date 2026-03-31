@@ -560,6 +560,58 @@
   font-family: "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace;
 }
 
+/* 可折叠代码块：按钮 absolute，不占文档流，pre 保持与原先一致的块级宽度 */
+.milkdown-code-block-shell {
+  position: relative;
+  margin: 1em 0;
+  overflow: visible;
+}
+
+/* 折叠：由 shell.is-collapsed 控制，勿在 JS 里改 pre.style（会触发 PM 重同步） */
+.milkdown-code-block-shell.is-collapsed {
+  min-height: 0;
+}
+
+/* 折叠后保留约一行 + 与 .milkdown pre 一致的上下 padding；首行过长可横向滚动 */
+.milkdown-code-block-shell.is-collapsed > pre {
+  max-height: calc(0.6em * 2 + 0.875em * 1.7);
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-bottom: 0 !important;
+}
+
+.milkdown-code-block-shell .code-block-collapse-toggle {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 11px;
+  line-height: 22px;
+  text-align: center;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  color: #555;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  user-select: none;
+  transform: translateX(calc(-100% - 8px));
+}
+
+.milkdown-code-block-shell .code-block-collapse-toggle:hover {
+  background: #f3f4f6;
+  color: #111;
+}
+
+.milkdown-code-block-shell > pre {
+  margin: 0 !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 /* Prism 亮色主题 token 颜色 */
 .milkdown .token.comment,
 .milkdown .token.prolog,

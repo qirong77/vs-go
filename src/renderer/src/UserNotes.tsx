@@ -8,13 +8,14 @@ import { gfm } from "@milkdown/preset-gfm";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
 import { history } from "@milkdown/plugin-history";
 import { Milkdown, MilkdownProvider, useEditor, useInstance } from "@milkdown/react";
-import { Plugin, PluginKey } from "@milkdown/prose/state";
+import { Plugin, PluginKey, TextSelection } from "@milkdown/prose/state";
 import { Decoration, DecorationSet } from "@milkdown/prose/view";
 import { $prose } from "@milkdown/utils";
 import { insertTableCommand } from "@milkdown/preset-gfm";
 import { createCodeBlockCommand, insertHrCommand } from "@milkdown/preset-commonmark";
 import NoteFileTree from "./components/NoteFileTree";
 import NoteHistoryDrawer from "./components/NoteHistoryDrawer";
+import { codeBlockCollapseView } from "./milkdownCodeBlockCollapse";
 
 import "./userNotesStyles.css";
 
@@ -475,7 +476,7 @@ const SlashMenu: React.FC<{
   onClose: () => void;
 }> = ({ show, pos, slashPos, onClose }) => {
   // useInstance 返回 [loading, getInstance]：就绪时第一项为 false，第二项返回 Editor
-  const [loading, getInstance] = useInstance();
+  const [, getInstance] = useInstance();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const selectedIndexRef = useRef(0);
 
@@ -506,21 +507,22 @@ const SlashMenu: React.FC<{
 
   const executeCommand = useCallback(
     (item: any) => {
-      if (loading) return;
       const editor = getInstance();
       if (!editor) return;
       editor.action((ctx) => {
         const view = ctx.get(editorViewCtx);
         const commands = ctx.get(commandsCtx);
-        const { state } = view;
 
-        // 删除斜杠（使用保存的位置）
+        // 点击菜单会先让编辑器失焦，选区丢失会导致 insertTable 等依赖 selection 的命令失败
+        view.focus();
+
+        let { state } = view;
         if (slashPos !== null) {
           const tr = state.tr.delete(slashPos, slashPos + 1);
-          view.dispatch(tr);
+          view.dispatch(tr.setSelection(TextSelection.create(tr.doc, slashPos)));
+          state = view.state;
         }
 
-        // 执行命令
         if (item.args !== undefined) {
           commands.call(item.command, item.args);
         } else {
@@ -529,7 +531,7 @@ const SlashMenu: React.FC<{
       });
       onClose();
     },
-    [loading, getInstance, slashPos, onClose]
+    [getInstance, slashPos, onClose]
   );
 
   useEffect(() => {
@@ -562,7 +564,11 @@ const SlashMenu: React.FC<{
   if (!show) return null;
 
   return (
-    <div className="slash-menu" style={{ top: pos.top, left: pos.left }}>
+    <div
+      className="slash-menu"
+      style={{ top: pos.top, left: pos.left }}
+      onMouseDown={(e) => e.preventDefault()}
+    >
       {items.map((item, index) => (
         <div
           key={item.label}
@@ -588,8 +594,11 @@ const MilkdownEditor: React.FC<{
 }> = ({ initialContent, onChange }) => {
   const onChangeRef = useRef(onChange);
   const [slashState, setSlashState] = useState({ show: false, pos: { top: 0, left: 0 } });
+  const [slashPos, setSlashPos] = useState<number | null>(null);
   const slashStateRef = useRef(setSlashState);
   const slashPosRef = useRef<number | null>(null);
+  const setSlashPosRef = useRef(setSlashPos);
+  setSlashPosRef.current = setSlashPos;
   const slashShowRef = useRef(false);
 
   // 保持 onChange 引用最新
@@ -613,13 +622,8 @@ const MilkdownEditor: React.FC<{
         });
       })
       .use(commonmark)
+      .use(codeBlockCollapseView)
       .use(gfm)
-      .use(listener)
-      .use(history)
-      .use(pasteImagePlugin())
-      .use(imageResizePlugin())
-      .use(pasteLinkPlugin())
-      .use(clickableLinkPlugin())
       .use(
         $prose(
           () =>
@@ -630,6 +634,7 @@ const MilkdownEditor: React.FC<{
                   if (text === "/") {
                     const coords = view.coordsAtPos(from);
                     slashPosRef.current = from;
+                    setSlashPosRef.current(from);
                     slashShowRef.current = true;
                     slashStateRef.current({
                       show: true,
@@ -639,6 +644,7 @@ const MilkdownEditor: React.FC<{
                     slashShowRef.current = false;
                     slashStateRef.current((s) => (s.show ? { ...s, show: false } : s));
                     slashPosRef.current = null;
+                    setSlashPosRef.current(null);
                   }
                   return false;
                 },
@@ -647,6 +653,7 @@ const MilkdownEditor: React.FC<{
                     slashShowRef.current = false;
                     slashStateRef.current((s) => (s.show ? { ...s, show: false } : s));
                     slashPosRef.current = null;
+                    setSlashPosRef.current(null);
                     return false;
                   }
                   if (slashShowRef.current) {
@@ -660,6 +667,7 @@ const MilkdownEditor: React.FC<{
                       slashShowRef.current = false;
                       slashStateRef.current({ show: false, pos: { top: 0, left: 0 } });
                       slashPosRef.current = null;
+                      setSlashPosRef.current(null);
                       return false;
                     }
                   }
@@ -668,12 +676,19 @@ const MilkdownEditor: React.FC<{
                 handleClick() {
                   slashStateRef.current((s) => (s.show ? { ...s, show: false } : s));
                   slashPosRef.current = null;
+                  setSlashPosRef.current(null);
                   return false;
                 },
               },
             })
         )
-      );
+      )
+      .use(listener)
+      .use(history)
+      .use(pasteImagePlugin())
+      .use(imageResizePlugin())
+      .use(pasteLinkPlugin())
+      .use(clickableLinkPlugin());
   });
 
   return (
@@ -682,10 +697,11 @@ const MilkdownEditor: React.FC<{
       <SlashMenu
         show={slashState.show}
         pos={slashState.pos}
-        slashPos={slashPosRef.current}
+        slashPos={slashPos}
         onClose={() => {
           setSlashState({ show: false, pos: { top: 0, left: 0 } });
           slashPosRef.current = null;
+          setSlashPos(null);
         }}
       />
     </>
