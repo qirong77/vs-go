@@ -4,7 +4,7 @@ import { HistoryOutlined } from "@ant-design/icons";
 import { VS_GO_EVENT } from "../../common/EVENT";
 import { Editor, rootCtx, defaultValueCtx, editorViewCtx, commandsCtx } from "@milkdown/core";
 import { commonmark } from "@milkdown/preset-commonmark";
-import { gfm } from "@milkdown/preset-gfm";
+import { gfm, columnResizingPlugin } from "@milkdown/preset-gfm";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
 import { history } from "@milkdown/plugin-history";
 import { Milkdown, MilkdownProvider, useEditor, useInstance } from "@milkdown/react";
@@ -14,7 +14,9 @@ import { $prose } from "@milkdown/utils";
 import NoteFileTree from "./components/NoteFileTree";
 import NoteHistoryDrawer from "./components/NoteHistoryDrawer";
 import { codeBlockCollapseView } from "./milkdownCodeBlockCollapse";
+import { tableYuquePlugin } from "./milkdownTableYuque";
 
+import "@milkdown/prose/tables/style/tables.css";
 import "./userNotesStyles.css";
 
 /** 停止编辑超过该时间后，保存一条历史快照（每次编辑会重新计时） */
@@ -634,6 +636,8 @@ const MilkdownEditor: React.FC<{
       .use(commonmark)
       .use(codeBlockCollapseView)
       .use(gfm)
+      .use(columnResizingPlugin)
+      .use(tableYuquePlugin)
       .use(
         $prose(
           () =>
