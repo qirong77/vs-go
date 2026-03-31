@@ -4,6 +4,9 @@ import { Decoration, DecorationSet } from "@milkdown/prose/view";
 import { $prose } from "@milkdown/utils";
 import Prism from "prismjs";
 
+/** 官方亮色主题（token 配色、pre/code 基础样式）；需在业务覆盖样式之前加载 */
+import "prismjs/themes/prism.css";
+
 import "prismjs/components/prism-markup";
 import "prismjs/components/prism-css";
 import "prismjs/components/prism-clike";

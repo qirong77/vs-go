@@ -87,8 +87,6 @@
 
 /* 代码 */
 .milkdown code {
-  background-color: #f3f4f6;
-  color: #ef4444;
   padding: 0.2em 0.4em;
   border-radius: 3px;
   font-family: "Monaco", "Menlo", "Courier New", monospace;
@@ -105,7 +103,6 @@
 
 .milkdown pre code {
   background-color: transparent;
-  color: #e2e8f0;
   padding: 0;
   font-size: 0.875em;
   line-height: 1.7;
@@ -698,7 +695,7 @@
 
 .milkdown pre code {
   background-color: transparent;
-  color: #24292e;
+  /* 不固定 color，交给 Prism 主题与 .token 子元素 */
   padding: 0;
   font-size: 0.875em;
   line-height: 1.7;
@@ -712,34 +709,27 @@
   overflow: visible;
 }
 
-/* 右上角语言选择（相对 shell 定位） */
-.milkdown-code-block-shell .code-block-lang-select {
+/* Ant Design 语言选择（挂载在 .code-block-lang-select-mount） */
+.milkdown-code-block-shell .code-block-lang-select-mount {
   position: absolute;
-  top: 6px;
+  top: 4px;
   right: 8px;
   z-index: 4;
-  max-width: min(11rem, 42vw);
-  height: 26px;
-  padding: 0 6px;
-  font-size: 11px;
-  line-height: 24px;
-  color: #374151;
-  background: #fff;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  max-width: min(12rem, 46vw);
 }
 
-.milkdown-code-block-shell .code-block-lang-select:hover {
-  border-color: #d1d5db;
-  background: #f9fafb;
+.milkdown-code-block-shell .code-block-lang-select-antd-wrap {
+  display: block;
 }
 
-.milkdown-code-block-shell .code-block-lang-select:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+.milkdown-code-block-shell .code-block-lang-select-antd {
+  min-width: 7.5rem !important;
+  width: 100%;
+  font-size: 12px !important;
+}
+
+.milkdown-code-block-shell .code-block-lang-select-antd.ant-select .ant-select-selector {
+  border-radius: 6px !important;
 }
 
 /* 折叠：由 shell.is-collapsed 控制，勿在 JS 里改 pre.style（会触发 PM 重同步） */
@@ -787,86 +777,9 @@
   margin: 0 !important;
   width: 100%;
   box-sizing: border-box;
-  /* 为右上角语言选择留出空间，避免与首行代码重叠 */
-  /* padding-top: 2rem; */
-  padding-right: 7.5rem;
-}
-
-/* Prism 亮色主题 token 颜色 */
-.milkdown .token.comment,
-.milkdown .token.prolog,
-.milkdown .token.doctype,
-.milkdown .token.cdata {
-  color: #6a737d;
-  font-style: italic;
-}
-
-.milkdown .token.punctuation {
-  color: #24292e;
-}
-
-.milkdown .token.property,
-.milkdown .token.tag,
-.milkdown .token.boolean,
-.milkdown .token.number,
-.milkdown .token.constant,
-.milkdown .token.symbol,
-.milkdown .token.deleted {
-  color: #005cc5;
-}
-
-.milkdown .token.selector,
-.milkdown .token.attr-name,
-.milkdown .token.string,
-.milkdown .token.char,
-.milkdown .token.builtin,
-.milkdown .token.inserted {
-  color: #032f62;
-}
-
-.milkdown .token.operator,
-.milkdown .token.entity,
-.milkdown .token.url,
-.milkdown .language-css .token.string,
-.milkdown .style .token.string {
-  color: #d73a49;
-}
-
-.milkdown .token.atrule,
-.milkdown .token.attr-value,
-.milkdown .token.keyword {
-  color: #d73a49;
-}
-
-.milkdown .token.function,
-.milkdown .token.class-name {
-  color: #6f42c1;
-}
-
-.milkdown .token.regex,
-.milkdown .token.important,
-.milkdown .token.variable {
-  color: #e36209;
-}
-
-.milkdown .token.important,
-.milkdown .token.bold {
-  font-weight: bold;
-}
-
-.milkdown .token.italic {
-  font-style: italic;
-}
-
-.milkdown .token.entity {
-  cursor: help;
-}
-
-/* ========== 代码块语言选择器 ========== */
-
-/* 代码块容器需要相对定位，以便选择器绝对定位 */
-.milkdown pre {
   position: relative;
+  /* 与 prism.css 主题块背景一致，避免被上层 .milkdown pre 覆盖成 #fbfbfb */
+  padding-right: 7.5rem;
 }
 
 /* 斜杠菜单样式 */

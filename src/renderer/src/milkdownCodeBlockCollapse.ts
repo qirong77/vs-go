@@ -1,10 +1,13 @@
+import { createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import type { Ctx } from "@milkdown/ctx";
 import { codeBlockAttr, codeBlockSchema } from "@milkdown/preset-commonmark";
 import { $view } from "@milkdown/utils";
 import type { Node as PMNode } from "@milkdown/prose/model";
 import type { EditorView, NodeView, ViewMutationRecord } from "@milkdown/prose/view";
 
-import { CODE_BLOCK_LANGUAGE_OPTIONS, detectLanguageFromContent } from "./codeBlockLanguage";
+import { CodeBlockLangSelect } from "./CodeBlockLangSelect";
+import { detectLanguageFromContent } from "./codeBlockLanguage";
 
 function applyDomAttrs(el: HTMLElement, attrs: Record<string, unknown>) {
   for (const [key, val] of Object.entries(attrs)) {
@@ -19,10 +22,18 @@ function applyDomAttrs(el: HTMLElement, attrs: Record<string, unknown>) {
   }
 }
 
+function stripLanguageClass(el: HTMLElement) {
+  for (const c of [...el.classList]) {
+    if (c.startsWith("language-")) el.classList.remove(c);
+  }
+}
+
 function syncLanguageClass(code: HTMLElement, pre: HTMLElement, language: string) {
   const lang = String(language ?? "").trim();
+  stripLanguageClass(pre);
   if (lang) {
     pre.setAttribute("data-language", lang);
+    pre.classList.add(`language-${lang}`);
     code.className = `language-${lang}`;
   } else {
     pre.removeAttribute("data-language");
@@ -30,28 +41,8 @@ function syncLanguageClass(code: HTMLElement, pre: HTMLElement, language: string
   }
 }
 
-function fillLanguageSelect(select: HTMLSelectElement, value: string) {
-  const v = String(value ?? "").trim();
-  select.innerHTML = "";
-  const seen = new Set<string>();
-  for (const opt of CODE_BLOCK_LANGUAGE_OPTIONS) {
-    const o = document.createElement("option");
-    o.value = opt.value;
-    o.textContent = opt.label;
-    select.appendChild(o);
-    seen.add(opt.value);
-  }
-  if (v && !seen.has(v)) {
-    const o = document.createElement("option");
-    o.value = v;
-    o.textContent = v;
-    select.appendChild(o);
-  }
-  select.value = v;
-}
-
 /**
- * 代码块自定义视图：折叠按钮、右上角语言选择；勿在 pre 上写会触发 PM 重同步的 style。
+ * 代码块自定义视图：折叠按钮、右上角 Ant Design 语言选择；勿在 pre 上写会触发 PM 重同步的 style。
  */
 export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
   return (node: PMNode, view: EditorView, getPos: () => number | undefined): NodeView => {
@@ -63,11 +54,30 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
     const shell = document.createElement("div");
     shell.className = "milkdown-code-block-shell";
 
-    const langSelect = document.createElement("select");
-    langSelect.className = "code-block-lang-select";
-    langSelect.setAttribute("aria-label", "代码语言");
-    langSelect.contentEditable = "false";
-    fillLanguageSelect(langSelect, language);
+    const langMount = document.createElement("div");
+    langMount.className = "code-block-lang-select-mount";
+
+    let langRoot: Root | null = null;
+
+    function dispatchLanguage(next: string) {
+      const pos = getPos();
+      if (pos === undefined) return;
+      const { state } = view;
+      const tr = state.tr.setNodeAttribute(pos, "language", next);
+      view.dispatch(tr);
+    }
+
+    const renderLangSelect = (lang: string) => {
+      if (!langRoot) langRoot = createRoot(langMount);
+      langRoot.render(
+        createElement(CodeBlockLangSelect, {
+          value: lang,
+          onChange: dispatchLanguage,
+          getPopupContainer: (trigger: HTMLElement) =>
+            (trigger.closest(".milkdown-code-block-shell") as HTMLElement | null) ?? document.body,
+        })
+      );
+    };
 
     const toggle = document.createElement("button");
     toggle.type = "button";
@@ -86,8 +96,10 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
 
     pre.appendChild(code);
     shell.appendChild(pre);
-    shell.appendChild(langSelect);
+    shell.appendChild(langMount);
     shell.appendChild(toggle);
+
+    renderLangSelect(language);
 
     let collapsed = false;
 
@@ -96,21 +108,6 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
       toggle.textContent = collapsed ? "▶" : "▼";
       toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
     };
-
-    const dispatchLanguage = (next: string) => {
-      const pos = getPos();
-      if (pos === undefined) return;
-      const { state } = view;
-      const tr = state.tr.setNodeAttribute(pos, "language", next);
-      view.dispatch(tr);
-    };
-
-    langSelect.addEventListener("mousedown", (e) => e.stopPropagation());
-    langSelect.addEventListener("click", (e) => e.stopPropagation());
-    langSelect.addEventListener("keydown", (e) => e.stopPropagation());
-    langSelect.addEventListener("change", () => {
-      dispatchLanguage(langSelect.value);
-    });
 
     const tryAutoLanguageOnBlur = () => {
       queueMicrotask(() => {
@@ -146,7 +143,10 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
       stopEvent(event: Event) {
         const t = event.target;
         if (!(t instanceof globalThis.Node)) return false;
-        return toggle.contains(t) || langSelect.contains(t);
+        if (code.contains(t)) return false;
+        if (toggle.contains(t) || langMount.contains(t)) return true;
+        if (t instanceof Element && t.closest(".ant-select-dropdown")) return true;
+        return false;
       },
       ignoreMutation(mutation: ViewMutationRecord) {
         if (mutation.type === "selection") return false;
@@ -161,11 +161,13 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
         applyDomAttrs(pre, next.pre ?? {});
         applyDomAttrs(code, next.code ?? {});
         syncLanguageClass(code, pre, lang);
-        fillLanguageSelect(langSelect, lang);
+        renderLangSelect(lang);
         return true;
       },
       destroy() {
         code.removeEventListener("blur", tryAutoLanguageOnBlur);
+        langRoot?.unmount();
+        langRoot = null;
       },
     };
   };
