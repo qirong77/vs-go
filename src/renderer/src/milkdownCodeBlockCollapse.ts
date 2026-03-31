@@ -4,6 +4,8 @@ import { $view } from "@milkdown/utils";
 import type { Node as PMNode } from "@milkdown/prose/model";
 import type { EditorView, NodeView, ViewMutationRecord } from "@milkdown/prose/view";
 
+import { CODE_BLOCK_LANGUAGE_OPTIONS, detectLanguageFromContent } from "./codeBlockLanguage";
+
 function applyDomAttrs(el: HTMLElement, attrs: Record<string, unknown>) {
   for (const [key, val] of Object.entries(attrs)) {
     if (val == null || val === false) continue;
@@ -17,11 +19,42 @@ function applyDomAttrs(el: HTMLElement, attrs: Record<string, unknown>) {
   }
 }
 
+function syncLanguageClass(code: HTMLElement, pre: HTMLElement, language: string) {
+  const lang = String(language ?? "").trim();
+  if (lang) {
+    pre.setAttribute("data-language", lang);
+    code.className = `language-${lang}`;
+  } else {
+    pre.removeAttribute("data-language");
+    code.removeAttribute("class");
+  }
+}
+
+function fillLanguageSelect(select: HTMLSelectElement, value: string) {
+  const v = String(value ?? "").trim();
+  select.innerHTML = "";
+  const seen = new Set<string>();
+  for (const opt of CODE_BLOCK_LANGUAGE_OPTIONS) {
+    const o = document.createElement("option");
+    o.value = opt.value;
+    o.textContent = opt.label;
+    select.appendChild(o);
+    seen.add(opt.value);
+  }
+  if (v && !seen.has(v)) {
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = v;
+    select.appendChild(o);
+  }
+  select.value = v;
+}
+
 /**
- * 代码块自定义视图：在 pre 左侧（代码块外）显示折叠按钮，折叠时隐藏整块 pre。
+ * 代码块自定义视图：折叠按钮、右上角语言选择；勿在 pre 上写会触发 PM 重同步的 style。
  */
 export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
-  return (node: PMNode, _view: EditorView, _getPos: () => number | undefined): NodeView => {
+  return (node: PMNode, view: EditorView, getPos: () => number | undefined): NodeView => {
     const getAttrs = (n: PMNode) =>
       ctx.get(codeBlockAttr.key)(n) as { pre?: Record<string, unknown>; code?: Record<string, unknown> };
     const domAttrs = getAttrs(node);
@@ -29,6 +62,12 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
 
     const shell = document.createElement("div");
     shell.className = "milkdown-code-block-shell";
+
+    const langSelect = document.createElement("select");
+    langSelect.className = "code-block-lang-select";
+    langSelect.setAttribute("aria-label", "代码语言");
+    langSelect.contentEditable = "false";
+    fillLanguageSelect(langSelect, language);
 
     const toggle = document.createElement("button");
     toggle.type = "button";
@@ -40,31 +79,56 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
 
     const pre = document.createElement("pre");
     applyDomAttrs(pre, domAttrs.pre ?? {});
-    if (language) {
-      pre.setAttribute("data-language", language);
-    }
 
     const code = document.createElement("code");
     applyDomAttrs(code, domAttrs.code ?? {});
-    if (language) {
-      code.className = `language-${language}`;
-    }
+    syncLanguageClass(code, pre, language);
 
     pre.appendChild(code);
-    // pre 先插入流式布局；按钮绝对定位叠在左上，不占宽度
     shell.appendChild(pre);
+    shell.appendChild(langSelect);
     shell.appendChild(toggle);
 
     let collapsed = false;
 
     const syncCollapsed = () => {
-      // 只改 shell 的 class，勿在 pre 上写 style：否则 attributes 变更会触发 PM 重同步并还原 DOM
       shell.classList.toggle("is-collapsed", collapsed);
       toggle.textContent = collapsed ? "▶" : "▼";
       toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
     };
 
-    // 仅用 mousedown（捕获阶段）：若同时监听 click，会与 mousedown 各触发一次导致折叠被切换两次
+    const dispatchLanguage = (next: string) => {
+      const pos = getPos();
+      if (pos === undefined) return;
+      const { state } = view;
+      const tr = state.tr.setNodeAttribute(pos, "language", next);
+      view.dispatch(tr);
+    };
+
+    langSelect.addEventListener("mousedown", (e) => e.stopPropagation());
+    langSelect.addEventListener("click", (e) => e.stopPropagation());
+    langSelect.addEventListener("keydown", (e) => e.stopPropagation());
+    langSelect.addEventListener("change", () => {
+      dispatchLanguage(langSelect.value);
+    });
+
+    const tryAutoLanguageOnBlur = () => {
+      queueMicrotask(() => {
+        const pos = getPos();
+        if (pos === undefined) return;
+        const st = view.state;
+        const block = st.doc.nodeAt(pos);
+        if (!block || block.type.name !== "code_block") return;
+        const cur = String(block.attrs.language ?? "").trim();
+        if (cur) return;
+        const guessed = detectLanguageFromContent(block.textContent);
+        if (!guessed) return;
+        view.dispatch(st.tr.setNodeAttribute(pos, "language", guessed));
+      });
+    };
+
+    code.addEventListener("blur", tryAutoLanguageOnBlur);
+
     toggle.addEventListener(
       "mousedown",
       (e) => {
@@ -79,19 +143,11 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
     return {
       dom: shell,
       contentDOM: code,
-      /**
-       * 必须实现：否则 ProseMirror 会在捕获/冒泡阶段处理 mousedown，吞掉按钮的 click，
-       * 折叠无效；也可能干扰其它编辑交互（如斜杠菜单）。
-       */
       stopEvent(event: Event) {
         const t = event.target;
         if (!(t instanceof globalThis.Node)) return false;
-        return toggle.contains(t);
+        return toggle.contains(t) || langSelect.contains(t);
       },
-      /**
-       * 对 pre/shell/按钮 的 DOM 变更若被 PM 当成「文档脏了」会整节点重绘，折叠态立刻被冲掉。
-       * 仅 contentDOM（code 内文字）的变更需要交给编辑器。
-       */
       ignoreMutation(mutation: ViewMutationRecord) {
         if (mutation.type === "selection") return false;
         const t = mutation.target;
@@ -104,14 +160,12 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
         const lang = String(updated.attrs.language ?? "");
         applyDomAttrs(pre, next.pre ?? {});
         applyDomAttrs(code, next.code ?? {});
-        if (lang) {
-          pre.setAttribute("data-language", lang);
-          code.className = `language-${lang}`;
-        } else {
-          pre.removeAttribute("data-language");
-          code.removeAttribute("class");
-        }
+        syncLanguageClass(code, pre, lang);
+        fillLanguageSelect(langSelect, lang);
         return true;
+      },
+      destroy() {
+        code.removeEventListener("blur", tryAutoLanguageOnBlur);
       },
     };
   };

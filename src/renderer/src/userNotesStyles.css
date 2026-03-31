@@ -712,6 +712,36 @@
   overflow: visible;
 }
 
+/* 右上角语言选择（相对 shell 定位） */
+.milkdown-code-block-shell .code-block-lang-select {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 4;
+  max-width: min(11rem, 42vw);
+  height: 26px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 24px;
+  color: #374151;
+  background: #fff;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.milkdown-code-block-shell .code-block-lang-select:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.milkdown-code-block-shell .code-block-lang-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
 /* 折叠：由 shell.is-collapsed 控制，勿在 JS 里改 pre.style（会触发 PM 重同步） */
 .milkdown-code-block-shell.is-collapsed {
   min-height: 0;
@@ -723,6 +753,8 @@
   overflow-x: auto;
   overflow-y: hidden;
   margin-bottom: 0 !important;
+  padding-top: 0.5rem;
+  padding-right: 0.6em;
 }
 
 .milkdown-code-block-shell .code-block-collapse-toggle {
@@ -755,6 +787,9 @@
   margin: 0 !important;
   width: 100%;
   box-sizing: border-box;
+  /* 为右上角语言选择留出空间，避免与首行代码重叠 */
+  /* padding-top: 2rem; */
+  padding-right: 7.5rem;
 }
 
 /* Prism 亮色主题 token 颜色 */

@@ -14,6 +14,7 @@ import { $prose } from "@milkdown/utils";
 import NoteFileTree from "./components/NoteFileTree";
 import NoteHistoryDrawer from "./components/NoteHistoryDrawer";
 import { codeBlockCollapseView } from "./milkdownCodeBlockCollapse";
+import { codeBlockPrismPlugin } from "./milkdownCodeBlockPrism";
 import { tableYuquePlugin } from "./milkdownTableYuque";
 
 import "@milkdown/prose/tables/style/tables.css";
@@ -635,6 +636,7 @@ const MilkdownEditor: React.FC<{
       })
       .use(commonmark)
       .use(codeBlockCollapseView)
+      .use(codeBlockPrismPlugin)
       .use(gfm)
       .use(columnResizingPlugin)
       .use(tableYuquePlugin)
