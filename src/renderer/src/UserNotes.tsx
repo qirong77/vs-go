@@ -475,7 +475,8 @@ const SlashMenu: React.FC<{
   slashPos: number | null;
   onClose: () => void;
 }> = ({ show, pos, slashPos, onClose }) => {
-  const [instance] = useInstance();
+  // useInstance 返回 [loading, getInstance]：就绪时第一项为 false，第二项返回 Editor
+  const [loading, getInstance] = useInstance();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const items = useMemo(
@@ -494,8 +495,10 @@ const SlashMenu: React.FC<{
 
   const executeCommand = useCallback(
     (item: any) => {
-      if (!instance || typeof instance === "boolean") return;
-      (instance as any).action((ctx) => {
+      if (loading) return;
+      const editor = getInstance();
+      if (!editor) return;
+      editor.action((ctx) => {
         const view = ctx.get(editorViewCtx);
         const commands = ctx.get(commandsCtx);
         const { state } = view;
@@ -507,7 +510,7 @@ const SlashMenu: React.FC<{
         }
 
         // 执行命令
-        if (item.args) {
+        if (item.args !== undefined) {
           commands.call(item.command, item.args);
         } else {
           commands.call(item.command);
@@ -515,7 +518,7 @@ const SlashMenu: React.FC<{
       });
       onClose();
     },
-    [instance, slashPos, onClose]
+    [loading, getInstance, slashPos, onClose]
   );
 
   useEffect(() => {
