@@ -289,7 +289,7 @@ class TableYuqueView {
       const centerY = (topY + botY) / 2;
       // 贴在表格左缘内侧（行号 gutter 右侧），避免宽表时工具栏跑到最右端离激活条过远；仍在 wrapper 内以免被 overflow 裁切
       this.toolbar.style.left = `${tb.left + gap}px`;
-      this.toolbar.style.top = `${centerY - toolbarH / 2}px`;
+      this.toolbar.style.top = `${centerY + toolbarH / 2 + gap}px`;
       this.toolbar.style.transform = "none";
     } else if (colSelActive && cellRects.length > 0) {
       const l = Math.min(colSelActive.left, cellRects.length - 1);
