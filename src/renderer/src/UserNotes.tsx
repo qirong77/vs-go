@@ -13,6 +13,7 @@ import { Decoration, DecorationSet } from "@milkdown/prose/view";
 import { $prose } from "@milkdown/utils";
 import NoteFileTree from "./components/NoteFileTree";
 import NoteHistoryDrawer from "./components/NoteHistoryDrawer";
+import { codeBlockAutoLanguagePlugin } from "./milkdownCodeBlockAutoLanguage";
 import { codeBlockCollapseView } from "./milkdownCodeBlockCollapse";
 import { codeBlockPrismPlugin } from "./milkdownCodeBlockPrism";
 import { tableYuquePlugin } from "./milkdownTableYuque";
@@ -636,6 +637,7 @@ const MilkdownEditor: React.FC<{
       })
       .use(commonmark)
       .use(codeBlockCollapseView)
+      .use(codeBlockAutoLanguagePlugin)
       .use(codeBlockPrismPlugin)
       .use(gfm)
       .use(columnResizingPlugin)

@@ -7,7 +7,6 @@ import type { Node as PMNode } from "@milkdown/prose/model";
 import type { EditorView, NodeView, ViewMutationRecord } from "@milkdown/prose/view";
 
 import { CodeBlockLangSelect } from "./CodeBlockLangSelect";
-import { detectLanguageFromContent } from "./codeBlockLanguage";
 
 function applyDomAttrs(el: HTMLElement, attrs: Record<string, unknown>) {
   for (const [key, val] of Object.entries(attrs)) {
@@ -109,23 +108,6 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
       toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
     };
 
-    const tryAutoLanguageOnBlur = () => {
-      queueMicrotask(() => {
-        const pos = getPos();
-        if (pos === undefined) return;
-        const st = view.state;
-        const block = st.doc.nodeAt(pos);
-        if (!block || block.type.name !== "code_block") return;
-        const cur = String(block.attrs.language ?? "").trim();
-        if (cur) return;
-        const guessed = detectLanguageFromContent(block.textContent);
-        if (!guessed) return;
-        view.dispatch(st.tr.setNodeAttribute(pos, "language", guessed));
-      });
-    };
-
-    code.addEventListener("blur", tryAutoLanguageOnBlur);
-
     toggle.addEventListener(
       "mousedown",
       (e) => {
@@ -165,7 +147,6 @@ export const codeBlockCollapseView = $view(codeBlockSchema.node, (ctx: Ctx) => {
         return true;
       },
       destroy() {
-        code.removeEventListener("blur", tryAutoLanguageOnBlur);
         langRoot?.unmount();
         langRoot = null;
       },
