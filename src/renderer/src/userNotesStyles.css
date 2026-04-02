@@ -211,13 +211,6 @@
   table-layout: fixed;
 }
 
-/* 语雀式「自适应宽度」：收窄为按内容宽度 */
-.milkdown .tableWrapper[data-yuque-fit="1"] table {
-  width: auto !important;
-  min-width: 0 !important;
-  table-layout: auto;
-}
-
 /* 语雀风格表格：浮动工具栏与行列选择条 */
 .table-yuque-overlay {
   position: fixed;

@@ -123,20 +123,6 @@ class TableYuqueView {
       const action = btn.dataset.yuqueAction;
       if (!action) return;
 
-      if (action === "fit") {
-        const table = findTable(this.view.state.selection.$from);
-        if (!table) return;
-        const dom = this.view.nodeDOM(table.pos) as HTMLElement | null;
-        if (!dom) return;
-        const wrap = dom.classList.contains("tableWrapper")
-          ? dom
-          : (dom.closest(".tableWrapper") as HTMLElement) ?? dom;
-        const on = wrap.getAttribute("data-yuque-fit") === "1";
-        if (on) wrap.removeAttribute("data-yuque-fit");
-        else wrap.setAttribute("data-yuque-fit", "1");
-        return;
-      }
-
       if (action === "deleteTable") {
         this.exec(deleteTable);
         return;
@@ -264,6 +250,8 @@ class TableYuqueView {
     const cellEls = firstRow ? [...firstRow.querySelectorAll("th, td")] : [];
     const cellRects = cellEls.map((c) => c.getBoundingClientRect());
     const tb = wrapper.getBoundingClientRect();
+    const gutterW = 14;
+    const gutterTopH = 14;
 
     this.root.style.display = "block";
 
@@ -280,8 +268,6 @@ class TableYuqueView {
     }
 
     this.toolbar.innerHTML = `
-      <button type="button" class="table-yuque-btn" data-yuque-action="fit" title="切换铺满 / 内容宽度">自适应宽度</button>
-      <span class="table-yuque-sep"></span>
       <button type="button" class="table-yuque-btn" data-yuque-action="addRowEnd" title="在末尾插入一行">+ 行</button>
       <button type="button" class="table-yuque-btn" data-yuque-action="addColEnd" title="在末尾插入一列">+ 列</button>
       <span class="table-yuque-sep"></span>
@@ -294,12 +280,31 @@ class TableYuqueView {
     `;
 
     const toolbarH = 36;
-    this.toolbar.style.left = `${tb.left + tb.width / 2}px`;
-    this.toolbar.style.top = `${tb.top - toolbarH - 6}px`;
-    this.toolbar.style.transform = "translateX(-50%)";
-
-    const gutterW = 14;
-    const gutterTopH = 14;
+    const gap = 8;
+    if (rowSelActive && rowRects.length > 0) {
+      const t = Math.min(rowSelActive.top, rowRects.length - 1);
+      const b = Math.min(rowSelActive.bottom - 1, rowRects.length - 1);
+      const topY = rowRects[t].top;
+      const botY = rowRects[b].bottom;
+      const centerY = (topY + botY) / 2;
+      // 贴在表格左缘内侧（行号 gutter 右侧），避免宽表时工具栏跑到最右端离激活条过远；仍在 wrapper 内以免被 overflow 裁切
+      this.toolbar.style.left = `${tb.left + gap}px`;
+      this.toolbar.style.top = `${centerY - toolbarH / 2}px`;
+      this.toolbar.style.transform = "none";
+    } else if (colSelActive && cellRects.length > 0) {
+      const l = Math.min(colSelActive.left, cellRects.length - 1);
+      const r = Math.min(colSelActive.right - 1, cellRects.length - 1);
+      const leftX = cellRects[l].left;
+      const rightX = cellRects[r].right;
+      const centerX = (leftX + rightX) / 2;
+      this.toolbar.style.left = `${centerX}px`;
+      this.toolbar.style.top = `${tb.top - gutterTopH - 6 - toolbarH}px`;
+      this.toolbar.style.transform = "translateX(-50%)";
+    } else {
+      this.toolbar.style.left = `${tb.left + tb.width / 2}px`;
+      this.toolbar.style.top = `${tb.top - toolbarH - 6}px`;
+      this.toolbar.style.transform = "translateX(-50%)";
+    }
 
     this.leftGutterHost.innerHTML = "";
     for (let i = 0; i < rowRects.length; i++) {
