@@ -35,6 +35,7 @@ import "prismjs/components/prism-markdown";
 import "prismjs/components/prism-scss";
 
 import { detectLanguageFromContent, resolvePrismGrammarKey } from "./codeBlockLanguage";
+import { flattenPrismTokens } from "./prismNormalizeTokens";
 
 const codeBlockPrismKey = new PluginKey<DecorationSet>("vsgoCodeBlockPrism");
 
@@ -53,43 +54,36 @@ function collectHighlightDecorations(doc: PMNode): Decoration[] {
     const grammar = key ? (Prism.languages as Record<string, unknown>)[key] : undefined;
     if (!grammar) return;
 
-    let html: string;
+    let rawTokens: Array<Prism.Token | string>;
     try {
-      html = Prism.highlight(text, grammar as never, key);
+      rawTokens = Prism.tokenize(text, grammar as never);
     } catch {
       return;
     }
 
-    const wrap = document.createElement("div");
-    wrap.innerHTML = html;
+    const flatTokens = flattenPrismTokens(rawTokens);
+    let rebuilt = "";
+    for (const t of flatTokens) rebuilt += t.content;
+    if (rebuilt !== text) {
+      return;
+    }
+
     const textStart = pos + 1;
 
-    const walk = (nodes: ArrayLike<ChildNode>, offset: number, inherited: string[]): number => {
-      let o = offset;
-      const list = Array.from(nodes);
-      for (const n of list) {
-        if (n.nodeType === Node.TEXT_NODE) {
-          const raw = n.textContent ?? "";
-          const len = raw.length;
-          const cls = inherited.filter(Boolean).join(" ").trim();
-          if (len > 0 && cls) {
-            out.push(
-              Decoration.inline(textStart + o, textStart + o + len, {
-                class: cls,
-              })
-            );
-          }
-          o += len;
-        } else if (n.nodeType === Node.ELEMENT_NODE) {
-          const el = n as HTMLElement;
-          const cls = typeof el.className === "string" ? el.className : el.getAttribute("class") ?? "";
-          o = walk(el.childNodes, o, [...inherited, cls]);
-        }
+    let offset = 0;
+    for (const token of flatTokens) {
+      const len = token.content.length;
+      const styledTypes = token.types.filter((t) => t !== "plain");
+      if (len > 0 && styledTypes.length > 0) {
+        const cls = ["token", ...styledTypes].join(" ");
+        out.push(
+          Decoration.inline(textStart + offset, textStart + offset + len, {
+            class: cls,
+          })
+        );
       }
-      return o;
-    };
-
-    walk(wrap.childNodes, 0, []);
+      offset += len;
+    }
   });
 
   return out;
