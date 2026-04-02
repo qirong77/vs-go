@@ -12,22 +12,7 @@ import {
   findTable,
   isInTable,
   selectedRect,
-  TableMap,
 } from "@milkdown/prose/tables";
-
-type TableInfo = NonNullable<ReturnType<typeof findTable>>;
-
-function fullTableRect(table: TableInfo, map: TableMap) {
-  return {
-    left: 0,
-    top: 0,
-    right: map.width,
-    bottom: map.height,
-    tableStart: table.start,
-    map,
-    table: table.node,
-  };
-}
 
 /** 语雀风格：浮动工具栏、行列选择条、列间/底部插入；列宽拖拽需配合 columnResizingPlugin */
 class TableYuqueView {
@@ -59,7 +44,7 @@ class TableYuqueView {
     this.bottomBar = document.createElement("button");
     this.bottomBar.type = "button";
     this.bottomBar.className = "table-yuque-insert table-yuque-insert--row";
-    this.bottomBar.title = "在表格末尾插入一行";
+    this.bottomBar.title = "在选中行下方插入一行";
     this.bottomBar.innerHTML = "<span class=\"table-yuque-insert-icon\">+</span>";
 
     this.colInsertLayer = document.createElement("div");
@@ -130,11 +115,9 @@ class TableYuqueView {
 
       if (action === "addRowEnd") {
         this.exec((state, dispatch) => {
-          const table = findTable(state.selection.$from);
-          if (!table || !dispatch) return false;
-          const map = TableMap.get(table.node);
-          const rect = fullTableRect(table, map);
-          dispatch(addRow(state.tr, rect, map.height));
+          if (!findTable(state.selection.$from) || !dispatch) return false;
+          const rect = selectedRect(state);
+          dispatch(addRow(state.tr, rect, rect.bottom));
           return true;
         });
         return;
@@ -142,11 +125,9 @@ class TableYuqueView {
 
       if (action === "addColEnd") {
         this.exec((state, dispatch) => {
-          const table = findTable(state.selection.$from);
-          if (!table || !dispatch) return false;
-          const map = TableMap.get(table.node);
-          const rect = fullTableRect(table, map);
-          dispatch(addColumn(state.tr, rect, map.width));
+          if (!findTable(state.selection.$from) || !dispatch) return false;
+          const rect = selectedRect(state);
+          dispatch(addColumn(state.tr, rect, rect.right));
           return true;
         });
         return;
@@ -187,11 +168,9 @@ class TableYuqueView {
       e.preventDefault();
       e.stopPropagation();
       this.exec((state, dispatch) => {
-        const table = findTable(state.selection.$from);
-        if (!table || !dispatch) return false;
-        const map = TableMap.get(table.node);
-        const rect = fullTableRect(table, map);
-        dispatch(addRow(state.tr, rect, map.height));
+        if (!findTable(state.selection.$from) || !dispatch) return false;
+        const rect = selectedRect(state);
+        dispatch(addRow(state.tr, rect, rect.bottom));
         return true;
       });
     });
@@ -204,10 +183,8 @@ class TableYuqueView {
       const after = Number(hit.dataset.insertColAfter);
       if (Number.isNaN(after)) return;
       this.exec((state, dispatch) => {
-        const table = findTable(state.selection.$from);
-        if (!table || !dispatch) return false;
-        const map = TableMap.get(table.node);
-        const rect = fullTableRect(table, map);
+        if (!findTable(state.selection.$from) || !dispatch) return false;
+        const rect = selectedRect(state);
         dispatch(addColumn(state.tr, rect, after + 1));
         return true;
       });
@@ -268,8 +245,8 @@ class TableYuqueView {
     }
 
     this.toolbar.innerHTML = `
-      <button type="button" class="table-yuque-btn" data-yuque-action="addRowEnd" title="在末尾插入一行">+ 行</button>
-      <button type="button" class="table-yuque-btn" data-yuque-action="addColEnd" title="在末尾插入一列">+ 列</button>
+      <button type="button" class="table-yuque-btn" data-yuque-action="addRowEnd" title="在选中行下方插入一行">+ 行</button>
+      <button type="button" class="table-yuque-btn" data-yuque-action="addColEnd" title="在选中列右侧插入一列">+ 列</button>
       <span class="table-yuque-sep"></span>
       <button type="button" class="table-yuque-btn table-yuque-btn--danger" data-yuque-action="deleteTable" title="删除整张表">删表</button>
       ${
