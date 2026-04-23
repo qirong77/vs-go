@@ -344,12 +344,7 @@ export class TabbedBrowserWindow {
 
   toggleDevTools(): void {
     const wc = this.getActiveTab()?.view.webContents;
-    if (!wc) return;
-    if (wc.isDevToolsOpened()) {
-      wc.closeDevTools();
-    } else {
-      wc.openDevTools({ mode: "bottom" });
-    }
+    wc?.toggleDevTools()
   }
 
   focusAddressBar(): void {
@@ -510,64 +505,15 @@ export class TabbedBrowserWindow {
     if (input.type !== "keyDown") return;
     const meta = process.platform === "darwin" ? input.meta : input.control;
     if (!meta) return;
-
-    const key = input.key.toLowerCase();
-    const shift = input.shift;
-
+    console.log(input)
     // Command+Option+I（与 Chrome 一致）：用 code 避免 Option 键改变字符
     if (input.code === "KeyI" && input.alt) {
       event.preventDefault();
       this.toggleDevTools();
       return;
     }
-    if (key === "t" && !shift) {
-      event.preventDefault();
-      this.addTab(DEFAULT_HOMEPAGE);
-      return;
-    }
-    if (key === "w" && !shift) {
-      event.preventDefault();
-      if (this.activeTabId) this.closeTab(this.activeTabId);
-      return;
-    }
-    if (key === "l" && !shift) {
-      event.preventDefault();
-      this.focusAddressBar();
-      return;
-    }
-    if (key === "r" && !shift) {
-      event.preventDefault();
-      this.reload();
-      return;
-    }
-    if (shift && (key === "]" || key === "}")) {
-      event.preventDefault();
-      this.cycleTab(1);
-      return;
-    }
-    if (shift && (key === "[" || key === "{")) {
-      event.preventDefault();
-      this.cycleTab(-1);
-      return;
-    }
-    if (!shift && key === "[") {
-      event.preventDefault();
-      this.goBack();
-      return;
-    }
-    if (!shift && key === "]") {
-      event.preventDefault();
-      this.goForward();
-      return;
-    }
   }
 
-  private cycleTab(delta: number): void {
-    if (this.tabs.length === 0) return;
-    const idx = this.tabs.findIndex((t) => t.id === this.activeTabId);
-    const next = ((idx === -1 ? 0 : idx) + delta + this.tabs.length) % this.tabs.length;
-    this.switchTab(this.tabs[next].id);
-  }
 
   // -------------------- 窗口显示控制 --------------------
 
