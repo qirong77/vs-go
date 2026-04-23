@@ -505,9 +505,7 @@ export class TabbedBrowserWindow {
     if (input.type !== "keyDown") return;
     const meta = process.platform === "darwin" ? input.meta : input.control;
     if (!meta) return;
-    // Command+Option+I（与 Chrome 一致）：用 code 避免 Option 键改变字符
     if (input.code === "KeyI" && input.alt) {
-
       console.log("toggleDevTools");
       event.preventDefault();
       this.toggleDevTools();
