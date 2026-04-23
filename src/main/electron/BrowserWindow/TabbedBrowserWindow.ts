@@ -344,7 +344,7 @@ export class TabbedBrowserWindow {
 
   toggleDevTools(): void {
     const wc = this.getActiveTab()?.view.webContents;
-    wc?.toggleDevTools()
+    wc?.toggleDevTools();
   }
 
   focusAddressBar(): void {
@@ -505,15 +505,18 @@ export class TabbedBrowserWindow {
     if (input.type !== "keyDown") return;
     const meta = process.platform === "darwin" ? input.meta : input.control;
     if (!meta) return;
-    console.log(input)
     // Command+Option+I（与 Chrome 一致）：用 code 避免 Option 键改变字符
     if (input.code === "KeyI" && input.alt) {
-      event.preventDefault();
+      const currentWebContents = this.hostWindow.webContents;
+      setTimeout(() => {
+        // currentWebContents.focus();
+      }, 1000);
+      console.log("toggleDevTools");
+      // event.preventDefault();
       this.toggleDevTools();
       return;
     }
   }
-
 
   // -------------------- 窗口显示控制 --------------------
 
