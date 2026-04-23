@@ -50,7 +50,6 @@ function TabbedBrowser(): React.JSX.Element {
       setEditing(true);
       requestAnimationFrame(() => {
         addressInputRef.current?.focus();
-        addressInputRef.current?.select();
       });
     };
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
@@ -437,7 +436,6 @@ function TabbedBrowser(): React.JSX.Element {
             onChange={(e) => setAddress(e.target.value)}
             onFocus={() => {
               setEditing(true);
-              requestAnimationFrame(() => addressInputRef.current?.select());
             }}
             onBlur={() => setEditing(false)}
             onKeyDown={handleAddressKeyDown}
@@ -455,13 +453,6 @@ function TabbedBrowser(): React.JSX.Element {
             }}
           />
         </div>
-        <NavButton
-          title="开发者工具"
-          onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_TOGGLE_DEVTOOLS)}
-          small
-        >
-          ⋮
-        </NavButton>
       </div>
     </div>
   );
