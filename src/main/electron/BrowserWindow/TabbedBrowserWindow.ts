@@ -506,7 +506,6 @@ export class TabbedBrowserWindow {
     const meta = process.platform === "darwin" ? input.meta : input.control;
     if (!meta) return;
     if (input.code === "KeyI" && input.alt) {
-      console.log("toggleDevTools");
       event.preventDefault();
       this.toggleDevTools();
       const currentWebContents = this.hostWindow.webContents;
