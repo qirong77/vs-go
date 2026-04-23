@@ -345,7 +345,7 @@ export class TabbedBrowserWindow {
     if (wc.isDevToolsOpened()) {
       wc.closeDevTools();
     } else {
-      wc.openDevTools({ mode: "right" });
+      wc.openDevTools({ mode: 'bottom' });
     }
   }
 
@@ -513,6 +513,11 @@ export class TabbedBrowserWindow {
     const key = input.key.toLowerCase();
     const shift = input.shift;
 
+    if (key === "i" && shift) {
+      event.preventDefault();
+      this.toggleDevTools();
+      return;
+    }
     if (key === "t" && !shift) {
       event.preventDefault();
       this.addTab(DEFAULT_HOMEPAGE);
