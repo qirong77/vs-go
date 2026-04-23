@@ -345,7 +345,7 @@ export class TabbedBrowserWindow {
     if (wc.isDevToolsOpened()) {
       wc.closeDevTools();
     } else {
-      wc.openDevTools({ mode: 'bottom' });
+      wc.openDevTools({ mode: "bottom" });
     }
   }
 
@@ -399,8 +399,7 @@ export class TabbedBrowserWindow {
       id: tab.id,
       url: displayUrl ?? realUrl,
       title,
-      favicon:
-        (tab.view as unknown as { __favicon?: string }).__favicon ?? "",
+      favicon: (tab.view as unknown as { __favicon?: string }).__favicon ?? "",
       loading: destroyed ? false : wc.isLoading(),
       canGoBack: destroyed ? false : wc.navigationHistory.canGoBack(),
       canGoForward: destroyed ? false : wc.navigationHistory.canGoForward(),
@@ -409,10 +408,7 @@ export class TabbedBrowserWindow {
 
   private broadcastState(): void {
     if (this.closed || this.hostWindow.isDestroyed()) return;
-    this.hostWindow.webContents.send(
-      VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED,
-      this.getState()
-    );
+    this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, this.getState());
   }
 
   private updateActiveViewBounds(): void {
@@ -495,9 +491,11 @@ export class TabbedBrowserWindow {
   private unbindTabEvents(tab: Tab): void {
     const wc = tab.view.webContents;
     if (wc.isDestroyed()) return;
-    const handlers = (tab.view as unknown as {
-      __handlers?: Array<[string, (...args: unknown[]) => void]>;
-    }).__handlers;
+    const handlers = (
+      tab.view as unknown as {
+        __handlers?: Array<[string, (...args: unknown[]) => void]>;
+      }
+    ).__handlers;
     if (handlers) {
       for (const [evt, fn] of handlers) {
         wc.removeListener(evt as never, fn as never);
@@ -513,7 +511,8 @@ export class TabbedBrowserWindow {
     const key = input.key.toLowerCase();
     const shift = input.shift;
 
-    if (key === "i" && shift) {
+    // Command+Option+I（与 Chrome 一致）：用 code 避免 Option 键改变字符
+    if (input.code === "KeyI" && input.alt) {
       event.preventDefault();
       this.toggleDevTools();
       return;

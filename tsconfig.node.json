@@ -4,6 +4,7 @@
   "compilerOptions": {
     "composite": true,
     "module": "esnext",
-    "types": ["electron-vite/node"]
+    "moduleResolution": "bundler",
+    "types": ["electron-vite/node", "node"]
   }
 }
