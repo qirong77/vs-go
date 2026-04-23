@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { VS_GO_EVENT } from "../../common/EVENT";
 import {
   BROWSER_CHROME_HEIGHT,
+  tabUrlForAddressBarDisplay,
   type TabState,
   type TabbedBrowserState,
   type BrowserSuggestion,
@@ -65,10 +66,10 @@ function TabbedBrowser(): React.JSX.Element {
     };
   }, []);
 
-  // 当前 tab 变化 / URL 变化且未编辑时，同步 address bar
+  // 当前 tab 变化 / URL 变化且未编辑时，同步 address bar（默认首页在栏内显示为空）
   useEffect(() => {
     if (!editing) {
-      setAddress(activeTab?.url ?? "");
+      setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
     }
   }, [activeTab?.url, activeTab?.id, editing]);
 
@@ -143,7 +144,7 @@ function TabbedBrowser(): React.JSX.Element {
     }
     if (e.key === "Escape") {
       setEditing(false);
-      setAddress(activeTab?.url ?? "");
+      setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
       closeSuggestions();
       addressInputRef.current?.blur();
     }
@@ -517,7 +518,7 @@ function TabbedBrowser(): React.JSX.Element {
                 if (suggestionsRef.current?.contains(e.relatedTarget as Node)) return;
                 setEditing(false);
                 closeSuggestions();
-                setAddress(activeTab?.url ?? "");
+                setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
               }}
               onKeyDown={handleAddressKeyDown}
               placeholder="搜索 Google 或输入网址"

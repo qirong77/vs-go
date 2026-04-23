@@ -12,6 +12,7 @@ import path from "node:path";
 import { VS_GO_EVENT } from "../../../common/EVENT";
 import {
   BROWSER_CHROME_HEIGHT,
+  TABBED_BROWSER_DEFAULT_HOME_URL,
   type TabState,
   type TabbedBrowserState,
 } from "../../../common/type";
@@ -51,8 +52,6 @@ export interface Tab {
   id: string;
   view: WebContentsView;
 }
-
-const DEFAULT_HOMEPAGE = "https://www.google.com";
 
 function extractFaviconFromFavicons(favicons: string[]): string {
   return favicons?.[0] ?? "";
@@ -574,7 +573,7 @@ export class TabbedBrowserWindow {
  */
 export function normalizeUrlOrSearch(input: string): string {
   const trimmed = (input || "").trim();
-  if (!trimmed) return DEFAULT_HOMEPAGE;
+  if (!trimmed) return TABBED_BROWSER_DEFAULT_HOME_URL;
 
   if (/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(trimmed)) return trimmed;
   if (/^about:|^chrome:|^file:/.test(trimmed)) return trimmed;

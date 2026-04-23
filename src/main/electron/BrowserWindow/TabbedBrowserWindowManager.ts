@@ -1,4 +1,5 @@
 import { screen } from "electron";
+import { TABBED_BROWSER_DEFAULT_HOME_URL } from "../../../common/type";
 import { TabbedBrowserWindow, type Tab } from "./TabbedBrowserWindow";
 
 // ============================================================
@@ -57,7 +58,7 @@ class Manager {
   }
 
   /** 新开一个 tabbed 窗口（以 url 作为初始 tab，默认首页） */
-  createEmpty(url = "https://www.google.com"): TabbedBrowserWindow {
+  createEmpty(url = TABBED_BROWSER_DEFAULT_HOME_URL): TabbedBrowserWindow {
     const win = new TabbedBrowserWindow();
     this.register(win);
     // 等 host 窗口完成 renderer 加载后再挂 tab，避免第一条 STATE_UPDATED 丢失

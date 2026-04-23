@@ -120,6 +120,28 @@ export interface IpcResult<T = undefined> {
 /** Chrome 外壳 UI 总高度（标签栏 + 地址栏），main 与 renderer 共享 */
 export const BROWSER_CHROME_HEIGHT = 72;
 
+/** 新标签 / 空输入时的默认首页（与 main 中 load 逻辑保持一致） */
+export const TABBED_BROWSER_DEFAULT_HOME_URL = "https://www.google.com";
+
+/** 是否为默认首页 URL（仅用于地址栏展示为空，真实导航 URL 不变） */
+export function isTabbedBrowserDefaultHomeUrl(url: string): boolean {
+  try {
+    const u = new URL((url || "").trim());
+    const d = new URL(TABBED_BROWSER_DEFAULT_HOME_URL);
+    const sameOrigin =
+      u.protocol === d.protocol && u.hostname.toLowerCase() === d.hostname.toLowerCase();
+    const rootPath = u.pathname === "/" || u.pathname === "";
+    return sameOrigin && rootPath && !u.search && !u.hash;
+  } catch {
+    return false;
+  }
+}
+
+/** 地址栏展示用：默认首页显示为空字符串 */
+export function tabUrlForAddressBarDisplay(url: string): string {
+  return isTabbedBrowserDefaultHomeUrl(url) ? "" : url;
+}
+
 export interface TabState {
   id: string;
   url: string;

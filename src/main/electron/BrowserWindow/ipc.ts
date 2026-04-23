@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from "electron";
 import { VS_GO_EVENT } from "../../../common/EVENT";
+import { TABBED_BROWSER_DEFAULT_HOME_URL } from "../../../common/type";
 import { TabbedBrowserWindowManager } from "./TabbedBrowserWindowManager";
 import type { TabbedBrowserWindow } from "./TabbedBrowserWindow";
 
@@ -27,7 +28,7 @@ export function registerTabbedBrowserHandlers(): void {
 
   ipcMain.on(VS_GO_EVENT.BROWSER_TAB_NEW, (event, payload: { url?: string } = {}) => {
     const win = getSenderWindow(event);
-    win?.addTab(payload.url || "https://www.google.com");
+    win?.addTab(payload.url || TABBED_BROWSER_DEFAULT_HOME_URL);
   });
 
   ipcMain.on(VS_GO_EVENT.BROWSER_TAB_CLOSE, (event, tabId: string) => {
