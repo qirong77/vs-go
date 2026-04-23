@@ -95,7 +95,7 @@ function TabbedBrowser(): React.JSX.Element {
     );
     const list = result ?? [];
     setSuggestions(list);
-    setSuggestionIndex(-1);
+    setSuggestionIndex(list.length > 0 ? 0 : -1);
     notifyChromePadding(list.length);
   }, [notifyChromePadding]);
 
@@ -541,6 +541,9 @@ function TabbedBrowser(): React.JSX.Element {
           {showSuggestions && suggestions.length > 0 && (
             <div
               ref={suggestionsRef}
+              onMouseLeave={() => {
+                if (suggestions.length > 0) setSuggestionIndex(0);
+              }}
               style={{
                 position: "absolute",
                 top: "100%",
@@ -574,7 +577,6 @@ function TabbedBrowser(): React.JSX.Element {
                     flexShrink: 0,
                   }}
                   onMouseEnter={() => setSuggestionIndex(idx)}
-                  onMouseLeave={() => setSuggestionIndex(-1)}
                 >
                   <span
                     style={{
