@@ -17,7 +17,7 @@ import {
 } from "../../../common/type";
 import { generateId } from "../../../common/utils";
 import { setupContextMenu } from "../contextMenu";
-import { windowScriptStore } from "../store";
+import { windowScriptStore, browserHistoryStore } from "../store";
 
 // ============================================================
 // 全局会话设置：一次性去掉 X-Frame-Options / 放宽 CSP，允许嵌入常见页面。
@@ -115,6 +115,7 @@ export class TabbedBrowserWindow {
   private tabs: Tab[] = [];
   private activeTabId: string | null = null;
   private closed = false;
+  private chromeExtraHeight = 0;
 
   /** 外部检测：是否正在销毁中，避免空窗口重复清理 */
   get isDestroyed(): boolean {
@@ -409,15 +410,22 @@ export class TabbedBrowserWindow {
     this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, this.getState());
   }
 
+  /** 临时调整 WebContentsView 的顶部偏移，用于地址栏下拉展开时让出空间 */
+  setChromePadding(extraHeight: number): void {
+    this.chromeExtraHeight = Math.max(0, extraHeight);
+    this.updateActiveViewBounds();
+  }
+
   private updateActiveViewBounds(): void {
     const tab = this.getActiveTab();
     if (!tab || this.hostWindow.isDestroyed()) return;
     const [width, height] = this.hostWindow.getContentSize();
+    const topY = BROWSER_CHROME_HEIGHT + this.chromeExtraHeight;
     const bounds: Rectangle = {
       x: 0,
-      y: BROWSER_CHROME_HEIGHT,
+      y: topY,
       width,
-      height: Math.max(0, height - BROWSER_CHROME_HEIGHT),
+      height: Math.max(0, height - topY),
     };
     tab.view.setBounds(bounds);
   }
@@ -454,6 +462,9 @@ export class TabbedBrowserWindow {
 
     const onFinish = (): void => {
       runUserScript(wc);
+      const finishUrl = wc.getURL();
+      const finishTitle = wc.getTitle();
+      if (finishUrl) browserHistoryStore.add(finishUrl, finishTitle);
       sync();
     };
 

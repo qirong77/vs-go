@@ -8,6 +8,7 @@ import type {
   NoteTreeNode,
   UserNoteHistoryEntry,
   UserNoteHistoryMeta,
+  BrowserHistoryEntry,
 } from "../../common/type";
 import { generateId } from "../../common/utils";
 
@@ -32,6 +33,19 @@ const schema = {
     type: "object",
     default: {},
     additionalProperties: { type: "number" },
+  },
+  browserHistory: {
+    type: "array",
+    default: [],
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        url: { type: "string" },
+        title: { type: "string" },
+        visitTime: { type: "number" },
+      },
+    },
   },
   savedCookies: {
     type: "array",
@@ -335,6 +349,23 @@ export const userNotesHistoryStore = {
     if (!all[fileId]) return;
     delete all[fileId];
     vsgoStore.set("userNotesFileHistory", all);
+  },
+};
+
+const MAX_BROWSER_HISTORY = 200;
+
+export const browserHistoryStore = {
+  getAll(): BrowserHistoryEntry[] {
+    return vsgoStore.get("browserHistory", []) as BrowserHistoryEntry[];
+  },
+  add(url: string, title: string): void {
+    if (!url || /^(about:|chrome:|devtools:|file:)/.test(url)) return;
+    const list = this.getAll().filter((e) => e.url !== url);
+    list.unshift({ id: generateId("bh"), url, title: title || url, visitTime: Date.now() });
+    vsgoStore.set("browserHistory", list.slice(0, MAX_BROWSER_HISTORY));
+  },
+  clearAll(): void {
+    vsgoStore.set("browserHistory", []);
   },
 };
 

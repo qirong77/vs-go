@@ -119,6 +119,12 @@ class Manager {
     }
   }
 
+  /** 根据 host BrowserWindow id 临时扩展 Chrome 高度 */
+  setChromePadding(hostId: number, extraHeight: number): void {
+    const win = this.findByHostId(hostId);
+    win?.setChromePadding(extraHeight);
+  }
+
   // 暴露光标屏幕坐标，供 IPC 使用
   getCursorScreenPoint(): Electron.Point {
     return screen.getCursorScreenPoint();

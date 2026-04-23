@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, SearchIcon, DeleteIcon } from "./icon";
+import { ArrowRight, SearchIcon } from "./icon";
 import { VS_GO_EVENT } from "../../common/EVENT";
 import { useFileData } from "./hooks/useFileData";
 
@@ -11,17 +11,8 @@ function App() {
   const ulRef = useRef<HTMLUListElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { showFiles, updateAllFiles } = useFileData(input);
-
-  const handleDeleteBrowser = async (e: React.MouseEvent, browserUrl: string) => {
-    e.stopPropagation();
-    try {
-      await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, browserUrl);
-      updateAllFiles();
-    } catch (error) {
-      console.error("删除浏览器记录失败:", error);
-    }
-  };
+  const { showFiles: allShowFiles, updateAllFiles } = useFileData(input);
+  const showFiles = allShowFiles.filter((f) => !f.browser);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     setActive(0);
@@ -40,10 +31,6 @@ function App() {
 
     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       const targetItem = showFiles[active];
-      if (targetItem?.browser) {
-        ipcRenderer.send(VS_GO_EVENT.FLOATING_WINDOW_CREATE, targetItem.browser);
-        return;
-      }
       if (targetItem) {
         ipcRenderer.send(VS_GO_EVENT.OPEN_FILE, targetItem);
         setInput("");
@@ -116,27 +103,9 @@ function App() {
                   src={`data:image/png;base64,${file.iconBase64}`}
                 />
               )}
-              {file.browser && <span className="ml-1 text-lg">🌐</span>}
               <span className="text-lg pl-[8px] flex-1 overflow-hidden text-ellipsis flex items-center flex-nowrap">
                 <span className="text-nowrap">{file.fileName.replace(".app", "")}</span>
-                {file.browser?.url && (
-                  <span className="ml-2 text-slate-300 text-sm whitespace-nowrap">
-                    {file.browser.url.length > 50
-                      ? `${file.browser.url.slice(0, 50)}...`
-                      : file.browser.url}
-                  </span>
-                )}
               </span>
-
-              {file.browser && (
-                <button
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all duration-200 mr-2"
-                  onClick={(e) => handleDeleteBrowser(e, file.browser!.url)}
-                  title="删除浏览器记录"
-                >
-                  <DeleteIcon className="w-4 h-4 text-red-500 hover:text-red-700" />
-                </button>
-              )}
             </li>
           ))}
         </ul>

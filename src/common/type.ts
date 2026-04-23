@@ -20,6 +20,21 @@ export interface BrowserItem {
   type: "bookmark" | "history";
 }
 
+// --- 浏览器历史 & 地址栏建议 ---
+
+export interface BrowserHistoryEntry {
+  id: string;
+  url: string;
+  title: string;
+  visitTime: number;
+}
+
+export interface BrowserSuggestion {
+  url: string;
+  title: string;
+  type: "bookmark" | "history";
+}
+
 // --- 主窗口文件列表 ---
 
 export interface IMainWindowFile {

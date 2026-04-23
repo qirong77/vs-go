@@ -1,9 +1,9 @@
-import { dialog, ipcMain } from "electron";
+import { BrowserWindow, dialog, ipcMain } from "electron";
 import { readFileSync } from "node:fs";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import type { BrowserItem } from "../../../common/type";
+import type { BrowserItem, BrowserSuggestion } from "../../../common/type";
 import { generateId } from "../../../common/utils";
-import { vsgoStore, fileAccessStore } from "../store";
+import { vsgoStore, fileAccessStore, browserHistoryStore } from "../store";
 import { TabbedBrowserWindowManager } from "../BrowserWindow/TabbedBrowserWindowManager";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 
@@ -112,6 +112,48 @@ export function registerBrowserHandlers(): void {
       };
     }
   );
+
+  ipcMain.on(VS_GO_EVENT.BROWSER_CHROME_SET_PADDING, (e, extraHeight: number) => {
+    const bw = BrowserWindow.fromWebContents(e.sender);
+    if (bw) {
+      TabbedBrowserWindowManager.setChromePadding(bw.id, extraHeight);
+    }
+  });
+
+  ipcMain.handle(VS_GO_EVENT.BROWSER_ADDRESS_SUGGESTIONS, async (_e, query: string = "") => {
+    const bookmarks = vsgoStore.get("browserList", []) as BrowserItem[];
+    const history = browserHistoryStore.getAll();
+    const q = query.toLowerCase().trim();
+
+    const suggestions: BrowserSuggestion[] = [];
+    const seenUrls = new Set<string>();
+
+    const matchBookmarks = q
+      ? bookmarks.filter(
+          (b) => b.name.toLowerCase().includes(q) || b.url.toLowerCase().includes(q)
+        )
+      : bookmarks.slice(0, 8);
+
+    for (const b of matchBookmarks) {
+      suggestions.push({ url: b.url, title: b.name, type: "bookmark" });
+      seenUrls.add(b.url);
+    }
+
+    const matchHistory = q
+      ? history.filter(
+          (h) => h.title.toLowerCase().includes(q) || h.url.toLowerCase().includes(q)
+        )
+      : history.slice(0, 8);
+
+    for (const h of matchHistory) {
+      if (!seenUrls.has(h.url)) {
+        suggestions.push({ url: h.url, title: h.title, type: "history" });
+        seenUrls.add(h.url);
+      }
+    }
+
+    return suggestions.slice(0, 12);
+  });
 
   ipcMain.handle(
     VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL,

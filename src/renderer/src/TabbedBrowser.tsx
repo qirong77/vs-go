@@ -4,6 +4,7 @@ import {
   BROWSER_CHROME_HEIGHT,
   type TabState,
   type TabbedBrowserState,
+  type BrowserSuggestion,
 } from "../../common/type";
 
 const { ipcRenderer } = window.electron;
@@ -29,7 +30,11 @@ function TabbedBrowser(): React.JSX.Element {
   const [state, setState] = useState<TabbedBrowserState>({ tabs: [], activeTabId: null });
   const [address, setAddress] = useState("");
   const [editing, setEditing] = useState(false);
+  const [suggestions, setSuggestions] = useState<BrowserSuggestion[]>([]);
+  const [suggestionIndex, setSuggestionIndex] = useState(-1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
 
@@ -50,6 +55,7 @@ function TabbedBrowser(): React.JSX.Element {
       setEditing(true);
       requestAnimationFrame(() => {
         addressInputRef.current?.focus();
+        addressInputRef.current?.select();
       });
     };
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
@@ -67,24 +73,79 @@ function TabbedBrowser(): React.JSX.Element {
     }
   }, [activeTab?.url, activeTab?.id, editing]);
 
+  const SUGGESTION_ITEM_HEIGHT = 48;
+  const SUGGESTION_VISIBLE_ITEMS = 5;
+  // 额外缓冲：为下拉框的底部边框+圆角留出空间，避免被 WebContentsView 盖住
+  const SUGGESTION_CHROME_BUFFER = 12;
+
+  const notifyChromePadding = useCallback((count: number): void => {
+    const extra =
+      count > 0
+        ? Math.min(count, SUGGESTION_VISIBLE_ITEMS) * SUGGESTION_ITEM_HEIGHT +
+          SUGGESTION_CHROME_BUFFER
+        : 0;
+    ipcRenderer.send(VS_GO_EVENT.BROWSER_CHROME_SET_PADDING, extra);
+  }, []);
+
+  // 获取地址栏建议
+  const fetchSuggestions = useCallback(async (query: string): Promise<void> => {
+    const result: BrowserSuggestion[] = await ipcRenderer.invoke(
+      VS_GO_EVENT.BROWSER_ADDRESS_SUGGESTIONS,
+      query
+    );
+    const list = result ?? [];
+    setSuggestions(list);
+    setSuggestionIndex(-1);
+    notifyChromePadding(list.length);
+  }, [notifyChromePadding]);
+
+  const closeSuggestions = useCallback((): void => {
+    setShowSuggestions(false);
+    setSuggestions([]);
+    notifyChromePadding(0);
+  }, [notifyChromePadding]);
+
   // 地址栏操作
-  const submitAddress = (mode: "current" | "new"): void => {
-    const url = address.trim();
+  const submitAddress = (mode: "current" | "new", overrideUrl?: string): void => {
+    const url = (overrideUrl ?? address).trim();
     if (!url) return;
     ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_NAVIGATE, { url, mode });
     addressInputRef.current?.blur();
     setEditing(false);
+    closeSuggestions();
+  };
+
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const val = e.target.value;
+    setAddress(val);
+    fetchSuggestions(val);
+    setShowSuggestions(true);
   };
 
   const handleAddressKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSuggestionIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSuggestionIndex((prev) => Math.max(prev - 1, -1));
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
-      submitAddress(e.shiftKey ? "new" : "current");
+      if (suggestionIndex >= 0 && suggestions[suggestionIndex]) {
+        submitAddress(e.shiftKey ? "new" : "current", suggestions[suggestionIndex].url);
+      } else {
+        submitAddress(e.shiftKey ? "new" : "current");
+      }
       return;
     }
     if (e.key === "Escape") {
       setEditing(false);
       setAddress(activeTab?.url ?? "");
+      closeSuggestions();
       addressInputRef.current?.blur();
     }
   };
@@ -238,8 +299,10 @@ function TabbedBrowser(): React.JSX.Element {
         flexDirection: "column",
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        overflow: "hidden",
+        overflow: "visible",
         background: "#dee1e6",
+        position: "relative",
+        zIndex: 100,
       }}
     >
       {/* 标签栏 */}
@@ -252,6 +315,7 @@ function TabbedBrowser(): React.JSX.Element {
           paddingLeft: 80 /* 给 macOS 红绿灯让位 */,
           paddingRight: 8,
           position: "relative",
+          overflow: "hidden",
           WebkitAppRegion: "drag",
         } as React.CSSProperties}
       >
@@ -396,6 +460,8 @@ function TabbedBrowser(): React.JSX.Element {
           padding: "0 10px",
           gap: 4,
           borderBottom: "1px solid #e0e0e0",
+          overflow: "visible",
+          position: "relative",
         }}
       >
         <NavButton
@@ -421,37 +487,134 @@ function TabbedBrowser(): React.JSX.Element {
         <div
           style={{
             flex: 1,
-            display: "flex",
-            alignItems: "center",
-            background: "#f1f3f4",
-            borderRadius: 18,
-            height: 28,
-            padding: "0 12px",
+            position: "relative",
             marginLeft: 4,
           }}
         >
-          <input
-            ref={addressInputRef}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            onFocus={() => {
-              setEditing(true);
-            }}
-            onBlur={() => setEditing(false)}
-            onKeyDown={handleAddressKeyDown}
-            placeholder="搜索 Google 或输入网址"
-            spellCheck={false}
+          <div
             style={{
-              flex: 1,
-              border: "none",
-              outline: "none",
-              background: "transparent",
-              fontSize: 13,
-              color: "#202124",
-              userSelect: "text",
-              WebkitUserSelect: "text",
+              display: "flex",
+              alignItems: "center",
+              background: editing ? "#ffffff" : "#f1f3f4",
+              borderRadius: showSuggestions && suggestions.length > 0 ? "10px 10px 0 0" : 18,
+              height: 28,
+              padding: "0 12px",
+              border: editing ? "1px solid #1a73e8" : "1px solid transparent",
+              boxSizing: "border-box",
+              transition: "background 0.1s, border-color 0.1s",
             }}
-          />
+          >
+            <input
+              ref={addressInputRef}
+              value={address}
+              onChange={handleAddressChange}
+              onFocus={() => {
+                setEditing(true);
+                fetchSuggestions(address);
+                setShowSuggestions(true);
+                requestAnimationFrame(() => addressInputRef.current?.select());
+              }}
+              onBlur={(e) => {
+                // 如果点击的是建议项，不立即关闭
+                if (suggestionsRef.current?.contains(e.relatedTarget as Node)) return;
+                setEditing(false);
+                closeSuggestions();
+                setAddress(activeTab?.url ?? "");
+              }}
+              onKeyDown={handleAddressKeyDown}
+              placeholder="搜索 Google 或输入网址"
+              spellCheck={false}
+              style={{
+                flex: 1,
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                fontSize: 13,
+                color: "#202124",
+                userSelect: "text",
+                WebkitUserSelect: "text",
+              }}
+            />
+          </div>
+
+          {/* 建议下拉列表 */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div
+              ref={suggestionsRef}
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                background: "#ffffff",
+                border: "1px solid #1a73e8",
+                borderTop: "none",
+                borderRadius: "0 0 10px 10px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                zIndex: 1000,
+                maxHeight: SUGGESTION_VISIBLE_ITEMS * SUGGESTION_ITEM_HEIGHT,
+                overflowY: "scroll",
+              }}
+            >
+              {suggestions.map((suggestion, idx) => (
+                <div
+                  key={suggestion.url}
+                  tabIndex={-1}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    submitAddress("current", suggestion.url);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    background: idx === suggestionIndex ? "#e8f0fe" : "transparent",
+                    gap: 8,
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={() => setSuggestionIndex(idx)}
+                  onMouseLeave={() => setSuggestionIndex(-1)}
+                >
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: suggestion.type === "bookmark" ? "#1a73e8" : "#5f6368",
+                      flexShrink: 0,
+                      width: 14,
+                      textAlign: "center",
+                    }}
+                  >
+                    {suggestion.type === "bookmark" ? "★" : "🕐"}
+                  </span>
+                  <div style={{ flex: 1, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: "#202124",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {suggestion.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#5f6368",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {suggestion.url}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
