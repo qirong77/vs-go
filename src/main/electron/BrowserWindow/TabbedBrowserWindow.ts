@@ -150,6 +150,9 @@ export class TabbedBrowserWindow {
 
     this.hostWindow.on("resize", () => this.updateActiveViewBounds());
     this.hostWindow.on("closed", () => this.handleClosed());
+    this.hostWindow.webContents.on("before-input-event", (event, input) =>
+      this.handleKeyboard(event, input)
+    );
   }
 
   // -------------------- 生命周期 --------------------
