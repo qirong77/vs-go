@@ -231,13 +231,14 @@ function TabbedBrowser(): React.JSX.Element {
     <div
       style={{
         height: BROWSER_CHROME_HEIGHT,
+        MozUserSelect: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
         width: "100vw",
         display: "flex",
         flexDirection: "column",
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        userSelect: "none",
-        WebkitUserSelect: "none",
         overflow: "hidden",
         background: "#dee1e6",
       }}
@@ -328,8 +329,10 @@ function TabbedBrowser(): React.JSX.Element {
                 onClick={(e) => onClose(tab.id, e)}
                 onMouseDown={(e) => e.stopPropagation()}
                 title="关闭"
+                tabIndex={-1}
                 style={{
                   border: "none",
+                  outline: "none",
                   background: "transparent",
                   width: 18,
                   height: 18,
@@ -358,12 +361,14 @@ function TabbedBrowser(): React.JSX.Element {
         <button
           onClick={onNewTab}
           title="新建标签页 (Cmd+T)"
+          tabIndex={-1}
           style={{
             width: 28,
             height: 24,
             marginLeft: 4,
             marginBottom: 2,
             border: "none",
+            outline: "none",
             borderRadius: 4,
             background: "transparent",
             cursor: "pointer",
@@ -481,10 +486,12 @@ function NavButton({
       title={title}
       onClick={onClick}
       disabled={disabled}
+      tabIndex={-1}
       style={{
         width: small ? 26 : 30,
         height: 28,
         border: "none",
+        outline: "none",
         borderRadius: 14,
         background: "transparent",
         color: disabled ? "#bdc1c6" : "#5f6368",
