@@ -3,7 +3,15 @@ import { BrowserWindow, WebContentsView } from "electron";
 import { createCookieManagerWindow } from "./CookieManagerWindow";
 import { createUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 
-export function setupContextMenu(window: BrowserWindow | WebContentsView): void {
+export interface ContextMenuOptions {
+  /** 若提供，则在右键菜单中追加"设置"项 */
+  onOpenSettings?: () => void;
+}
+
+export function setupContextMenu(
+  window: BrowserWindow | WebContentsView,
+  options: ContextMenuOptions = {}
+): void {
   contextMenu({
     window,
     showSaveImageAs: true,
@@ -35,6 +43,15 @@ export function setupContextMenu(window: BrowserWindow | WebContentsView): void 
         label: "查看笔记",
         click: () => createUserNotesWindow(),
       },
+      ...(options.onOpenSettings
+        ? [
+            { type: "separator" as const },
+            {
+              label: "设置",
+              click: () => options.onOpenSettings?.(),
+            },
+          ]
+        : []),
       { type: "separator" },
       {
         label: "检查元素",

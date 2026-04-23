@@ -59,6 +59,54 @@ function extractFaviconFromFavicons(favicons: string[]): string {
 }
 
 // ============================================================
+// 内部 URL（vsgo://xxx）支持
+// ============================================================
+
+/** 允许的内部 hash 路由集合（与 renderer/src/entry.tsx ROUTES 中的 key 对应） */
+const INTERNAL_ROUTES = new Set(["settings"]);
+
+/** 把 vsgo://xxx 解析为真实的 renderer 页面 URL */
+export function resolveInternalUrl(input: string): string | null {
+  const match = /^vsgo:\/\/([a-z0-9\-_/]+)$/i.exec((input || "").trim());
+  if (!match) return null;
+  const route = match[1].replace(/^\/+|\/+$/g, "");
+  if (!INTERNAL_ROUTES.has(route)) return null;
+
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    return `${process.env["ELECTRON_RENDERER_URL"]}#/${route}`;
+  }
+  // 生产：file:// 路径
+  const fileUrl =
+    "file://" +
+    path
+      .join(__dirname, "../renderer/index.html")
+      .split(path.sep)
+      .map((seg) => encodeURIComponent(seg))
+      .join("/")
+      .replace(/%3A/g, ":");
+  return `${fileUrl}#/${route}`;
+}
+
+/** 判断一个真实 URL 是否对应某个内部路由；返回 "vsgo://xxx" 展示串，或 null */
+export function toDisplayUrl(realUrl: string): string | null {
+  if (!realUrl) return null;
+  const hashIdx = realUrl.indexOf("#");
+  if (hashIdx === -1) return null;
+  const hash = realUrl.slice(hashIdx + 1).replace(/^\/+|\/+$/g, "");
+  if (!hash) return null;
+  // 只有当路径是我们的 renderer/index.html 或 vite 入口时才视为内部
+  const base = realUrl.slice(0, hashIdx);
+  const looksInternal =
+    base.endsWith("/renderer/index.html") ||
+    base.endsWith("/renderer/index.html/") ||
+    /localhost(:\d+)?\/?$/.test(base) ||
+    base.endsWith("/");
+  if (!looksInternal) return null;
+  if (!INTERNAL_ROUTES.has(hash)) return null;
+  return `vsgo://${hash}`;
+}
+
+// ============================================================
 // TabbedBrowserWindow：单个外壳窗口 + 多个 WebContentsView(tab)
 // ============================================================
 
@@ -137,9 +185,17 @@ export class TabbedBrowserWindow {
 
     this.bindTabEvents(tab);
 
-    view.webContents.loadURL(normalizeUrlOrSearch(url)).catch((err) => {
-      console.error("[TabbedBrowserWindow] loadURL 失败:", err);
-    });
+    const resolvedInternal = resolveInternalUrl(url);
+    const target = resolvedInternal ?? normalizeUrlOrSearch(url);
+    if (resolvedInternal) {
+      view.webContents.loadURL(target).catch((err) => {
+        console.error("[TabbedBrowserWindow] 内部页面 loadURL 失败:", err);
+      });
+    } else {
+      view.webContents.loadURL(target).catch((err) => {
+        console.error("[TabbedBrowserWindow] loadURL 失败:", err);
+      });
+    }
 
     if (opts?.activate !== false) {
       this.switchTab(tab.id);
@@ -254,7 +310,8 @@ export class TabbedBrowserWindow {
       this.addTab(url);
       return;
     }
-    tab.view.webContents.loadURL(normalizeUrlOrSearch(url)).catch((err) => {
+    const target = resolveInternalUrl(url) ?? normalizeUrlOrSearch(url);
+    tab.view.webContents.loadURL(target).catch((err) => {
       console.error("[TabbedBrowserWindow] 导航失败:", err);
     });
   }
@@ -325,10 +382,23 @@ export class TabbedBrowserWindow {
   private buildTabState(tab: Tab): TabState {
     const wc = tab.view.webContents;
     const destroyed = wc.isDestroyed();
+    const realUrl = destroyed ? "" : wc.getURL();
+    const displayUrl = toDisplayUrl(realUrl);
+    const rawTitle = destroyed ? "" : wc.getTitle();
+    // 内部页面默认标题
+    const internalTitleMap: Record<string, string> = {
+      "vsgo://settings": "设置",
+    };
+    const title =
+      (displayUrl && internalTitleMap[displayUrl]) ||
+      rawTitle ||
+      displayUrl ||
+      realUrl ||
+      "新标签页";
     return {
       id: tab.id,
-      url: destroyed ? "" : wc.getURL(),
-      title: destroyed ? "" : wc.getTitle() || wc.getURL() || "新标签页",
+      url: displayUrl ?? realUrl,
+      title,
       favicon:
         (tab.view as unknown as { __favicon?: string }).__favicon ?? "",
       loading: destroyed ? false : wc.isLoading(),
@@ -417,7 +487,9 @@ export class TabbedBrowserWindow {
     // 快捷键转发
     wc.on("before-input-event", (event, input) => this.handleKeyboard(event, input));
 
-    setupContextMenu(tab.view);
+    setupContextMenu(tab.view, {
+      onOpenSettings: () => this.addTab("vsgo://settings"),
+    });
   }
 
   private unbindTabEvents(tab: Tab): void {
