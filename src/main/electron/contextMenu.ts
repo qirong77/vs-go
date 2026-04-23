@@ -1,9 +1,9 @@
 import contextMenu from "electron-context-menu";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, WebContentsView } from "electron";
 import { createCookieManagerWindow } from "./CookieManagerWindow";
 import { createUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 
-export function setupContextMenu(window: BrowserWindow): void {
+export function setupContextMenu(window: BrowserWindow | WebContentsView): void {
   contextMenu({
     window,
     showSaveImageAs: true,

@@ -1,0 +1,551 @@
+import {
+  BrowserWindow,
+  WebContentsView,
+  app,
+  session,
+  screen,
+  type Rectangle,
+  type WebContents,
+} from "electron";
+import { is } from "@electron-toolkit/utils";
+import path from "node:path";
+import { VS_GO_EVENT } from "../../../common/EVENT";
+import {
+  BROWSER_CHROME_HEIGHT,
+  type TabState,
+  type TabbedBrowserState,
+} from "../../../common/type";
+import { generateId } from "../../../common/utils";
+import { setupContextMenu } from "../contextMenu";
+import { windowScriptStore } from "../store";
+
+// ============================================================
+// 全局会话设置：一次性去掉 X-Frame-Options / 放宽 CSP，允许嵌入常见页面。
+// 复用原 FloatingWindow 行为。
+// ============================================================
+
+let sessionInterceptorInstalled = false;
+function ensureSessionInterceptor(): void {
+  if (sessionInterceptorInstalled) return;
+  sessionInterceptorInstalled = true;
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = { ...details.responseHeaders };
+    delete responseHeaders["x-frame-options"];
+    delete responseHeaders["X-Frame-Options"];
+    if (responseHeaders["content-security-policy"] || responseHeaders["Content-Security-Policy"]) {
+      responseHeaders["content-security-policy"] = [
+        "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;",
+      ];
+    }
+    callback({ cancel: false, responseHeaders });
+  });
+}
+
+app.whenReady().then(ensureSessionInterceptor);
+
+// ============================================================
+// Tab 定义
+// ============================================================
+
+export interface Tab {
+  id: string;
+  view: WebContentsView;
+}
+
+const DEFAULT_HOMEPAGE = "https://www.google.com";
+
+function extractFaviconFromFavicons(favicons: string[]): string {
+  return favicons?.[0] ?? "";
+}
+
+// ============================================================
+// TabbedBrowserWindow：单个外壳窗口 + 多个 WebContentsView(tab)
+// ============================================================
+
+export class TabbedBrowserWindow {
+  readonly hostWindow: BrowserWindow;
+  private tabs: Tab[] = [];
+  private activeTabId: string | null = null;
+  private closed = false;
+
+  /** 外部检测：是否正在销毁中，避免空窗口重复清理 */
+  get isDestroyed(): boolean {
+    return this.closed || this.hostWindow.isDestroyed();
+  }
+
+  constructor() {
+    ensureSessionInterceptor();
+
+    this.hostWindow = new BrowserWindow({
+      width: 1200,
+      height: 800,
+      show: false,
+      title: "VsGo Browser",
+      titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+      frame: process.platform !== "darwin",
+      webPreferences: {
+        preload: path.join(__dirname, "../preload/index.js"),
+        sandbox: false,
+        contextIsolation: true,
+      },
+    });
+
+    if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+      this.hostWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#/tabbed-browser`);
+    } else {
+      this.hostWindow.loadFile(path.join(__dirname, "../renderer/index.html"), {
+        hash: "/tabbed-browser",
+      });
+    }
+
+    this.hostWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+    this.hostWindow.on("resize", () => this.updateActiveViewBounds());
+    this.hostWindow.on("closed", () => this.handleClosed());
+  }
+
+  // -------------------- 生命周期 --------------------
+
+  private handleClosed(): void {
+    this.closed = true;
+    this.tabs.forEach((tab) => {
+      try {
+        if (!tab.view.webContents.isDestroyed()) {
+          tab.view.webContents.close();
+        }
+      } catch {
+        // ignore
+      }
+    });
+    this.tabs = [];
+    this.activeTabId = null;
+  }
+
+  // -------------------- Tab 创建与事件绑定 --------------------
+
+  addTab(url: string, opts?: { activate?: boolean }): Tab {
+    const view = new WebContentsView({
+      webPreferences: {
+        preload: path.join(__dirname, "../preload/index.js"),
+        sandbox: false,
+        contextIsolation: false,
+      },
+    });
+
+    const tab: Tab = { id: generateId("tab"), view };
+    this.tabs.push(tab);
+
+    this.bindTabEvents(tab);
+
+    view.webContents.loadURL(normalizeUrlOrSearch(url)).catch((err) => {
+      console.error("[TabbedBrowserWindow] loadURL 失败:", err);
+    });
+
+    if (opts?.activate !== false) {
+      this.switchTab(tab.id);
+    } else {
+      this.broadcastState();
+    }
+    return tab;
+  }
+
+  /** 附加一个已经存在的 tab（来自 detach），不会重新 loadURL。 */
+  attachTab(tab: Tab, opts?: { index?: number; activate?: boolean }): void {
+    this.bindTabEvents(tab);
+    if (opts?.index !== undefined) {
+      this.tabs.splice(Math.max(0, Math.min(opts.index, this.tabs.length)), 0, tab);
+    } else {
+      this.tabs.push(tab);
+    }
+    if (opts?.activate !== false) {
+      this.switchTab(tab.id);
+    } else {
+      this.broadcastState();
+    }
+  }
+
+  /** 把一个 tab 从本窗口剥离下来；调用者负责挂到其他窗口或销毁。 */
+  detachTab(tabId: string): Tab | null {
+    const index = this.tabs.findIndex((t) => t.id === tabId);
+    if (index === -1) return null;
+    const tab = this.tabs[index];
+
+    try {
+      this.hostWindow.contentView.removeChildView(tab.view);
+    } catch {
+      // 未被挂载时抛错，忽略
+    }
+
+    this.tabs.splice(index, 1);
+    this.unbindTabEvents(tab);
+
+    if (this.activeTabId === tabId) {
+      const fallback = this.tabs[Math.min(index, this.tabs.length - 1)];
+      this.activeTabId = fallback ? fallback.id : null;
+      if (fallback) this.switchTab(fallback.id);
+    }
+
+    if (this.tabs.length === 0 && !this.closed) {
+      // 最后一个 tab 被拖走 → 关闭窗口（Chrome 行为）
+      this.hostWindow.close();
+    } else {
+      this.broadcastState();
+    }
+    return tab;
+  }
+
+  closeTab(tabId: string): void {
+    const index = this.tabs.findIndex((t) => t.id === tabId);
+    if (index === -1) return;
+    const tab = this.tabs[index];
+
+    try {
+      this.hostWindow.contentView.removeChildView(tab.view);
+    } catch {
+      // ignore
+    }
+    this.unbindTabEvents(tab);
+    if (!tab.view.webContents.isDestroyed()) {
+      tab.view.webContents.close();
+    }
+    this.tabs.splice(index, 1);
+
+    if (this.tabs.length === 0) {
+      this.hostWindow.close();
+      return;
+    }
+
+    if (this.activeTabId === tabId) {
+      const fallback = this.tabs[Math.min(index, this.tabs.length - 1)];
+      this.activeTabId = fallback ? fallback.id : null;
+      if (fallback) this.switchTab(fallback.id);
+    } else {
+      this.broadcastState();
+    }
+  }
+
+  switchTab(tabId: string): void {
+    const tab = this.tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    // 移除全部挂载的 child views，再挂上目标 tab
+    for (const t of this.tabs) {
+      try {
+        this.hostWindow.contentView.removeChildView(t.view);
+      } catch {
+        // ignore
+      }
+    }
+
+    this.hostWindow.contentView.addChildView(tab.view);
+    this.activeTabId = tab.id;
+    this.updateActiveViewBounds();
+    this.broadcastState();
+
+    // 页面聚焦
+    if (!tab.view.webContents.isDestroyed()) {
+      tab.view.webContents.focus();
+    }
+  }
+
+  navigateActive(url: string): void {
+    const tab = this.getActiveTab();
+    if (!tab) {
+      this.addTab(url);
+      return;
+    }
+    tab.view.webContents.loadURL(normalizeUrlOrSearch(url)).catch((err) => {
+      console.error("[TabbedBrowserWindow] 导航失败:", err);
+    });
+  }
+
+  reorderTab(tabId: string, toIndex: number): void {
+    const from = this.tabs.findIndex((t) => t.id === tabId);
+    if (from === -1) return;
+    const [tab] = this.tabs.splice(from, 1);
+    const target = Math.max(0, Math.min(toIndex, this.tabs.length));
+    this.tabs.splice(target, 0, tab);
+    this.broadcastState();
+  }
+
+  goBack(): void {
+    const wc = this.getActiveTab()?.view.webContents;
+    if (wc?.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+  }
+
+  goForward(): void {
+    const wc = this.getActiveTab()?.view.webContents;
+    if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
+  }
+
+  reload(): void {
+    this.getActiveTab()?.view.webContents.reload();
+  }
+
+  toggleDevTools(): void {
+    const wc = this.getActiveTab()?.view.webContents;
+    if (!wc) return;
+    if (wc.isDevToolsOpened()) {
+      wc.closeDevTools();
+    } else {
+      wc.openDevTools({ mode: "right" });
+    }
+  }
+
+  focusAddressBar(): void {
+    if (!this.hostWindow.isDestroyed()) {
+      this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS);
+    }
+  }
+
+  // -------------------- 查询 --------------------
+
+  getActiveTab(): Tab | undefined {
+    if (!this.activeTabId) return undefined;
+    return this.tabs.find((t) => t.id === this.activeTabId);
+  }
+
+  hasTab(tabId: string): boolean {
+    return this.tabs.some((t) => t.id === tabId);
+  }
+
+  getTabs(): Tab[] {
+    return this.tabs.slice();
+  }
+
+  getState(): TabbedBrowserState {
+    return {
+      tabs: this.tabs.map((t) => this.buildTabState(t)),
+      activeTabId: this.activeTabId,
+    };
+  }
+
+  // -------------------- 内部工具 --------------------
+
+  private buildTabState(tab: Tab): TabState {
+    const wc = tab.view.webContents;
+    const destroyed = wc.isDestroyed();
+    return {
+      id: tab.id,
+      url: destroyed ? "" : wc.getURL(),
+      title: destroyed ? "" : wc.getTitle() || wc.getURL() || "新标签页",
+      favicon:
+        (tab.view as unknown as { __favicon?: string }).__favicon ?? "",
+      loading: destroyed ? false : wc.isLoading(),
+      canGoBack: destroyed ? false : wc.navigationHistory.canGoBack(),
+      canGoForward: destroyed ? false : wc.navigationHistory.canGoForward(),
+    };
+  }
+
+  private broadcastState(): void {
+    if (this.closed || this.hostWindow.isDestroyed()) return;
+    this.hostWindow.webContents.send(
+      VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED,
+      this.getState()
+    );
+  }
+
+  private updateActiveViewBounds(): void {
+    const tab = this.getActiveTab();
+    if (!tab || this.hostWindow.isDestroyed()) return;
+    const [width, height] = this.hostWindow.getContentSize();
+    const bounds: Rectangle = {
+      x: 0,
+      y: BROWSER_CHROME_HEIGHT,
+      width,
+      height: Math.max(0, height - BROWSER_CHROME_HEIGHT),
+    };
+    tab.view.setBounds(bounds);
+  }
+
+  private bindTabEvents(tab: Tab): void {
+    const wc = tab.view.webContents;
+    const sync = (): void => this.broadcastState();
+
+    const onTitle = (_e: Electron.Event, title: string): void => {
+      // 更新外壳窗口标题为"标题 - 域名"
+      try {
+        const url = wc.getURL();
+        const domain = (() => {
+          try {
+            return new URL(url).host;
+          } catch {
+            return "";
+          }
+        })();
+        if (this.activeTabId === tab.id && !this.hostWindow.isDestroyed()) {
+          this.hostWindow.setTitle(domain ? `${title} - ${domain}` : title);
+        }
+      } catch {
+        // ignore
+      }
+      sync();
+    };
+
+    const onFavicon = (_e: Electron.Event, favicons: string[]): void => {
+      (tab.view as unknown as { __favicon?: string }).__favicon =
+        extractFaviconFromFavicons(favicons);
+      sync();
+    };
+
+    const onFinish = (): void => {
+      runUserScript(wc);
+      sync();
+    };
+
+    const handlers: Array<[string, (...args: unknown[]) => void]> = [
+      ["did-navigate", sync],
+      ["did-navigate-in-page", sync],
+      ["page-title-updated", onTitle as never],
+      ["page-favicon-updated", onFavicon as never],
+      ["did-start-loading", sync],
+      ["did-stop-loading", sync],
+      ["did-finish-load", onFinish],
+      ["did-fail-load", sync],
+    ];
+    for (const [evt, fn] of handlers) {
+      wc.on(evt as never, fn as never);
+    }
+    (tab.view as unknown as { __handlers?: typeof handlers }).__handlers = handlers;
+
+    // window.open → 本窗口新 tab
+    wc.setWindowOpenHandler(({ url }) => {
+      this.addTab(url);
+      return { action: "deny" };
+    });
+
+    // 快捷键转发
+    wc.on("before-input-event", (event, input) => this.handleKeyboard(event, input));
+
+    setupContextMenu(tab.view);
+  }
+
+  private unbindTabEvents(tab: Tab): void {
+    const wc = tab.view.webContents;
+    if (wc.isDestroyed()) return;
+    const handlers = (tab.view as unknown as {
+      __handlers?: Array<[string, (...args: unknown[]) => void]>;
+    }).__handlers;
+    if (handlers) {
+      for (const [evt, fn] of handlers) {
+        wc.removeListener(evt as never, fn as never);
+      }
+    }
+  }
+
+  private handleKeyboard(event: Electron.Event, input: Electron.Input): void {
+    if (input.type !== "keyDown") return;
+    const meta = process.platform === "darwin" ? input.meta : input.control;
+    if (!meta) return;
+
+    const key = input.key.toLowerCase();
+    const shift = input.shift;
+
+    if (key === "t" && !shift) {
+      event.preventDefault();
+      this.addTab(DEFAULT_HOMEPAGE);
+      return;
+    }
+    if (key === "w" && !shift) {
+      event.preventDefault();
+      if (this.activeTabId) this.closeTab(this.activeTabId);
+      return;
+    }
+    if (key === "l" && !shift) {
+      event.preventDefault();
+      this.focusAddressBar();
+      return;
+    }
+    if (key === "r" && !shift) {
+      event.preventDefault();
+      this.reload();
+      return;
+    }
+    if (shift && (key === "]" || key === "}")) {
+      event.preventDefault();
+      this.cycleTab(1);
+      return;
+    }
+    if (shift && (key === "[" || key === "{")) {
+      event.preventDefault();
+      this.cycleTab(-1);
+      return;
+    }
+    if (!shift && key === "[") {
+      event.preventDefault();
+      this.goBack();
+      return;
+    }
+    if (!shift && key === "]") {
+      event.preventDefault();
+      this.goForward();
+      return;
+    }
+  }
+
+  private cycleTab(delta: number): void {
+    if (this.tabs.length === 0) return;
+    const idx = this.tabs.findIndex((t) => t.id === this.activeTabId);
+    const next = ((idx === -1 ? 0 : idx) + delta + this.tabs.length) % this.tabs.length;
+    this.switchTab(this.tabs[next].id);
+  }
+
+  // -------------------- 窗口显示控制 --------------------
+
+  showAtCursor(): void {
+    const cursor = screen.getCursorScreenPoint();
+    const display = screen.getDisplayNearestPoint(cursor);
+    const [w] = this.hostWindow.getSize();
+    const x = Math.max(display.workArea.x, cursor.x - Math.floor(w / 2));
+    const y = Math.max(display.workArea.y, cursor.y - 20);
+    this.hostWindow.setPosition(x, y);
+    this.present();
+  }
+
+  present(): void {
+    if (this.hostWindow.isDestroyed()) return;
+    if (!this.hostWindow.isVisible()) this.hostWindow.show();
+    this.hostWindow.focus();
+  }
+
+  hide(): void {
+    if (!this.hostWindow.isDestroyed()) this.hostWindow.hide();
+  }
+}
+
+// ============================================================
+// 工具函数
+// ============================================================
+
+/**
+ * 地址栏输入规整：
+ * - 已包含 scheme 的直接使用
+ * - 看起来像 "xxx.yyy" 的域名/IP/localhost 自动补 https://
+ * - 否则走 Google 搜索
+ */
+export function normalizeUrlOrSearch(input: string): string {
+  const trimmed = (input || "").trim();
+  if (!trimmed) return DEFAULT_HOMEPAGE;
+
+  if (/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//.test(trimmed)) return trimmed;
+  if (/^about:|^chrome:|^file:/.test(trimmed)) return trimmed;
+
+  const looksLikeHost =
+    /^localhost(:\d+)?(\/.*)?$/i.test(trimmed) ||
+    /^(\d{1,3}\.){3}\d{1,3}(:\d+)?(\/.*)?$/.test(trimmed) ||
+    /^[^\s]+\.[^\s]+$/.test(trimmed);
+
+  if (looksLikeHost && !/\s/.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
+}
+
+function runUserScript(webContents: WebContents): void {
+  const script = windowScriptStore.get().trim();
+  if (!script) return;
+  webContents.executeJavaScript(script, false).catch((err) => {
+    console.error("[TabbedBrowserWindow] 用户脚本执行失败:", err);
+  });
+}

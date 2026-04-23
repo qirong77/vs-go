@@ -4,7 +4,7 @@ import { VS_GO_EVENT } from "../../../common/EVENT";
 import type { BrowserItem } from "../../../common/type";
 import { generateId } from "../../../common/utils";
 import { vsgoStore, fileAccessStore } from "../store";
-import { FloatingWindowManager } from "../FloatingWindow";
+import { TabbedBrowserWindowManager } from "../BrowserWindow/TabbedBrowserWindowManager";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 
 function parseBookmarksHtml(htmlContent: string): BrowserItem[] {
@@ -68,13 +68,13 @@ export function registerBrowserHandlers(): void {
 
   ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_CREATE, (_e, item: BrowserItem) => {
     fileAccessStore.updateAccessTime(item.url);
-    FloatingWindowManager.createFloatingWindow(item.url);
+    TabbedBrowserWindowManager.openUrl(item.url);
     MainWindowManager.hide();
   });
 
   ipcMain.handle(VS_GO_EVENT.BROWSER_IMPORT_SELECT_FILE, async () => {
     MainWindowManager.hide();
-    FloatingWindowManager.hideAll();
+    TabbedBrowserWindowManager.hideAll();
 
     const result = await dialog.showOpenDialog({
       title: "选择书签文件",

@@ -1,11 +1,11 @@
 import { app, globalShortcut } from "electron";
 import { MainWindowManager } from "./MainWindow/MainWindow";
-import { FloatingWindowManager } from "./FloatingWindow";
+import { TabbedBrowserWindowManager } from "./BrowserWindow/TabbedBrowserWindowManager";
 import { toggleUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 
 app.whenReady().then(() => {
   globalShortcut.register("Command+`", () => {
-    FloatingWindowManager.toggleVisible();
+    TabbedBrowserWindowManager.toggleVisible();
   });
 
   globalShortcut.register("Alt+Space", () => {

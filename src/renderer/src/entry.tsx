@@ -6,6 +6,7 @@ import CookieManager from "./CookieManager";
 import UserNotes from "./UserNotes";
 import DisplayManager from "./DisplayManager";
 import ScriptEditor from "./ScriptEditor";
+import TabbedBrowser from "./TabbedBrowser";
 
 const ROUTES: Record<string, React.FC> = {
   "browser-setting": BrowserSetting,
@@ -14,6 +15,7 @@ const ROUTES: Record<string, React.FC> = {
   "app-setting": AppSetting,
   "display-manager": DisplayManager,
   "script-editor": ScriptEditor,
+  "tabbed-browser": TabbedBrowser,
 };
 
 const hash = window.location.hash;

@@ -99,3 +99,23 @@ export interface IpcResult<T = undefined> {
   error?: string;
   data?: T;
 }
+
+// --- Chrome 风格 Tabbed Browser 窗口 ---
+
+/** Chrome 外壳 UI 总高度（标签栏 + 地址栏），main 与 renderer 共享 */
+export const BROWSER_CHROME_HEIGHT = 72;
+
+export interface TabState {
+  id: string;
+  url: string;
+  title: string;
+  favicon: string;
+  loading: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
+}
+
+export interface TabbedBrowserState {
+  tabs: TabState[];
+  activeTabId: string | null;
+}

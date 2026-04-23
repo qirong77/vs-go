@@ -1,5 +1,5 @@
 import { app, dialog } from "electron";
-import "./FloatingWindow/index";
+import "./BrowserWindow/ipc";
 import "./GlobalShortCut";
 import "./MainWindow/MainWindow";
 import "./ipcEventHandler";
