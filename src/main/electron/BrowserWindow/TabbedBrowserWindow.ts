@@ -525,7 +525,18 @@ export class TabbedBrowserWindow {
       }, 500);
       return;
     }
- 
+
+    // Cmd+W / Ctrl+W：多标签时只关当前 tab；仅剩一个 tab 时 closeTab 会关掉整个窗口
+    if (input.code === "KeyW" && !input.alt) {
+      event.preventDefault();
+      const active = this.getActiveTab();
+      if (active) {
+        this.closeTab(active.id);
+      } else {
+        this.hostWindow.close();
+      }
+      return;
+    }
   }
 
   // -------------------- 窗口显示控制 --------------------

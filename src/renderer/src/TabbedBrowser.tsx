@@ -55,7 +55,6 @@ function TabbedBrowser(): React.JSX.Element {
       setEditing(true);
       requestAnimationFrame(() => {
         addressInputRef.current?.focus();
-        addressInputRef.current?.select();
       });
     };
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
@@ -512,7 +511,6 @@ function TabbedBrowser(): React.JSX.Element {
                 setEditing(true);
                 fetchSuggestions(address);
                 setShowSuggestions(true);
-                requestAnimationFrame(() => addressInputRef.current?.select());
               }}
               onBlur={(e) => {
                 // 如果点击的是建议项，不立即关闭
