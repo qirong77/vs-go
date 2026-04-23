@@ -213,7 +213,6 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({ onSelectFile, selectedFileI
   useEffect(() => {
     if (editingKey && inputRef.current) {
       inputRef.current.focus();
-      inputRef.current.select();
     }
   }, [editingKey]);
 
