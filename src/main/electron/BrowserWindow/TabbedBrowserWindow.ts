@@ -174,7 +174,7 @@ export class TabbedBrowserWindow {
 
   // -------------------- Tab 创建与事件绑定 --------------------
 
-  addTab(url: string, opts?: { activate?: boolean; focusAddressBar?: boolean }): Tab {
+  addTab(url: string, opts?: { activate?: boolean }): Tab {
     const view = new WebContentsView({
       webPreferences: {
         preload: path.join(__dirname, "../preload/index.js"),
@@ -200,25 +200,8 @@ export class TabbedBrowserWindow {
       });
     }
 
-    const focusAddressOnOpen = !!opts?.focusAddressBar;
     if (opts?.activate !== false) {
-      this.switchTab(tab.id, { focusPage: !focusAddressOnOpen });
-      if (focusAddressOnOpen) {
-        // 新建 tab 时，优先把焦点留在地址栏；并在页面完成首屏加载后再兜底一次，避免页面 autofocus 抢焦点。
-        this.focusAddressBar();
-        const focusAddressAgain = (): void => {
-          if (this.activeTabId === tab.id && !this.hostWindow.isDestroyed()) {
-            // 页面 autofocus（如 Google 搜索框）会把系统焦点从 hostWindow 抢走，
-            // 必须先把焦点还给 hostWindow.webContents，再通知 renderer 聚焦地址栏，
-            // 否则 input.focus() 无效（系统焦点不在当前 webContents 上）。
-            this.hostWindow.webContents.focus();
-            this.focusAddressBar();
-          }
-        };
-        if (!tab.view.webContents.isDestroyed()) {
-          tab.view.webContents.once("did-finish-load", focusAddressAgain);
-        }
-      }
+      this.switchTab(tab.id);
     } else {
       this.broadcastState();
     }
