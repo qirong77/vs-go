@@ -515,6 +515,20 @@ export class TabbedBrowserWindow {
     if (input.type !== "keyDown") return;
     const meta = process.platform === "darwin" ? input.meta : input.control;
     if (!meta) return;
+
+    // Cmd+R / Ctrl+R：刷新当前标签页。默认快捷键会重载外壳 webContents，导致整窗 UI 重载。
+    if (input.code === "KeyR" && !input.alt) {
+      event.preventDefault();
+      const wc = this.getActiveTab()?.view.webContents;
+      if (!wc || wc.isDestroyed()) return;
+      if (input.shift) {
+        wc.reloadIgnoringCache();
+      } else {
+        wc.reload();
+      }
+      return;
+    }
+
     if (input.code === "KeyI" && input.alt) {
       event.preventDefault();
       this.toggleDevTools();

@@ -18,7 +18,7 @@ function ScriptEditor() {
       if (cancelled || !containerRef.current) return;
       editor = monaco.editor.create(containerRef.current, {
         value: content,
-        language: "javascript",
+        language: 'javascript',
         theme: "vs",
         automaticLayout: true,
         minimap: { enabled: false },
