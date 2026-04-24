@@ -28,7 +28,7 @@ export function registerTabbedBrowserHandlers(): void {
 
   ipcMain.on(VS_GO_EVENT.BROWSER_TAB_NEW, (event, payload: { url?: string } = {}) => {
     const win = getSenderWindow(event);
-    win?.addTab(payload.url || TABBED_BROWSER_DEFAULT_HOME_URL);
+    win?.addTab(payload.url || TABBED_BROWSER_DEFAULT_HOME_URL, { focusAddressBar: true });
   });
 
   ipcMain.on(VS_GO_EVENT.BROWSER_TAB_CLOSE, (event, tabId: string) => {

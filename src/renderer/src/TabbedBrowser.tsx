@@ -116,13 +116,21 @@ function TabbedBrowser(): React.JSX.Element {
 
   // 切换标签时收起建议并重置地址栏编辑态，避免上一标签的异步建议或 padding 状态泄漏
   useEffect(() => {
+    const shouldFocusAddress = shouldFocusAddressOnNextTabRef.current;
     shouldFocusAddressOnNextTabRef.current = false;
-    suggestionsFetchGenRef.current += 1;
-    setShowSuggestions(false);
-    setSuggestions([]);
-    setSuggestionIndex(-1);
-    setEditing(false);
+    // 取消正在进行中的建议请求，清空建议列表
     closeSuggestions();
+    if (shouldFocusAddress) {
+      // 新建 tab：保持编辑态，等下一帧聚焦地址栏
+      setEditing(true);
+      requestAnimationFrame(() => {
+        addressInputRef.current?.focus();
+        addressInputRef.current?.select();
+        openHistorySuggestions();
+      });
+    } else {
+      setEditing(false);
+    }
   }, [activeTab?.id]);
 
   // 记录最近访问 URL（去重 + 最多 100 条）
@@ -241,13 +249,6 @@ function TabbedBrowser(): React.JSX.Element {
   const onNewTab = (): void => {
     shouldFocusAddressOnNextTabRef.current = true;
     ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_NEW, {});
-    setTimeout(() => {
-      setEditing(true);
-      requestAnimationFrame(() => {
-        addressInputRef.current?.focus();
-        openHistorySuggestions();
-      });
-    }, 1000);
   };
 
   // 鼠标中键关闭
