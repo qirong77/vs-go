@@ -205,6 +205,10 @@ export class TabbedBrowserWindow {
     } else {
       this.broadcastState();
     }
+    view.webContents.on('did-finish-load', () => {
+      this.hostWindow.webContents.focus();
+      this.focusAddressBar();
+    });
     return tab;
   }
 
@@ -302,11 +306,6 @@ export class TabbedBrowserWindow {
     this.chromeExtraHeight = 0;
     this.updateActiveViewBounds();
     this.broadcastState();
-
-    // 页面聚焦
-    if (opts?.focusPage !== false && !tab.view.webContents.isDestroyed()) {
-      tab.view.webContents.focus();
-    }
   }
 
   navigateActive(url: string): void {
