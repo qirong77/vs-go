@@ -241,11 +241,11 @@ function TabbedBrowser(): React.JSX.Element {
   const onNewTab = (): void => {
     shouldFocusAddressOnNextTabRef.current = true;
     ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_NEW, {});
-    requestIdleCallback(() => {
+    setTimeout(() => {
       addressInputRef.current?.focus();
       addressInputRef.current?.select();
       openHistorySuggestions();
-    });
+    }, 200);
   };
 
   // 鼠标中键关闭
