@@ -15,6 +15,9 @@ const TAB_BAR_HEIGHT = 32;
 const ADDRESS_BAR_HEIGHT = BROWSER_CHROME_HEIGHT - TAB_BAR_HEIGHT;
 const TAB_MIN_WIDTH = 80;
 const TAB_MAX_WIDTH = 220;
+const ADDRESS_HISTORY_STORAGE_KEY = "vs-go.address-history";
+const ADDRESS_HISTORY_MAX_COUNT = 100;
+const ADDRESS_HISTORY_PREVIEW_COUNT = 8;
 
 interface DragState {
   tabId: string;
@@ -34,9 +37,26 @@ function TabbedBrowser(): React.JSX.Element {
   const [suggestions, setSuggestions] = useState<BrowserSuggestion[]>([]);
   const [suggestionIndex, setSuggestionIndex] = useState(-1);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [addressHistory, setAddressHistory] = useState<string[]>(() => {
+    try {
+      const raw = window.localStorage.getItem(ADDRESS_HISTORY_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((url): url is string => typeof url === "string")
+        .map((url) => url.trim())
+        .filter(Boolean)
+        .slice(0, ADDRESS_HISTORY_MAX_COUNT);
+    } catch {
+      return [];
+    }
+  });
   const addressInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
+  const shouldFocusAddressOnNextTabRef = useRef(false);
+  const addressHistoryRef = useRef<string[]>(addressHistory);
   /** 作废过期的地址建议请求，避免 blur / 切 tab 后仍回调 notifyChromePadding 把主进程留白撑开 */
   const suggestionsFetchGenRef = useRef(0);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -45,6 +65,23 @@ function TabbedBrowser(): React.JSX.Element {
     () => state.tabs.find((t) => t.id === state.activeTabId),
     [state]
   );
+
+  const addAddressToHistory = useCallback((rawUrl: string): void => {
+    const url = rawUrl.trim();
+    if (!url || url === "about:blank") return;
+    setAddressHistory((prev) =>
+      [url, ...prev.filter((item) => item !== url)].slice(0, ADDRESS_HISTORY_MAX_COUNT)
+    );
+  }, []);
+
+  const openHistorySuggestions = useCallback((): void => {
+    const list: BrowserSuggestion[] = addressHistoryRef.current
+      .slice(0, ADDRESS_HISTORY_PREVIEW_COUNT)
+      .map((url) => ({ url, title: url, type: "history" }));
+    setSuggestions(list);
+    setSuggestionIndex(list.length > 0 ? 0 : -1);
+    setShowSuggestions(list.length > 0);
+  }, []);
 
   // 初始拉取 state + 订阅更新
   useEffect(() => {
@@ -58,13 +95,15 @@ function TabbedBrowser(): React.JSX.Element {
       setEditing(true);
       requestAnimationFrame(() => {
         addressInputRef.current?.focus();
+        addressInputRef.current?.select();
+        openHistorySuggestions();
       });
     };
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
     return () => {
-      ipcRenderer.removeAllListeners(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED);
-      ipcRenderer.removeAllListeners(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS);
+      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
+      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
     };
   }, []);
 
@@ -77,13 +116,38 @@ function TabbedBrowser(): React.JSX.Element {
 
   // 切换标签时收起建议并重置地址栏编辑态，避免上一标签的异步建议或 padding 状态泄漏
   useEffect(() => {
+    const shouldFocusAddress = shouldFocusAddressOnNextTabRef.current;
+    shouldFocusAddressOnNextTabRef.current = false;
     suggestionsFetchGenRef.current += 1;
     setShowSuggestions(false);
     setSuggestions([]);
     setSuggestionIndex(-1);
-    setEditing(false);
+    setEditing(shouldFocusAddress);
     closeSuggestions();
+    if (shouldFocusAddress) {
+      requestAnimationFrame(() => {
+        addressInputRef.current?.focus();
+        addressInputRef.current?.select();
+        openHistorySuggestions();
+      });
+    }
   }, [activeTab?.id]);
+
+  // 记录最近访问 URL（去重 + 最多 100 条）
+  useEffect(() => {
+    if (!activeTab?.url || activeTab.loading) return;
+    addAddressToHistory(activeTab.url);
+  }, [activeTab?.url, activeTab?.loading, addAddressToHistory]);
+
+  // 持久化地址历史
+  useEffect(() => {
+    addressHistoryRef.current = addressHistory;
+    try {
+      window.localStorage.setItem(ADDRESS_HISTORY_STORAGE_KEY, JSON.stringify(addressHistory));
+    } catch {
+      // ignore
+    }
+  }, [addressHistory]);
 
   const SUGGESTION_ITEM_HEIGHT = 48;
   const SUGGESTION_VISIBLE_ITEMS = 5;
@@ -138,6 +202,10 @@ function TabbedBrowser(): React.JSX.Element {
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const val = e.target.value;
     setAddress(val);
+    if (!val.trim()) {
+      openHistorySuggestions();
+      return;
+    }
     fetchSuggestions(val);
     setShowSuggestions(true);
   };
@@ -179,6 +247,7 @@ function TabbedBrowser(): React.JSX.Element {
     ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_CLOSE, id);
   };
   const onNewTab = (): void => {
+    shouldFocusAddressOnNextTabRef.current = true;
     ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_NEW, {});
   };
 
@@ -530,8 +599,7 @@ function TabbedBrowser(): React.JSX.Element {
               onChange={handleAddressChange}
               onFocus={() => {
                 setEditing(true);
-                fetchSuggestions(address);
-                setShowSuggestions(true);
+                openHistorySuggestions();
               }}
               onBlur={(e) => {
                 // 如果点击的是建议项，不立即关闭
