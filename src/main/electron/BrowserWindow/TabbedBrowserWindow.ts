@@ -298,6 +298,8 @@ export class TabbedBrowserWindow {
 
     this.hostWindow.contentView.addChildView(tab.view);
     this.activeTabId = tab.id;
+    // 切 tab 时立刻收回地址栏下拉预留高度，避免 renderer 异步 suggest 曾把 chromeExtraHeight 顶高后未复位
+    this.chromeExtraHeight = 0;
     this.updateActiveViewBounds();
     this.broadcastState();
 

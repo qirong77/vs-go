@@ -37,6 +37,8 @@ function TabbedBrowser(): React.JSX.Element {
   const addressInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
+  /** 作废过期的地址建议请求，避免 blur / 切 tab 后仍回调 notifyChromePadding 把主进程留白撑开 */
+  const suggestionsFetchGenRef = useRef(0);
   const [drag, setDrag] = useState<DragState | null>(null);
 
   const activeTab = useMemo<TabState | undefined>(
@@ -73,6 +75,15 @@ function TabbedBrowser(): React.JSX.Element {
     }
   }, [activeTab?.url, activeTab?.id, editing]);
 
+  // 切换标签时收起建议并重置地址栏编辑态，避免上一标签的异步建议或 padding 状态泄漏
+  useEffect(() => {
+    suggestionsFetchGenRef.current += 1;
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setSuggestionIndex(-1);
+    setEditing(false);
+  }, [activeTab?.id]);
+
   const SUGGESTION_ITEM_HEIGHT = 48;
   const SUGGESTION_VISIBLE_ITEMS = 5;
   // 额外缓冲：为下拉框的底部边框+圆角留出空间，避免被 WebContentsView 盖住
@@ -87,23 +98,31 @@ function TabbedBrowser(): React.JSX.Element {
     ipcRenderer.send(VS_GO_EVENT.BROWSER_CHROME_SET_PADDING, extra);
   }, []);
 
+  // 主进程留白与「是否展开建议」一致，避免异步 suggest 在关闭后仍把 chromeExtraHeight 顶上去
+  useEffect(() => {
+    const count = showSuggestions && suggestions.length > 0 ? suggestions.length : 0;
+    notifyChromePadding(count);
+  }, [showSuggestions, suggestions.length, notifyChromePadding]);
+
   // 获取地址栏建议
   const fetchSuggestions = useCallback(async (query: string): Promise<void> => {
+    const gen = ++suggestionsFetchGenRef.current;
     const result: BrowserSuggestion[] = await ipcRenderer.invoke(
       VS_GO_EVENT.BROWSER_ADDRESS_SUGGESTIONS,
       query
     );
+    if (gen !== suggestionsFetchGenRef.current) return;
     const list = result ?? [];
     setSuggestions(list);
     setSuggestionIndex(list.length > 0 ? 0 : -1);
-    notifyChromePadding(list.length);
-  }, [notifyChromePadding]);
+  }, []);
 
   const closeSuggestions = useCallback((): void => {
+    suggestionsFetchGenRef.current += 1;
     setShowSuggestions(false);
     setSuggestions([]);
-    notifyChromePadding(0);
-  }, [notifyChromePadding]);
+    setSuggestionIndex(-1);
+  }, []);
 
   // 地址栏操作
   const submitAddress = (mode: "current" | "new", overrideUrl?: string): void => {
