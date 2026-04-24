@@ -82,6 +82,7 @@ function TabbedBrowser(): React.JSX.Element {
     setSuggestions([]);
     setSuggestionIndex(-1);
     setEditing(false);
+    closeSuggestions();
   }, [activeTab?.id]);
 
   const SUGGESTION_ITEM_HEIGHT = 48;
