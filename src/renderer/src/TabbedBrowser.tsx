@@ -116,21 +116,13 @@ function TabbedBrowser(): React.JSX.Element {
 
   // 切换标签时收起建议并重置地址栏编辑态，避免上一标签的异步建议或 padding 状态泄漏
   useEffect(() => {
-    const shouldFocusAddress = shouldFocusAddressOnNextTabRef.current;
     shouldFocusAddressOnNextTabRef.current = false;
     suggestionsFetchGenRef.current += 1;
     setShowSuggestions(false);
     setSuggestions([]);
     setSuggestionIndex(-1);
-    setEditing(shouldFocusAddress);
+    setEditing(false);
     closeSuggestions();
-    if (shouldFocusAddress) {
-      requestAnimationFrame(() => {
-        addressInputRef.current?.focus();
-        addressInputRef.current?.select();
-        openHistorySuggestions();
-      });
-    }
   }, [activeTab?.id]);
 
   // 记录最近访问 URL（去重 + 最多 100 条）
@@ -249,10 +241,19 @@ function TabbedBrowser(): React.JSX.Element {
   const onNewTab = (): void => {
     shouldFocusAddressOnNextTabRef.current = true;
     ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_NEW, {});
+    requestIdleCallback(() => {
+      addressInputRef.current?.focus();
+      addressInputRef.current?.select();
+      openHistorySuggestions();
+    });
   };
 
   // 鼠标中键关闭
-  const onTabMouseDown = (e: React.MouseEvent<HTMLDivElement>, tab: TabState, index: number): void => {
+  const onTabMouseDown = (
+    e: React.MouseEvent<HTMLDivElement>,
+    tab: TabState,
+    index: number
+  ): void => {
     if (e.button === 1) {
       e.preventDefault();
       onClose(tab.id);
@@ -304,11 +305,7 @@ function TabbedBrowser(): React.JSX.Element {
       });
 
       // 标签栏内时做实时重排
-      if (
-        barRect &&
-        e.clientY >= barRect.top - 10 &&
-        e.clientY <= barRect.bottom + 10
-      ) {
+      if (barRect && e.clientY >= barRect.top - 10 && e.clientY <= barRect.bottom + 10) {
         reorderByPointer(e.clientX);
       }
     };
@@ -371,7 +368,7 @@ function TabbedBrowser(): React.JSX.Element {
   const tabWidth = useMemo(() => {
     const count = Math.max(1, state.tabs.length);
     const barWidth = tabBarRef.current?.clientWidth ?? 800;
-    const availableWidth = barWidth - 40 /* 新建按钮 */ - 80 /* 红绿灯 */;
+    const availableWidth = barWidth - 40 /* 新建按钮 */ - 80; /* 红绿灯 */
     const w = Math.floor(availableWidth / count);
     return Math.max(TAB_MIN_WIDTH, Math.min(TAB_MAX_WIDTH, w));
   }, [state.tabs.length]);
@@ -386,8 +383,7 @@ function TabbedBrowser(): React.JSX.Element {
         width: "100vw",
         display: "flex",
         flexDirection: "column",
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         overflow: "visible",
         background: "#dee1e6",
         position: "relative",
@@ -397,24 +393,24 @@ function TabbedBrowser(): React.JSX.Element {
       {/* 标签栏 */}
       <div
         ref={tabBarRef}
-        style={{
-          height: TAB_BAR_HEIGHT,
-          display: "flex",
-          alignItems: "flex-end",
-          paddingLeft: 80 /* 给 macOS 红绿灯让位 */,
-          paddingRight: 8,
-          position: "relative",
-          overflow: "hidden",
-          WebkitAppRegion: "drag",
-        } as React.CSSProperties}
+        style={
+          {
+            height: TAB_BAR_HEIGHT,
+            display: "flex",
+            alignItems: "flex-end",
+            paddingLeft: 80 /* 给 macOS 红绿灯让位 */,
+            paddingRight: 8,
+            position: "relative",
+            overflow: "hidden",
+            WebkitAppRegion: "drag",
+          } as React.CSSProperties
+        }
       >
         {state.tabs.map((tab, idx) => {
           const isActive = tab.id === state.activeTabId;
           const isDragging = drag?.tabId === tab.id;
           const translateX =
-            isDragging && drag
-              ? Math.min(Math.max(drag.currentX - drag.startX, -4000), 4000)
-              : 0;
+            isDragging && drag ? Math.min(Math.max(drag.currentX - drag.startX, -4000), 4000) : 0;
           return (
             <div
               key={tab.id}
@@ -423,26 +419,28 @@ function TabbedBrowser(): React.JSX.Element {
               onAuxClick={(e) => {
                 if (e.button === 1) onClose(tab.id);
               }}
-              style={{
-                width: tabWidth,
-                height: TAB_BAR_HEIGHT - 4,
-                marginRight: 2,
-                borderTopLeftRadius: 8,
-                borderTopRightRadius: 8,
-                background: isActive ? "#ffffff" : "#cfd3d8",
-                color: "#202124",
-                display: "flex",
-                alignItems: "center",
-                padding: "0 10px",
-                transform: `translateX(${translateX}px)`,
-                transition: isDragging ? "none" : "transform 120ms ease",
-                boxSizing: "border-box",
-                opacity: drag?.detaching && isDragging ? 0.4 : 1,
-                cursor: "default",
-                position: "relative",
-                zIndex: isActive ? 2 : 1,
-                WebkitAppRegion: "no-drag",
-              } as React.CSSProperties}
+              style={
+                {
+                  width: tabWidth,
+                  height: TAB_BAR_HEIGHT - 4,
+                  marginRight: 2,
+                  borderTopLeftRadius: 8,
+                  borderTopRightRadius: 8,
+                  background: isActive ? "#ffffff" : "#cfd3d8",
+                  color: "#202124",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "0 10px",
+                  transform: `translateX(${translateX}px)`,
+                  transition: isDragging ? "none" : "transform 120ms ease",
+                  boxSizing: "border-box",
+                  opacity: drag?.detaching && isDragging ? 0.4 : 1,
+                  cursor: "default",
+                  position: "relative",
+                  zIndex: isActive ? 2 : 1,
+                  WebkitAppRegion: "no-drag",
+                } as React.CSSProperties
+              }
               title={tab.title || tab.url}
             >
               {tab.favicon ? (
@@ -514,20 +512,22 @@ function TabbedBrowser(): React.JSX.Element {
           onClick={onNewTab}
           title="新建标签页 (Cmd+T)"
           tabIndex={-1}
-          style={{
-            width: 28,
-            height: 24,
-            marginLeft: 4,
-            marginBottom: 2,
-            border: "none",
-            outline: "none",
-            borderRadius: 4,
-            background: "transparent",
-            cursor: "pointer",
-            fontSize: 16,
-            color: "#5f6368",
-            WebkitAppRegion: "no-drag",
-          } as React.CSSProperties}
+          style={
+            {
+              width: 28,
+              height: 24,
+              marginLeft: 4,
+              marginBottom: 2,
+              border: "none",
+              outline: "none",
+              borderRadius: 4,
+              background: "transparent",
+              cursor: "pointer",
+              fontSize: 16,
+              color: "#5f6368",
+              WebkitAppRegion: "no-drag",
+            } as React.CSSProperties
+          }
           onMouseEnter={(e) =>
             ((e.currentTarget as HTMLButtonElement).style.background = "#c2c6cb")
           }
@@ -567,10 +567,7 @@ function TabbedBrowser(): React.JSX.Element {
         >
           ›
         </NavButton>
-        <NavButton
-          title="刷新"
-          onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_RELOAD)}
-        >
+        <NavButton title="刷新" onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_RELOAD)}>
           ⟳
         </NavButton>
         <div
