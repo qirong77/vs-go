@@ -205,7 +205,7 @@ export class TabbedBrowserWindow {
     } else {
       this.broadcastState();
     }
-    view.webContents.on('did-finish-load', () => {
+    view.webContents.once('did-finish-load', () => {
       this.hostWindow.webContents.focus();
       this.focusAddressBar();
     });
