@@ -568,7 +568,7 @@ export class TabbedBrowserWindow {
   present(): void {
     if (this.hostWindow.isDestroyed()) return;
     if (!this.hostWindow.isVisible()) this.hostWindow.show();
-    this.hostWindow.focus();
+    // this.hostWindow.focus();
     // 将焦点转移到活动 tab 的页面，避免外壳 webContents 把焦点还给地址栏 input
     const activeTab = this.getActiveTab();
     if (activeTab && !activeTab.view.webContents.isDestroyed()) {
