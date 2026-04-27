@@ -120,6 +120,13 @@ class Manager {
     }
   }
 
+  /** 所有 Tabbed 窗口的地址栏失焦（例如全局 Command+` 切换前后统一清理编辑态） */
+  blurAllAddressBars(): void {
+    for (const w of this.windows) {
+      if (!w.isDestroyed) w.blurAddressBar();
+    }
+  }
+
   /** 根据 host BrowserWindow id 临时扩展 Chrome 高度 */
   setChromePadding(hostId: number, extraHeight: number): void {
     const win = this.findByHostId(hostId);

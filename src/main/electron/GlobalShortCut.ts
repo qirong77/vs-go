@@ -7,6 +7,7 @@ app.whenReady().then(() => {
   globalShortcut.register("Command+`", () => {
     MainWindowManager.hide();
     TabbedBrowserWindowManager.toggleVisible();
+    TabbedBrowserWindowManager.blurAllAddressBars();
   });
 
   globalShortcut.register("Alt+Space", () => {

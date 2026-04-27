@@ -91,6 +91,7 @@ function TabbedBrowser(): React.JSX.Element {
       setState(s);
     };
     const onFocusAddress = (): void => {
+      console.log('onFocusAddress');
       setEditing(true);
       requestAnimationFrame(() => {
         addressInputRef.current?.focus();
@@ -98,11 +99,18 @@ function TabbedBrowser(): React.JSX.Element {
         openHistorySuggestions();
       });
     };
+    const onBlurAddress = (): void => {
+      closeSuggestions();
+      setEditing(false);
+      addressInputRef.current?.blur();
+    };
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
+    ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
     return () => {
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
+      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
     };
   }, []);
 
