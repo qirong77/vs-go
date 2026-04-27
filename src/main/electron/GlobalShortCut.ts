@@ -5,10 +5,12 @@ import { toggleUserNotesWindow } from "./UserNotesWindow/UserNotesWindow";
 
 app.whenReady().then(() => {
   globalShortcut.register("Command+`", () => {
+    MainWindowManager.hide();
     TabbedBrowserWindowManager.toggleVisible();
   });
 
   globalShortcut.register("Alt+Space", () => {
+    TabbedBrowserWindowManager.hideAll();
     MainWindowManager.toggleIsShowMainWindow();
   });
   globalShortcut.register("Alt+Space+N", () => {
