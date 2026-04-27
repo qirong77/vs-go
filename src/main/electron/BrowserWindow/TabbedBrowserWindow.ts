@@ -205,7 +205,9 @@ export class TabbedBrowserWindow {
     } else {
       this.broadcastState();
     }
+    console.log('addTab');
     view.webContents.once('did-finish-load', () => {
+      console.log('did-finish-load');
       this.hostWindow.webContents.focus();
       this.focusAddressBar();
     });
@@ -568,12 +570,12 @@ export class TabbedBrowserWindow {
   present(): void {
     if (this.hostWindow.isDestroyed()) return;
     if (!this.hostWindow.isVisible()) this.hostWindow.show();
-    // this.hostWindow.focus();
     // 将焦点转移到活动 tab 的页面，避免外壳 webContents 把焦点还给地址栏 input
-    const activeTab = this.getActiveTab();
-    if (activeTab && !activeTab.view.webContents.isDestroyed()) {
-      activeTab.view.webContents.focus();
-    }
+    // const activeTab = this.getActiveTab();
+    // if (activeTab && !activeTab.view.webContents.isDestroyed()) {
+    //   console.log('present and focus');
+    //   activeTab.view.webContents.focus();
+    // }
   }
 
   hide(): void {
