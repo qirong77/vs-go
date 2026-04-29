@@ -59,6 +59,7 @@ function TabbedBrowser(): React.JSX.Element {
   /** 作废过期的地址建议请求，避免 blur / 切 tab 后仍回调 notifyChromePadding 把主进程留白撑开 */
   const suggestionsFetchGenRef = useRef(0);
   const [drag, setDrag] = useState<DragState | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const activeTab = useMemo<TabState | undefined>(
     () => state.tabs.find((t) => t.id === state.activeTabId),
@@ -87,11 +88,13 @@ function TabbedBrowser(): React.JSX.Element {
     ipcRenderer.invoke(VS_GO_EVENT.BROWSER_TAB_GET_STATE).then((s: TabbedBrowserState) => {
       setState(s);
     });
+    ipcRenderer.invoke(VS_GO_EVENT.BROWSER_WINDOW_IS_FULLSCREEN).then((fs: boolean) => {
+      setIsFullscreen(fs);
+    });
     const onUpdate = (_e: unknown, s: TabbedBrowserState): void => {
       setState(s);
     };
     const onFocusAddress = (): void => {
-      console.log('onFocusAddress');
       setEditing(true);
       requestAnimationFrame(() => {
         addressInputRef.current?.focus();
@@ -104,13 +107,18 @@ function TabbedBrowser(): React.JSX.Element {
       setEditing(false);
       addressInputRef.current?.blur();
     };
+    const onFullscreenChanged = (_e: unknown, fs: boolean): void => {
+      setIsFullscreen(fs);
+    };
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
+    ipcRenderer.on(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
     return () => {
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
+      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
     };
   }, []);
 
@@ -402,6 +410,44 @@ function TabbedBrowser(): React.JSX.Element {
           } as React.CSSProperties
         }
       >
+        {/* 全屏时显示自定义红绿灯按钮（原生红绿灯被 macOS 收进自动隐藏栏） */}
+        {isFullscreen && (
+          <div
+            style={
+              {
+                position: "absolute",
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 80,
+                display: "flex",
+                alignItems: "center",
+                paddingLeft: 12,
+                gap: 7,
+                WebkitAppRegion: "no-drag",
+              } as React.CSSProperties
+            }
+          >
+            <TrafficDot
+              color="#ff5f57"
+              hoverColor="#ff3b30"
+              title="关闭窗口"
+              onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_WINDOW_CLOSE_WINDOW)}
+            />
+            <TrafficDot
+              color="#febc2e"
+              hoverColor="#ff9500"
+              title="最小化"
+              onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_WINDOW_MINIMIZE)}
+            />
+            <TrafficDot
+              color="#28c840"
+              hoverColor="#34c759"
+              title="退出全屏"
+              onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_WINDOW_EXIT_FULLSCREEN)}
+            />
+          </div>
+        )}
         {state.tabs.map((tab, idx) => {
           const isActive = tab.id === state.activeTabId;
           const isDragging = drag?.tabId === tab.id;
@@ -700,6 +746,33 @@ function TabbedBrowser(): React.JSX.Element {
         </div>
       </div>
     </div>
+  );
+}
+
+interface TrafficDotProps {
+  color: string;
+  hoverColor: string;
+  title: string;
+  onClick: () => void;
+}
+function TrafficDot({ color, hoverColor, title, onClick }: TrafficDotProps): React.JSX.Element {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      title={title}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        background: hovered ? hoverColor : color,
+        cursor: "pointer",
+        flexShrink: 0,
+        transition: "background 0.1s",
+      }}
+    />
   );
 }
 

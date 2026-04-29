@@ -84,6 +84,22 @@ export function registerTabbedBrowserHandlers(): void {
   ipcMain.on(VS_GO_EVENT.BROWSER_TAB_TOGGLE_DEVTOOLS, (event) => {
     getSenderWindow(event)?.toggleDevTools();
   });
+
+  ipcMain.handle(VS_GO_EVENT.BROWSER_WINDOW_IS_FULLSCREEN, (event) => {
+    return getSenderWindow(event)?.isFullScreen() ?? false;
+  });
+
+  ipcMain.on(VS_GO_EVENT.BROWSER_WINDOW_EXIT_FULLSCREEN, (event) => {
+    getSenderWindow(event)?.exitFullscreen();
+  });
+
+  ipcMain.on(VS_GO_EVENT.BROWSER_WINDOW_MINIMIZE, (event) => {
+    getSenderWindow(event)?.minimizeWindow();
+  });
+
+  ipcMain.on(VS_GO_EVENT.BROWSER_WINDOW_CLOSE_WINDOW, (event) => {
+    getSenderWindow(event)?.closeWindow();
+  });
 }
 
 registerTabbedBrowserHandlers();

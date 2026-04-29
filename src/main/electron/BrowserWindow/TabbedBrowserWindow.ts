@@ -150,6 +150,8 @@ export class TabbedBrowserWindow {
 
     this.hostWindow.on("resize", () => this.updateActiveViewBounds());
     this.hostWindow.on("closed", () => this.handleClosed());
+    this.hostWindow.on("enter-full-screen", () => this.broadcastFullscreen(true));
+    this.hostWindow.on("leave-full-screen", () => this.broadcastFullscreen(false));
     this.hostWindow.webContents.on("before-input-event", (event, input) =>
       this.handleKeyboard(event, input)
     );
@@ -583,6 +585,32 @@ export class TabbedBrowserWindow {
 
   hide(): void {
     if (!this.hostWindow.isDestroyed()) this.hostWindow.hide();
+  }
+
+  isFullScreen(): boolean {
+    return !this.hostWindow.isDestroyed() && this.hostWindow.isFullScreen();
+  }
+
+  exitFullscreen(): void {
+    if (!this.hostWindow.isDestroyed() && this.hostWindow.isFullScreen()) {
+      this.hostWindow.setFullScreen(false);
+    }
+  }
+
+  minimizeWindow(): void {
+    if (!this.hostWindow.isDestroyed()) {
+      if (this.hostWindow.isFullScreen()) this.hostWindow.setFullScreen(false);
+      this.hostWindow.minimize();
+    }
+  }
+
+  closeWindow(): void {
+    if (!this.hostWindow.isDestroyed()) this.hostWindow.close();
+  }
+
+  private broadcastFullscreen(isFullscreen: boolean): void {
+    if (this.closed || this.hostWindow.isDestroyed()) return;
+    this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, isFullscreen);
   }
 }
 
