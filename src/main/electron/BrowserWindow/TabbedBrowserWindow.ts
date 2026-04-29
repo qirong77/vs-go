@@ -207,7 +207,8 @@ export class TabbedBrowserWindow {
     }
     const length = this.tabs.length;
     view.webContents.once("did-finish-load", () => {
-      if (length >= 2) {
+      const isDefaultHomeUrl = url === TABBED_BROWSER_DEFAULT_HOME_URL;
+      if (length >= 2 && isDefaultHomeUrl ) {
         console.log("focus and focusAddressBar");
         this.hostWindow.webContents.focus();
         this.focusAddressBar();
