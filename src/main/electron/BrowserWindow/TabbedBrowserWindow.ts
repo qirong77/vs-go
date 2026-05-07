@@ -294,7 +294,7 @@ export class TabbedBrowserWindow {
     }
   }
 
-  switchTab(tabId: string, opts?: { focusPage?: boolean }): void {
+  switchTab(tabId: string, _opts?: { focusPage?: boolean }): void {
     const tab = this.tabs.find((t) => t.id === tabId);
     if (!tab) return;
 

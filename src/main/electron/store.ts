@@ -22,11 +22,7 @@ const schema = {
     default: [],
     items: {
       type: "object",
-      properties: {
-        id: { type: "string" },
-        name: { type: "string" },
-        url: { type: "string" },
-      },
+      additionalProperties: true,
     },
   },
   fileAccessHistory: {

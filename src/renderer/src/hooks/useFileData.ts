@@ -32,7 +32,9 @@ export function useFileData(searchValue: string) {
     const filtered = allFiles
       .filter((file) => {
         const fName = normalizeStr(file.fileName);
-        return fName.includes(trimmedSearch) || file.browser?.url.includes(trimmedSearch);
+        return (
+          fName.includes(trimmedSearch) || file.browser?.url?.includes(trimmedSearch) || false
+        );
       })
       .sort((a, b) => {
         if (!trimmedSearch) {
@@ -55,11 +57,11 @@ export function useFileData(searchValue: string) {
           b.lastAccessTime && now - b.lastAccessTime < oneWeek ? 20 : 0;
 
         const aUrlScore =
-          a.browser?.name.includes(trimmedSearch) || a.browser?.url.includes(trimmedSearch)
+          a.browser?.name.includes(trimmedSearch) || a.browser?.url?.includes(trimmedSearch)
             ? 1
             : 0;
         const bUrlScore =
-          b.browser?.name.includes(trimmedSearch) || b.browser?.url.includes(trimmedSearch)
+          b.browser?.name.includes(trimmedSearch) || b.browser?.url?.includes(trimmedSearch)
             ? 1
             : 0;
 

@@ -3,16 +3,23 @@ import { VS_GO_EVENT } from "../../common/EVENT";
 import {
   BROWSER_CHROME_HEIGHT,
   tabUrlForAddressBarDisplay,
+  type BrowserItem,
   type TabState,
   type TabbedBrowserState,
   type BrowserSuggestion,
 } from "../../common/type";
+import { bookmarkUrlsMatch } from "./bookmark/bookmarkUtils";
+import {
+  BookmarkChromeBarRow,
+  BookmarkChromeProvider,
+  BookmarkChromeStar,
+} from "./bookmark/BookmarkChromeBar";
 
 const { ipcRenderer } = window.electron;
 
-// 标签栏 32px + 地址栏 40px = 72px（必须与 common/type.ts BROWSER_CHROME_HEIGHT 一致）
+// 标签栏 32px + 地址栏行 40px + 书签栏 28px = 100px（与 common/type.ts BROWSER_CHROME_HEIGHT 一致）
 const TAB_BAR_HEIGHT = 32;
-const ADDRESS_BAR_HEIGHT = BROWSER_CHROME_HEIGHT - TAB_BAR_HEIGHT;
+const ADDRESS_ROW_HEIGHT = 40;
 const TAB_MIN_WIDTH = 80;
 const TAB_MAX_WIDTH = 220;
 const ADDRESS_HISTORY_STORAGE_KEY = "vs-go.address-history";
@@ -56,15 +63,35 @@ function TabbedBrowser(): React.JSX.Element {
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
   const addressHistoryRef = useRef<string[]>(addressHistory);
-  /** 作废过期的地址建议请求，避免 blur / 切 tab 后仍回调 notifyChromePadding 把主进程留白撑开 */
+  /** 作废过期的地址建议请求，避免 blur / 切 tab 后仍回调 chrome padding 把主进程留白撑开 */
   const suggestionsFetchGenRef = useRef(0);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [bookmarks, setBookmarks] = useState<BrowserItem[]>([]);
 
   const activeTab = useMemo<TabState | undefined>(
     () => state.tabs.find((t) => t.id === state.activeTabId),
     [state]
   );
+
+  const bookmarkTargetUrl = (activeTab?.url ?? "").trim();
+  const existingBookmark = useMemo(
+    () =>
+      bookmarks.find(
+        (b) =>
+          (b.type === "bookmark" || b.type === "history") &&
+          !!b.url &&
+          bookmarkUrlsMatch(b.url, bookmarkTargetUrl)
+      ),
+    [bookmarks, bookmarkTargetUrl]
+  );
+  const canBookmark =
+    !!bookmarkTargetUrl && bookmarkTargetUrl !== "about:blank";
+
+  const refreshBookmarks = useCallback(async (): Promise<void> => {
+    const list = (await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_LIST)) as BrowserItem[] | null;
+    setBookmarks(Array.isArray(list) ? list : []);
+  }, []);
 
   const addAddressToHistory = useCallback((rawUrl: string): void => {
     const url = rawUrl.trim();
@@ -122,6 +149,10 @@ function TabbedBrowser(): React.JSX.Element {
     };
   }, []);
 
+  useEffect(() => {
+    void refreshBookmarks();
+  }, [refreshBookmarks]);
+
   // 当前 tab 变化 / URL 变化且未编辑时，同步 address bar（默认首页在栏内显示为空）
   useEffect(() => {
     if (!editing) {
@@ -150,26 +181,6 @@ function TabbedBrowser(): React.JSX.Element {
       // ignore
     }
   }, [addressHistory]);
-
-  const SUGGESTION_ITEM_HEIGHT = 48;
-  const SUGGESTION_VISIBLE_ITEMS = 5;
-  // 额外缓冲：为下拉框的底部边框+圆角留出空间，避免被 WebContentsView 盖住
-  const SUGGESTION_CHROME_BUFFER = 12;
-
-  const notifyChromePadding = useCallback((count: number): void => {
-    const extra =
-      count > 0
-        ? Math.min(count, SUGGESTION_VISIBLE_ITEMS) * SUGGESTION_ITEM_HEIGHT +
-          SUGGESTION_CHROME_BUFFER
-        : 0;
-    ipcRenderer.send(VS_GO_EVENT.BROWSER_CHROME_SET_PADDING, extra);
-  }, []);
-
-  // 主进程留白与「是否展开建议」一致，避免异步 suggest 在关闭后仍把 chromeExtraHeight 顶上去
-  useEffect(() => {
-    const count = showSuggestions && suggestions.length > 0 ? suggestions.length : 0;
-    notifyChromePadding(count);
-  }, [showSuggestions, suggestions.length, notifyChromePadding]);
 
   // 获取地址栏建议
   const fetchSuggestions = useCallback(async (query: string): Promise<void> => {
@@ -377,8 +388,12 @@ function TabbedBrowser(): React.JSX.Element {
     return Math.max(TAB_MIN_WIDTH, Math.min(TAB_MAX_WIDTH, w));
   }, [state.tabs.length]);
 
+  const SUGGESTION_ITEM_HEIGHT = 48;
+  const SUGGESTION_VISIBLE_ITEMS = 5;
+
   return (
     <div
+      className="tabbed-browser-chrome-root"
       style={{
         height: BROWSER_CHROME_HEIGHT,
         MozUserSelect: "none",
@@ -394,6 +409,19 @@ function TabbedBrowser(): React.JSX.Element {
         zIndex: 100,
       }}
     >
+      <BookmarkChromeProvider
+        suggestionsRef={suggestionsRef}
+        showSuggestions={showSuggestions}
+        suggestionsLength={suggestions.length}
+        bookmarks={bookmarks}
+        onBookmarksUpdated={refreshBookmarks}
+        submitAddress={submitAddress}
+        bookmarkTargetUrl={bookmarkTargetUrl}
+        activeTabTitle={activeTab?.title ?? ""}
+        activeTabId={activeTab?.id}
+        existingBookmark={existingBookmark}
+        canBookmark={canBookmark}
+      >
       {/* 标签栏 */}
       <div
         ref={tabBarRef}
@@ -584,13 +612,13 @@ function TabbedBrowser(): React.JSX.Element {
       {/* 地址栏 */}
       <div
         style={{
-          height: ADDRESS_BAR_HEIGHT,
+          height: ADDRESS_ROW_HEIGHT,
           background: "#ffffff",
           display: "flex",
           alignItems: "center",
           padding: "0 10px",
           gap: 4,
-          borderBottom: "1px solid #e0e0e0",
+          // borderBottom: "1px solid #e0e0e0",
           overflow: "visible",
           position: "relative",
         }}
@@ -641,8 +669,9 @@ function TabbedBrowser(): React.JSX.Element {
                 openHistorySuggestions();
               }}
               onBlur={(e) => {
-                // 如果点击的是建议项，不立即关闭
                 if (suggestionsRef.current?.contains(e.relatedTarget as Node)) return;
+                const rt = e.relatedTarget;
+                if (rt instanceof Element && rt.closest("[data-bookmark-star-wrap]")) return;
                 setEditing(false);
                 closeSuggestions();
                 setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
@@ -744,7 +773,12 @@ function TabbedBrowser(): React.JSX.Element {
             </div>
           )}
         </div>
+
+        <BookmarkChromeStar />
       </div>
+
+      <BookmarkChromeBarRow />
+      </BookmarkChromeProvider>
     </div>
   );
 }

@@ -15,9 +15,12 @@ export interface AppSettings {
 export interface BrowserItem {
   id: string;
   name: string;
-  url: string;
+  /** 书签、历史类条目必填；文件夹可不存 */
+  url?: string;
   lastVisit?: number;
-  type: "bookmark" | "history";
+  type: "bookmark" | "folder" | "history";
+  /** 书签栏根为 null；旧数据缺省视为 null */
+  parentId?: string | null;
 }
 
 // --- 浏览器历史 & 地址栏建议 ---
@@ -117,8 +120,8 @@ export interface IpcResult<T = undefined> {
 
 // --- Chrome 风格 Tabbed Browser 窗口 ---
 
-/** Chrome 外壳 UI 总高度（标签栏 + 地址栏），main 与 renderer 共享 */
-export const BROWSER_CHROME_HEIGHT = 72;
+/** Chrome 外壳 UI 总高度（标签栏 + 地址栏 + 书签栏），main 与 renderer 共享 */
+export const BROWSER_CHROME_HEIGHT = 100;
 
 /** 新标签 / 空输入时的默认首页（与 main 中 load 逻辑保持一致） */
 export const TABBED_BROWSER_DEFAULT_HOME_URL = "https://www.google.com";

@@ -10,13 +10,18 @@ import { vsgoStore, fileAccessStore } from "../store";
 
 export async function getMainWindowFiles(): Promise<IMainWindowFiles> {
   const browserList = vsgoStore.get("browserList") as BrowserItem[];
-  const browserFiles = browserList.map((item) => ({
-    fileName: item.name,
-    filePath: item.url,
-    iconBase64: "",
-    useAppBase64: "",
-    browser: { ...item },
-  }));
+  const browserFiles = browserList
+    .filter(
+      (item): item is BrowserItem & { url: string } =>
+        (item.type === "bookmark" || item.type === "history") && !!item.url
+    )
+    .map((item) => ({
+      fileName: item.name,
+      filePath: item.url,
+      iconBase64: "",
+      useAppBase64: "",
+      browser: { ...item },
+    }));
 
   const files = [...getWorkSpaceFiles(), ...getShellConfigFiles(), ...browserFiles];
 

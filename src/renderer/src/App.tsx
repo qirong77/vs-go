@@ -11,7 +11,7 @@ function App() {
   const ulRef = useRef<HTMLUListElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { showFiles: allShowFiles, updateAllFiles } = useFileData(input);
+  const { showFiles: allShowFiles } = useFileData(input);
   const showFiles = allShowFiles.filter((f) => !f.browser);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
