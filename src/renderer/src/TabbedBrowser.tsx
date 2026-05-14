@@ -121,14 +121,12 @@ function TabbedBrowser(): React.JSX.Element {
     const onUpdate = (_e: unknown, s: TabbedBrowserState): void => {
       setState(s);
     };
-    const onFocusAddress = (_e: unknown, opts?: { fromNewTab?: boolean }): void => {
+    const onFocusAddress = (): void => {
       setEditing(true);
       requestAnimationFrame(() => {
         addressInputRef.current?.focus();
         addressInputRef.current?.select();
-        if (!opts?.fromNewTab) {
-          openHistorySuggestions();
-        }
+        openHistorySuggestions();
       });
     };
     const onBlurAddress = (): void => {
