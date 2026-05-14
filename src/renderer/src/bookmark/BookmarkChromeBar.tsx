@@ -205,6 +205,7 @@ export function BookmarkChromeProvider({
       if (!t) return;
 
       if (starPopoverWrapRef.current?.contains(t)) return;
+      if (bookmarkStarPopoverRef.current?.contains(t)) return;
       if (bookmarkPopoverOpen) setBookmarkPopoverOpen(false);
 
       if (bookmarkCtxMenuRef.current?.contains(t)) return;
@@ -473,6 +474,58 @@ export function BookmarkChromeStar(): React.JSX.Element {
 export function BookmarkChromeBarRow(): React.JSX.Element {
   const ctx = useBookmarkChrome();
   const rootBarItems = useMemo(() => orderedRootBarItems(ctx.bookmarks), [ctx.bookmarks]);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const handleDragStart = useCallback((e: React.DragEvent, item: BrowserItem) => {
+    e.dataTransfer.setData("text/plain", item.id);
+    e.dataTransfer.effectAllowed = "move";
+    (e.currentTarget as HTMLElement).style.opacity = "0.5";
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    (e.currentTarget as HTMLElement).style.opacity = "1";
+    setDragOverId(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverId(targetId);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverId(null);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent, targetId: string) => {
+      e.preventDefault();
+      setDragOverId(null);
+      const sourceId = e.dataTransfer.getData("text/plain");
+      if (!sourceId || sourceId === targetId) return;
+
+      const source = ctx.bookmarks.find((b) => b.id === sourceId);
+      if (!source) return;
+      if ((source.parentId ?? null) !== null) return;
+
+      const siblings = rootBarItems.filter((b) => b.id !== sourceId);
+      const targetIndex = siblings.findIndex((b) => b.id === targetId);
+      if (targetIndex === -1) return;
+
+      siblings.splice(targetIndex, 0, source);
+      for (let i = 0; i < siblings.length; i++) {
+        const s = siblings[i];
+        if ((s.order ?? i) !== i) {
+          await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REORDER, {
+            id: s.id,
+            order: i,
+          });
+        }
+      }
+      await ctx.onBookmarksUpdated();
+    },
+    [ctx.bookmarks, ctx.onBookmarksUpdated, rootBarItems]
+  );
 
   const folderMenuItems: MenuProps["items"] = useMemo(() => {
     if (!ctx.folderDropdown) return [];
@@ -596,7 +649,13 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
                 size="small"
                 type={ctx.folderDropdown?.folderId === item.id ? "link" : "text"}
                 icon={<FolderOutlined />}
-
+                draggable
+                onDragStart={(e) => handleDragStart(e, item)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, item.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => void handleDrop(e, item.id)}
+                style={{ ...(dragOverId === item.id ? { borderLeft: "2px solid #1a73e8" } : {}) }}
                 onMouseDown={(e) => {
                   if (e.button === 0) e.preventDefault();
                 }}
@@ -621,8 +680,14 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
                 data-bookmark-chip
                 type="text"
                 size="small"
-                style={{ maxWidth: 160 }}
+                style={{ maxWidth: 160, ...(dragOverId === item.id ? { borderLeft: "2px solid #1a73e8" } : {}) }}
                 title={`${item.name}\n${item.url ?? ""}`}
+                draggable
+                onDragStart={(e) => handleDragStart(e, item)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, item.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => void handleDrop(e, item.id)}
                 onMouseDown={(e) => {
                   if (e.button === 0) e.preventDefault();
                 }}

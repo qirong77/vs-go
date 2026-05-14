@@ -13,14 +13,18 @@ export function bookmarkUrlsMatch(a: string, b: string): boolean {
 }
 
 export function orderedRootBarItems(all: BrowserItem[]): BrowserItem[] {
-  return all.filter(
-    (i) =>
-      (i.parentId ?? null) === null && (i.type === "bookmark" || i.type === "folder")
-  );
+  return all
+    .filter(
+      (i) =>
+        (i.parentId ?? null) === null && (i.type === "bookmark" || i.type === "folder")
+    )
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export function orderedChildrenOf(all: BrowserItem[], parentId: string): BrowserItem[] {
-  return all.filter((i) => (i.parentId ?? null) === parentId);
+  return all
+    .filter((i) => (i.parentId ?? null) === parentId)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 /** candidateId 是否在 rootFolderId 文件夹子树中（含与 root 同 id） */

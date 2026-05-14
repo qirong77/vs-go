@@ -21,6 +21,8 @@ export interface BrowserItem {
   type: "bookmark" | "folder" | "history";
   /** 书签栏根为 null；旧数据缺省视为 null */
   parentId?: string | null;
+  /** 同级内的排序序号，用于拖动排序 */
+  order?: number;
 }
 
 // --- 浏览器历史 & 地址栏建议 ---
@@ -124,7 +126,7 @@ export interface IpcResult<T = undefined> {
 export const BROWSER_CHROME_HEIGHT = 100;
 
 /** 新标签 / 空输入时的默认首页（与 main 中 load 逻辑保持一致） */
-export const TABBED_BROWSER_DEFAULT_HOME_URL = "https://www.google.com";
+export const TABBED_BROWSER_DEFAULT_HOME_URL = "vsgo://user-notes";
 
 /** 是否为默认首页 URL（仅用于地址栏展示为空，真实导航 URL 不变） */
 export function isTabbedBrowserDefaultHomeUrl(url: string): boolean {

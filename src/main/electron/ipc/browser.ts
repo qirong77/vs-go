@@ -12,6 +12,9 @@ export function registerBrowserHandlers(): void {
 
   ipcMain.handle(VS_GO_EVENT.BROWSER_ADD, async (_event, item: BrowserItem) => {
     const list = vsgoStore.get("browserList", []) as BrowserItem[];
+    const siblings = list.filter((i) => (i.parentId ?? null) === (item.parentId ?? null));
+    const maxOrder = siblings.reduce((max, i) => Math.max(max, i.order ?? 0), -1);
+    item.order = maxOrder + 1;
     list.push(item);
     vsgoStore.set("browserList", list);
     return list;
@@ -38,6 +41,19 @@ export function registerBrowserHandlers(): void {
     const next = list.filter((item) => !idsToRemove.has(item.id));
     vsgoStore.set("browserList", next);
     return next;
+  });
+
+  ipcMain.handle(VS_GO_EVENT.BROWSER_REORDER, async (_event, payload: { id: string; order: number; parentId?: string | null }) => {
+    const list = vsgoStore.get("browserList", []) as BrowserItem[];
+    const idx = list.findIndex((i) => i.id === payload.id);
+    if (idx !== -1) {
+      list[idx].order = payload.order;
+      if (payload.parentId !== undefined) {
+        list[idx].parentId = payload.parentId;
+      }
+      vsgoStore.set("browserList", list);
+    }
+    return list;
   });
 
   ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE_ALL, async () => {

@@ -62,7 +62,7 @@ function extractFaviconFromFavicons(favicons: string[]): string {
 // ============================================================
 
 /** 允许的内部 hash 路由集合（与 renderer/src/entry.tsx ROUTES 中的 key 对应） */
-const INTERNAL_ROUTES = new Set(["settings"]);
+const INTERNAL_ROUTES = new Set(["settings", "user-notes"]);
 
 /** 把 vsgo://xxx 解析为真实的 renderer 页面 URL */
 export function resolveInternalUrl(input: string): string | null {
@@ -213,7 +213,7 @@ export class TabbedBrowserWindow {
       if (length >= 2 && isDefaultHomeUrl ) {
         console.log("focus and focusAddressBar");
         this.hostWindow.webContents.focus();
-        this.focusAddressBar();
+        // this.focusAddressBar();
       }
     });
     return tab;
@@ -400,6 +400,7 @@ export class TabbedBrowserWindow {
     // 内部页面默认标题
     const internalTitleMap: Record<string, string> = {
       "vsgo://settings": "设置",
+      "vsgo://user-notes": "笔记",
     };
     const title =
       (displayUrl && internalTitleMap[displayUrl]) ||
