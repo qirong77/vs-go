@@ -671,13 +671,14 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
         }}
         style={
           {
-            height: 28,
-            minHeight: 28,
+            height: 34,
+            minHeight: 34,
             background: "#fff",
             borderBottom: "1px solid var(--ant-color-border-secondary)",
             display: "flex",
             alignItems: "center",
-            padding: "0 8px",
+            padding: "0 8px 6px",
+            boxSizing: "border-box",
             gap: 4,
             overflowX: "auto",
             overflowY: "hidden",

@@ -18,7 +18,7 @@ import {
 
 const { ipcRenderer } = window.electron;
 
-// 标签栏 32px + 地址栏行 40px + 书签栏 28px = 100px（与 common/type.ts BROWSER_CHROME_HEIGHT 一致）
+// 标签栏 32px + 地址栏行 40px + 书签栏 28px + 底边距 6px = 106px（与 common/type.ts BROWSER_CHROME_HEIGHT 一致）
 const TAB_BAR_HEIGHT = 32;
 const ADDRESS_ROW_HEIGHT = 40;
 const TAB_MIN_WIDTH = 80;

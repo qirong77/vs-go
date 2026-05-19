@@ -122,8 +122,8 @@ export interface IpcResult<T = undefined> {
 
 // --- Chrome 风格 Tabbed Browser 窗口 ---
 
-/** Chrome 外壳 UI 总高度（标签栏 + 地址栏 + 书签栏），main 与 renderer 共享 */
-export const BROWSER_CHROME_HEIGHT = 100;
+/** Chrome 外壳 UI 总高度（标签栏 + 地址栏 + 书签栏 + 书签栏底边距），main 与 renderer 共享 */
+export const BROWSER_CHROME_HEIGHT = 106;
 
 /** 新标签 / 空输入时的默认首页（与 main 中 load 逻辑保持一致） */
 export const TABBED_BROWSER_DEFAULT_HOME_URL = "vsgo://user-notes";
