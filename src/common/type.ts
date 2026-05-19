@@ -193,3 +193,39 @@ export interface OverlayActionPayload {
   type: string;
   [key: string]: unknown;
 }
+
+/** 浮动窗口为 box-shadow 预留的外扩边距（窗口比内容大，阴影才不会被裁切） */
+export const OVERLAY_SHADOW_INSET = {
+  horizontal: 12,
+  bottom: 20,
+  top: 8,
+} as const;
+
+export interface OverlayContentInset {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+export function getOverlayContentInset(type: OverlayType): OverlayContentInset {
+  const { horizontal, bottom, top } = OVERLAY_SHADOW_INSET;
+  if (type === "suggestions") {
+    return { top: 0, right: horizontal, bottom, left: horizontal };
+  }
+  return { top, right: horizontal, bottom, left: horizontal };
+}
+
+/** 根据内容区域计算 Electron 浮动窗口实际 bounds */
+export function getOverlayWindowBounds(
+  contentBounds: OverlayBounds,
+  type: OverlayType
+): OverlayBounds {
+  const inset = getOverlayContentInset(type);
+  return {
+    x: contentBounds.x - inset.left,
+    y: contentBounds.y - inset.top,
+    width: contentBounds.width + inset.left + inset.right,
+    height: contentBounds.height + inset.top + inset.bottom,
+  };
+}

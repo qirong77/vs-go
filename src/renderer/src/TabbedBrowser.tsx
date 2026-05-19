@@ -764,6 +764,10 @@ function TabbedBrowser(): React.JSX.Element {
 
       <BookmarkChromeBarRow />
       </BookmarkChromeProvider>
+      <div style={{
+        height:1,
+        background: "var(--ant-color-border-primary)",
+      }}></div>
     </div>
   );
 }

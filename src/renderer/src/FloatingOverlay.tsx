@@ -4,6 +4,7 @@ import type { MenuProps } from "antd";
 import { FolderOutlined, PlusOutlined, EditOutlined, DeleteOutlined, FolderAddOutlined } from "@ant-design/icons";
 import { VS_GO_EVENT } from "../../common/EVENT";
 import type { BrowserSuggestion, BrowserItem, OverlayType } from "../../common/type";
+import { getOverlayContentInset } from "../../common/type";
 
 const { ipcRenderer } = window.electron;
 const { Text } = Typography;
@@ -312,6 +313,15 @@ export default function FloatingOverlay(): React.JSX.Element {
   const [content, setContent] = useState<OverlayContentPayload | null>(null);
 
   useEffect(() => {
+    document.documentElement.style.background = "transparent";
+    document.body.style.background = "transparent";
+    return () => {
+      document.documentElement.style.background = "";
+      document.body.style.background = "";
+    };
+  }, []);
+
+  useEffect(() => {
     const handler = (_e: unknown, payload: OverlayContentPayload): void => {
       setContent(payload);
     };
@@ -326,19 +336,17 @@ export default function FloatingOverlay(): React.JSX.Element {
   }
 
   const isSuggestions = content.type === "suggestions";
+  const inset = getOverlayContentInset(content.type);
 
   const wrapStyle: React.CSSProperties = {
     background: "#fff",
-    // 建议列表：顶部与地址栏齐平，不要圆角；其余弹窗四角均有圆角
     borderRadius: isSuggestions ? "0 0 10px 10px" : 10,
-    overflow: "hidden",
-    // 建议列表用更明显的阴影，其他弹窗正常阴影
     boxShadow: isSuggestions
-      ? "0 8px 24px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)"
+      ? "0 8px 24px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)"
       : "0 8px 30px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)",
-    // 建议列表顶部加蓝色边框，与地址栏焦点色保持一致
     borderTop: isSuggestions ? "1px solid #1a73e8" : undefined,
     pointerEvents: "auto",
+    overflow: "hidden",
   };
 
   let body: React.JSX.Element;
@@ -365,8 +373,18 @@ export default function FloatingOverlay(): React.JSX.Element {
 
   return (
     <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm }} componentSize="small">
-      <div style={wrapStyle}>
-        {body}
+      <div
+        style={{
+          width: "100vw",
+          height: "100vh",
+          boxSizing: "border-box",
+          background: "transparent",
+          padding: `${inset.top}px ${inset.right}px ${inset.bottom}px ${inset.left}px`,
+        }}
+      >
+        <div style={wrapStyle}>
+          {body}
+        </div>
       </div>
     </ConfigProvider>
   );

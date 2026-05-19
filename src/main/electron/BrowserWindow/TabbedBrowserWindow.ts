@@ -17,6 +17,8 @@ import {
   type TabbedBrowserState,
   type OverlayContentPayload,
   type OverlayBounds,
+  type OverlayType,
+  getOverlayWindowBounds,
 } from "../../../common/type";
 import { generateId } from "../../../common/utils";
 import { setupContextMenu } from "../contextMenu";
@@ -121,6 +123,7 @@ export class TabbedBrowserWindow {
   private overlayBounds: OverlayBounds | null = null;
   /** 窗口首次加载期间缓存的待发送内容，加载完成后立即投递 */
   private overlayPendingContent: OverlayContentPayload | null = null;
+  private overlayType: OverlayType | null = null;
 
   /** 外部检测：是否正在销毁中，避免空窗口重复清理 */
   get isDestroyed(): boolean {
@@ -461,19 +464,11 @@ export class TabbedBrowserWindow {
 
   showOverlay(bounds: OverlayBounds, content: OverlayContentPayload): void {
     this.overlayBounds = bounds;
+    this.overlayType = content.type;
     this.ensureOverlayWindow();
     if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
 
-    const contentBounds = this.hostWindow.getContentBounds();
-    const screenX = contentBounds.x + bounds.x;
-    const screenY = contentBounds.y + bounds.y;
-
-    this.overlayWindow.setBounds({
-      x: Math.round(screenX),
-      y: Math.round(screenY),
-      width: Math.round(bounds.width),
-      height: Math.round(bounds.height),
-    });
+    this.applyOverlayWindowBounds();
 
     if (this.overlayWindow.webContents.isLoading()) {
       // 页面还在加载，先缓存内容，等 did-finish-load 后再发送
@@ -495,6 +490,7 @@ export class TabbedBrowserWindow {
       // ignore
     }
     this.overlayBounds = null;
+    this.overlayType = null;
   }
 
   handleOverlayAction(payload: Record<string, unknown>): void {
@@ -548,20 +544,23 @@ export class TabbedBrowserWindow {
     this.overlayWindow = win;
   }
 
-  private repositionOverlay(): void {
+  private applyOverlayWindowBounds(): void {
     if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
-    if (!this.overlayBounds) return;
+    if (!this.overlayBounds || !this.overlayType) return;
 
-    const contentBounds = this.hostWindow.getContentBounds();
-    const screenX = contentBounds.x + this.overlayBounds.x;
-    const screenY = contentBounds.y + this.overlayBounds.y;
+    const windowBounds = getOverlayWindowBounds(this.overlayBounds, this.overlayType);
+    const hostContentBounds = this.hostWindow.getContentBounds();
 
     this.overlayWindow.setBounds({
-      x: Math.round(screenX),
-      y: Math.round(screenY),
-      width: Math.round(this.overlayBounds.width),
-      height: Math.round(this.overlayBounds.height),
+      x: Math.round(hostContentBounds.x + windowBounds.x),
+      y: Math.round(hostContentBounds.y + windowBounds.y),
+      width: Math.round(windowBounds.width),
+      height: Math.round(windowBounds.height),
     });
+  }
+
+  private repositionOverlay(): void {
+    this.applyOverlayWindowBounds();
   }
 
   private updateActiveViewBounds(): void {
