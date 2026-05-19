@@ -21,7 +21,7 @@ const AppList: WorkspaceApp[] = [
   workspaceApp('UU远程', 'UURemote'),
 ]
 
-const CHECK_INTERVAL = 10 * 60 * 1000
+const CHECK_INTERVAL = 60 * 60 * 1000
 
 function appBundlePath(bundleName: string): string {
   return path.join('/Applications', `${bundleName}.app`)
