@@ -189,9 +189,9 @@ export interface OverlayActionPayload {
 
 /** 浮动窗口为 box-shadow 预留的外扩边距（窗口比内容大，阴影才不会被裁切） */
 export const OVERLAY_SHADOW_INSET = {
-  horizontal: 12,
-  bottom: 20,
-  top: 8,
+  horizontal: 6,
+  bottom: 10,
+  top: 4,
 } as const;
 
 export interface OverlayContentInset {

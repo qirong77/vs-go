@@ -1,13 +1,172 @@
 import { useEffect, useState } from "react";
-import { ConfigProvider, Input, Button, Menu, Typography, theme, Form, Space } from "antd";
+import { ConfigProvider, Input, Menu, theme } from "antd";
 import type { MenuProps } from "antd";
-import { FolderOutlined, PlusOutlined, EditOutlined, DeleteOutlined, FolderAddOutlined } from "@ant-design/icons";
+import {
+  FolderOutlined,
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  FolderAddOutlined,
+  StarFilled,
+} from "@ant-design/icons";
 import { VS_GO_EVENT } from "@shared/EVENT";
 import type { BrowserItem, OverlayType } from "@shared/type";
 import { getOverlayContentInset } from "@shared/type";
 
 const { ipcRenderer } = window.electron;
-const { Text } = Typography;
+
+const OVERLAY_STYLES = `
+  .vsgo-overlay-root {
+    cursor: default;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .vsgo-overlay-card {
+    animation: vsgoOverlayIn 0.16s ease-out;
+  }
+  @keyframes vsgoOverlayIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .vsgo-overlay-panel {
+    padding: 10px 12px 8px;
+    min-width: 0;
+  }
+  .vsgo-overlay-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #202124;
+    margin-bottom: 8px;
+    user-select: none;
+  }
+  .vsgo-overlay-header-icon {
+    color: #f5b400;
+    font-size: 14px;
+  }
+  .vsgo-bookmark-name-input.ant-input {
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .vsgo-bookmark-url {
+    margin-top: 6px;
+    padding: 4px 6px;
+    font-size: 10px;
+    line-height: 1.4;
+    color: #5f6368;
+    background: #f1f3f4;
+    border-radius: 6px;
+    word-break: break-all;
+    user-select: text;
+  }
+  .vsgo-overlay-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .vsgo-overlay-footer-spacer {
+    flex: 1;
+  }
+  .vsgo-overlay-btn {
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    line-height: 1;
+    padding: 4px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+    user-select: none;
+  }
+  .vsgo-overlay-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+  .vsgo-overlay-btn-danger {
+    color: #d93025;
+  }
+  .vsgo-overlay-btn-danger:hover:not(:disabled) {
+    background: #fce8e6;
+  }
+  .vsgo-overlay-btn-ghost {
+    color: #5f6368;
+  }
+  .vsgo-overlay-btn-ghost:hover:not(:disabled) {
+    background: #f1f3f4;
+  }
+  .vsgo-overlay-btn-primary {
+    color: #fff;
+    background: #1a73e8;
+    font-weight: 500;
+  }
+  .vsgo-overlay-btn-primary:hover:not(:disabled) {
+    background: #1765cc;
+  }
+  .vsgo-overlay-menu.ant-menu {
+    padding: 2px;
+    background: transparent;
+  }
+  .vsgo-overlay-menu.ant-menu .ant-menu-item,
+  .vsgo-overlay-menu.ant-menu .ant-menu-submenu-title {
+    cursor: pointer;
+    border-radius: 4px;
+    margin: 0;
+    width: 100%;
+    min-height: 28px;
+    height: 28px;
+    line-height: 28px;
+    padding-inline: 8px !important;
+    font-size: 12px;
+    transition: background 0.12s ease;
+  }
+  .vsgo-overlay-menu.ant-menu .ant-menu-item-disabled {
+    cursor: default;
+  }
+  .vsgo-overlay-menu.ant-menu .ant-menu-item-disabled:hover {
+    background: transparent !important;
+  }
+  .vsgo-overlay-menu.ant-menu .ant-menu-item-group-title {
+    font-size: 10px;
+    color: #80868b;
+    padding: 4px 8px 2px;
+    line-height: 1.2;
+  }
+  .vsgo-overlay-menu.ant-menu .ant-menu-item-group-list {
+    padding: 0;
+  }
+  .vsgo-overlay-menu.ant-menu .ant-menu-item-group-list .ant-menu-item {
+    cursor: pointer;
+  }
+  .vsgo-folder-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #80868b;
+    font-size: 12px;
+    user-select: none;
+  }
+  .vsgo-bookmark-item-label {
+    display: block;
+    font-size: 12px;
+    color: #202124;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 220px;
+  }
+  .vsgo-name-dialog-title {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: #202124;
+    user-select: none;
+  }
+  .vsgo-overlay-panel .ant-input {
+    cursor: text;
+  }
+`;
 
 interface OverlayContentPayload {
   type: OverlayType;
@@ -36,35 +195,57 @@ function BookmarkStarOverlay({ data }: { data: BookmarkStarData }): React.JSX.El
   }, [data.draftName]);
 
   const hasExisting = !!data.existingBookmark;
+  const trimmed = name.trim();
+  const save = (): void => {
+    if (!trimmed) return;
+    sendAction({ action: "save-bookmark", name: trimmed });
+  };
 
   return (
-    <div style={{ width: 300, padding: 16 }}>
-      <Text strong>{hasExisting ? "修改书签" : "添加书签"}</Text>
-      <Form layout="vertical" style={{ marginTop: 12 }} size="small">
-        <Form.Item label="名称">
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onPressEnter={() => sendAction({ action: "save-bookmark", name: name.trim() })}
-            placeholder="书签名称"
-            allowClear
-            autoFocus
-          />
-        </Form.Item>
-        <Text type="secondary" style={{ fontSize: 12, wordBreak: "break-all", display: "block" }}>
-          {data.bookmarkTargetUrl}
-        </Text>
-        <Space style={{ marginTop: 12, justifyContent: "flex-end", width: "100%" }} wrap>
-          {hasExisting && (
-            <Button danger type="link" size="small" onMouseDown={(e) => { e.preventDefault(); sendAction({ action: "remove-bookmark" }); }}>
-              删除
-            </Button>
-          )}
-          <Button type="primary" size="small" onMouseDown={(e) => { e.preventDefault(); sendAction({ action: "save-bookmark", name: name.trim() }); }}>
-            完成
-          </Button>
-        </Space>
-      </Form>
+    <div className="vsgo-overlay-panel" style={{ width: 272 }}>
+      <div className="vsgo-overlay-header">
+        <StarFilled className="vsgo-overlay-header-icon" />
+        <span>{hasExisting ? "编辑书签" : "添加书签"}</span>
+      </div>
+      <Input
+        className="vsgo-bookmark-name-input"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onPressEnter={save}
+        placeholder="书签名称"
+        allowClear
+        autoFocus
+        size="small"
+      />
+      <div className="vsgo-bookmark-url" title={data.bookmarkTargetUrl}>
+        {data.bookmarkTargetUrl}
+      </div>
+      <div className="vsgo-overlay-footer">
+        {hasExisting ? (
+          <button
+            type="button"
+            className="vsgo-overlay-btn vsgo-overlay-btn-danger"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              sendAction({ action: "remove-bookmark" });
+            }}
+          >
+            删除
+          </button>
+        ) : null}
+        <div className="vsgo-overlay-footer-spacer" />
+        <button
+          type="button"
+          className="vsgo-overlay-btn vsgo-overlay-btn-primary"
+          disabled={!trimmed}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            save();
+          }}
+        >
+          完成
+        </button>
+      </div>
     </div>
   );
 }
@@ -87,12 +268,13 @@ interface FolderDropdownData {
 
 function FolderDropdownOverlay({ data }: { data: FolderDropdownData }): React.JSX.Element {
   const items: MenuProps["items"] = data.items.map((item) => {
+    const indent = item.depth * 12;
     if (item.type === "folder") {
       return {
         key: item.id,
         label: (
-          <span style={{ paddingLeft: item.depth * 10, color: "var(--ant-color-text-secondary)" }}>
-            <FolderOutlined style={{ marginRight: 6 }} />
+          <span className="vsgo-folder-label" style={{ paddingLeft: indent }}>
+            <FolderOutlined />
             {item.name}
           </span>
         ),
@@ -101,17 +283,22 @@ function FolderDropdownOverlay({ data }: { data: FolderDropdownData }): React.JS
     }
     return {
       key: item.id,
-      label: <span style={{ paddingLeft: item.depth * 10 }}>{item.name}</span>,
+      label: (
+        <span className="vsgo-bookmark-item-label" style={{ paddingLeft: indent }}>
+          {item.name}
+        </span>
+      ),
       onClick: () => sendAction({ action: "select-folder-item", url: item.url }),
     };
   });
 
   return (
     <Menu
+      className="vsgo-overlay-menu"
       mode="vertical"
       selectable={false}
       items={items}
-      style={{ border: "none", boxShadow: "none", minWidth: 200, maxWidth: 320 }}
+      style={{ border: "none", boxShadow: "none", minWidth: 180, maxWidth: 280 }}
     />
   );
 }
@@ -135,8 +322,9 @@ function ContextMenuOverlay({ data }: { data: ContextMenuData }): React.JSX.Elem
   if (data.kind === "blank") {
     return (
       <Menu
+        className="vsgo-overlay-menu"
         selectable={false}
-        style={{ border: "none", minWidth: 200 }}
+        style={{ border: "none", minWidth: 180 }}
         items={[
           {
             key: "nf",
@@ -189,8 +377,9 @@ function ContextMenuOverlay({ data }: { data: ContextMenuData }): React.JSX.Elem
 
   return (
     <Menu
+      className="vsgo-overlay-menu"
       selectable={false}
-      style={{ border: "none", minWidth: 200, maxWidth: 280 }}
+      style={{ border: "none", minWidth: 180, maxWidth: 260 }}
       items={items}
     />
   );
@@ -214,24 +403,48 @@ function NameDialogOverlay({ data }: { data: NameDialogData }): React.JSX.Elemen
     setName(data.draft);
   }, [data.draft]);
 
+  const trimmed = name.trim();
+  const commit = (): void => {
+    if (!trimmed) return;
+    sendAction({ action: "commit-name", name: trimmed });
+  };
+
   return (
-    <div style={{ width: 360, padding: "24px 24px 16px" }}>
-      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 16, color: "#202124" }}>{title}</div>
+    <div className="vsgo-overlay-panel" style={{ width: 320 }}>
+      <div className="vsgo-name-dialog-title">{title}</div>
       <Input
+        className="vsgo-bookmark-name-input"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        onPressEnter={() => { if (name.trim()) sendAction({ action: "commit-name", name: name.trim() }); }}
+        onPressEnter={commit}
         placeholder={data.kind === "rename" ? "名称" : "文件夹名称"}
         allowClear
         autoFocus
+        size="small"
       />
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-        <Button size="small" onMouseDown={(e) => { e.preventDefault(); sendAction({ action: "close-name-dialog" }); }}>
+      <div className="vsgo-overlay-footer">
+        <div className="vsgo-overlay-footer-spacer" />
+        <button
+          type="button"
+          className="vsgo-overlay-btn vsgo-overlay-btn-ghost"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            sendAction({ action: "close-name-dialog" });
+          }}
+        >
           取消
-        </Button>
-        <Button type="primary" size="small" disabled={!name.trim()} onMouseDown={(e) => { e.preventDefault(); sendAction({ action: "commit-name", name: name.trim() }); }}>
+        </button>
+        <button
+          type="button"
+          className="vsgo-overlay-btn vsgo-overlay-btn-primary"
+          disabled={!trimmed}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            commit();
+          }}
+        >
           确定
-        </Button>
+        </button>
       </div>
     </div>
   );
@@ -271,10 +484,15 @@ export default function FloatingOverlay(): React.JSX.Element {
 
   const wrapStyle: React.CSSProperties = {
     background: "#fff",
-    borderRadius: 10,
-    boxShadow: "0 8px 30px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)",
+    borderRadius: 6,
+    boxShadow: "0 2px 10px rgba(0,0,0,0.1), 0 0 0 0.5px rgba(0,0,0,0.04)",
     pointerEvents: "auto",
     overflow: "hidden",
+  };
+
+  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
+    if (e.target !== e.currentTarget) return;
+    sendAction({ action: "dismiss-overlay" });
   };
 
   let body: React.JSX.Element;
@@ -298,7 +516,10 @@ export default function FloatingOverlay(): React.JSX.Element {
 
   return (
     <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm }} componentSize="small">
+      <style>{OVERLAY_STYLES}</style>
       <div
+        className="vsgo-overlay-root"
+        onMouseDown={handleBackdropMouseDown}
         style={{
           width: "100vw",
           height: "100vh",
@@ -307,7 +528,11 @@ export default function FloatingOverlay(): React.JSX.Element {
           padding: `${inset.top}px ${inset.right}px ${inset.bottom}px ${inset.left}px`,
         }}
       >
-        <div style={wrapStyle}>
+        <div
+          className="vsgo-overlay-card"
+          style={wrapStyle}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {body}
         </div>
       </div>

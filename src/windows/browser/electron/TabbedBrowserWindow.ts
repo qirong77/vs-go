@@ -124,6 +124,8 @@ export class TabbedBrowserWindow {
   /** 窗口首次加载期间缓存的待发送内容，加载完成后立即投递 */
   private overlayPendingContent: OverlayContentPayload | null = null;
   private overlayType: OverlayType | null = null;
+  /** 主窗口 / 标签页点击时关闭浮层（网页区域收不到 chrome 的 document 事件） */
+  private overlayOutsideDismissCleanups: Array<() => void> = [];
 
   /** 外部检测：是否正在销毁中，避免空窗口重复清理 */
   get isDestroyed(): boolean {
@@ -219,6 +221,11 @@ export class TabbedBrowserWindow {
     this.tabs.push(tab);
 
     this.bindTabEvents(tab);
+    if (this.overlayOutsideDismissCleanups.length > 0) {
+      this.overlayOutsideDismissCleanups.push(
+        this.attachOverlayOutsideDismissToWebContents(tab.view.webContents)
+      );
+    }
 
     const resolvedInternal = resolveInternalUrl(url);
     const target = resolvedInternal ?? normalizeUrlOrSearch(url);
@@ -486,9 +493,11 @@ export class TabbedBrowserWindow {
         this.overlayWindow.showInactive();
       }
     }
+    this.installOverlayOutsideDismiss();
   }
 
   hideOverlay(): void {
+    this.clearOverlayOutsideDismiss();
     try {
       if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
         this.overlayWindow.hide();
@@ -498,6 +507,41 @@ export class TabbedBrowserWindow {
     }
     this.overlayBounds = null;
     this.overlayType = null;
+  }
+
+  private isOverlayVisible(): boolean {
+    return !!(
+      this.overlayWindow &&
+      !this.overlayWindow.isDestroyed() &&
+      this.overlayWindow.isVisible()
+    );
+  }
+
+  private attachOverlayOutsideDismissToWebContents(wc: WebContents): () => void {
+    const onBeforeInput = (_event: Electron.Event, input: Electron.Input): void => {
+      if (input.type === "mouseDown" && this.isOverlayVisible()) {
+        this.handleOverlayAction({ action: "dismiss-overlay" });
+      }
+    };
+    wc.on("before-input-event", onBeforeInput);
+    return () => {
+      if (!wc.isDestroyed()) {
+        wc.removeListener("before-input-event", onBeforeInput);
+      }
+    };
+  }
+
+  private installOverlayOutsideDismiss(): void {
+    this.clearOverlayOutsideDismiss();
+    // 仅监听标签页：chrome 区域由 BookmarkChromeBar 的 document mousedown 处理（含星标等排除逻辑）
+    this.overlayOutsideDismissCleanups = this.tabs.map((tab) =>
+      this.attachOverlayOutsideDismissToWebContents(tab.view.webContents)
+    );
+  }
+
+  private clearOverlayOutsideDismiss(): void {
+    for (const cleanup of this.overlayOutsideDismissCleanups) cleanup();
+    this.overlayOutsideDismissCleanups = [];
   }
 
   handleOverlayAction(payload: Record<string, unknown>): void {

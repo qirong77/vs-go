@@ -193,6 +193,7 @@ export function BookmarkChromeProvider({
     bookmarkBarMenu,
     onBookmarksUpdated,
     setBookmarkDraftName,
+    setBookmarkPopoverOpen,
     setBookmarkBarMenu,
     setFolderDropdown,
     setNameDialog,
@@ -209,6 +210,7 @@ export function BookmarkChromeProvider({
     bookmarkBarMenu,
     onBookmarksUpdated,
     setBookmarkDraftName,
+    setBookmarkPopoverOpen,
     setBookmarkBarMenu,
     setFolderDropdown,
     setNameDialog,
@@ -249,7 +251,7 @@ export function BookmarkChromeProvider({
             ctx.setNameDialog({ kind: "rename", item, draft: itemName });
             ctx.hideOverlay();
             requestAnimationFrame(() => {
-              ctx.showOverlay("name-dialog", { x: 200, y: 120, width: 360, height: 160 }, {
+              ctx.showOverlay("name-dialog", { x: 200, y: 120, width: 320, height: 140 }, {
                 kind: "rename",
                 draft: itemName,
                 itemName,
@@ -264,7 +266,7 @@ export function BookmarkChromeProvider({
           ctx.setNameDialog({ kind: "newFolder", parentId, draft: "新文件夹" });
           ctx.hideOverlay();
           requestAnimationFrame(() => {
-            ctx.showOverlay("name-dialog", { x: 200, y: 120, width: 360, height: 160 }, {
+            ctx.showOverlay("name-dialog", { x: 200, y: 120, width: 320, height: 140 }, {
               kind: "newFolder",
               draft: "新文件夹",
             });
@@ -319,6 +321,14 @@ export function BookmarkChromeProvider({
           break;
         }
         case "close-name-dialog": {
+          ctx.setNameDialog(null);
+          ctx.hideOverlay();
+          break;
+        }
+        case "dismiss-overlay": {
+          ctx.setBookmarkPopoverOpen(false);
+          ctx.setBookmarkBarMenu(null);
+          ctx.setFolderDropdown(null);
           ctx.setNameDialog(null);
           ctx.hideOverlay();
           break;
@@ -475,10 +485,10 @@ export function BookmarkChromeStar(): React.JSX.Element {
     const rect = el.getBoundingClientRect();
 
     ctx.showOverlay("bookmark-star", {
-      x: Math.max(8, rect.right - 300),
+      x: Math.max(8, rect.right - 272),
       y: rect.bottom + 4,
-      width: 300,
-      height: 220,
+      width: 272,
+      height: 190,
     }, {
       existingBookmark: ctx.existingBookmark,
       bookmarkTargetUrl: ctx.bookmarkTargetUrl,
@@ -587,10 +597,10 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
         })
       );
       ctx.showOverlay("folder-dropdown", {
-        x: Math.max(8, Math.min(ctx.folderDropdown.x, window.innerWidth - 220)),
+        x: Math.max(8, Math.min(ctx.folderDropdown.x, window.innerWidth - 200)),
         y: ctx.folderDropdown.y + 2,
-        width: 220,
-        height: Math.min(360, 8 + items.length * 36),
+        width: 200,
+        height: Math.min(320, 4 + items.length * 30),
       }, { items });
     }
   }, [ctx.folderDropdown?.folderId]);
@@ -603,8 +613,8 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
         ctx.showOverlay("context-menu", {
           x: items.x,
           y: items.y,
-          width: 240,
-          height: 80,
+          width: 220,
+          height: 64,
         }, { kind: "blank", targets: [] });
       } else {
         const targets = moveParentTargets(ctx.bookmarks, items.item).map((t) => ({ id: t.id, name: t.name }));
@@ -612,8 +622,8 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
         ctx.showOverlay("context-menu", {
           x: items.x,
           y: items.y,
-          width: 240,
-          height: Math.min(320, 8 + itemCount * 36),
+          width: 220,
+          height: Math.min(300, 4 + itemCount * 30),
         }, {
           kind: "item",
           item: items.item,
@@ -627,10 +637,10 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
   useEffect(() => {
     if (ctx.nameDialog) {
       ctx.showOverlay("name-dialog", {
-        x: Math.max(100, (window.innerWidth - 360) / 2),
+        x: Math.max(100, (window.innerWidth - 320) / 2),
         y: 120,
-        width: 360,
-        height: 160,
+        width: 320,
+        height: 140,
       }, {
         kind: ctx.nameDialog.kind,
         draft: ctx.nameDialog.draft,
