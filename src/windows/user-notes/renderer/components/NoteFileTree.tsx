@@ -11,7 +11,7 @@ import {
 import { Tree, Modal, message, Dropdown, Input } from "antd";
 import type { MenuProps, TreeProps } from "antd";
 import type { DataNode } from "antd/es/tree";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { UserNotesEvent } from "@windows/user-notes/events";
 import type { NoteTreeNode } from "@shared/type";
 import "./NoteFileTree.css";
 
@@ -186,7 +186,7 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({ onSelectFile, selectedFileI
   const loadTree = async () => {
     try {
       const tree: NoteTreeNode[] = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_GET_TREE
+        UserNotesEvent.USER_NOTES_GET_TREE
       );
       const rawTree = tree || [];
       // 应用本地保存的排序顺序
@@ -281,7 +281,7 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({ onSelectFile, selectedFileI
   const handleCreateFile = async (parentId?: string) => {
     try {
       const result = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_CREATE_FILE,
+        UserNotesEvent.USER_NOTES_CREATE_FILE,
         "新建笔记",
         parentId
       );
@@ -302,7 +302,7 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({ onSelectFile, selectedFileI
   const handleCreateFolder = async (parentId?: string) => {
     try {
       const result = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_CREATE_FOLDER,
+        UserNotesEvent.USER_NOTES_CREATE_FOLDER,
         "新建文件夹",
         parentId
       );
@@ -333,7 +333,7 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({ onSelectFile, selectedFileI
 
     try {
       const result = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_RENAME_NODE,
+        UserNotesEvent.USER_NOTES_RENAME_NODE,
         editingKey,
         editingValue.trim()
       );
@@ -386,7 +386,7 @@ const NoteFileTree: React.FC<NoteFileTreeProps> = ({ onSelectFile, selectedFileI
       onOk: async () => {
         try {
           const result = await window.electron.ipcRenderer.invoke(
-            VS_GO_EVENT.USER_NOTES_DELETE_NODE,
+            UserNotesEvent.USER_NOTES_DELETE_NODE,
             node.key
           );
           if (result.success) {

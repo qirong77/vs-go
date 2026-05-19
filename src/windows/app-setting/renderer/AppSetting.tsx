@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { AppEvent } from "@windows/app-setting/events";
 import type { DefaultEditor, AppSettings } from "@shared/type";
 
 const { ipcRenderer } = window.electron;
@@ -15,14 +15,14 @@ function AppSetting() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    ipcRenderer.invoke(VS_GO_EVENT.APP_SETTINGS_GET).then((res: AppSettings) => {
+    ipcRenderer.invoke(AppEvent.APP_SETTINGS_GET).then((res: AppSettings) => {
       if (res?.defaultEditor) setEditor(res.defaultEditor);
     });
   }, []);
 
   const handleSave = async () => {
     setSaving(true);
-    await ipcRenderer.invoke(VS_GO_EVENT.APP_SETTINGS_SET, {
+    await ipcRenderer.invoke(AppEvent.APP_SETTINGS_SET, {
       defaultEditor: editor,
     } satisfies AppSettings);
     setSaving(false);

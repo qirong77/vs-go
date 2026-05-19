@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { IMainWindowFiles } from "@shared/type";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { MainWindowEvent } from "@windows/main-window/events";
 import pinyin from "pinyin";
 
 const { ipcRenderer } = window.electron;
@@ -14,15 +14,15 @@ export function useFileData(searchValue: string) {
   const [showFiles, setShowFiles] = useState<IMainWindowFiles>([]);
 
   const updateAllFiles = useCallback(() => {
-    ipcRenderer.invoke(VS_GO_EVENT.GET_FILES_LIST).then((res: IMainWindowFiles) => {
+    ipcRenderer.invoke(MainWindowEvent.GET_FILES_LIST).then((res: IMainWindowFiles) => {
       setAllFiles(res);
     });
   }, []);
 
   useEffect(() => {
-    ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, updateAllFiles);
+    ipcRenderer.on(MainWindowEvent.MAIN_WINDOW_SHOW, updateAllFiles);
     return () => {
-      ipcRenderer.removeAllListeners(VS_GO_EVENT.MAIN_WINDOW_SHOW);
+      ipcRenderer.removeAllListeners(MainWindowEvent.MAIN_WINDOW_SHOW);
     };
   }, [updateAllFiles]);
 

@@ -1,5 +1,7 @@
 import { BrowserWindow, ipcMain } from "electron";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { BrowserFloatingEvent } from "@windows/browser/events/floating";
+import { BrowserOverlayEvent } from "@windows/browser/events/overlay";
+import { BrowserSettingsEvent } from "@windows/browser/events/settings";
 import type { BrowserItem } from "@shared/type";
 import { vsgoStore } from "./store";
 import { fileAccessStore } from "@windows/main-window/store";
@@ -7,11 +9,11 @@ import { TabbedBrowserWindowManager } from "./electron/TabbedBrowserWindowManage
 import { MainWindowManager } from "@windows/main-window/electron";
 
 export function registerBrowserHandlers(): void {
-  ipcMain.handle(VS_GO_EVENT.BROWSER_LIST, async () => {
+  ipcMain.handle(BrowserSettingsEvent.BROWSER_LIST, async () => {
     return vsgoStore.get("browserList", []) as BrowserItem[];
   });
 
-  ipcMain.handle(VS_GO_EVENT.BROWSER_ADD, async (_event, item: BrowserItem) => {
+  ipcMain.handle(BrowserSettingsEvent.BROWSER_ADD, async (_event, item: BrowserItem) => {
     const list = vsgoStore.get("browserList", []) as BrowserItem[];
     const siblings = list.filter((i) => (i.parentId ?? null) === (item.parentId ?? null));
     const maxOrder = siblings.reduce((max, i) => Math.max(max, i.order ?? 0), -1);
@@ -21,7 +23,7 @@ export function registerBrowserHandlers(): void {
     return list;
   });
 
-  ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE, async (_event, id: string) => {
+  ipcMain.handle(BrowserSettingsEvent.BROWSER_REMOVE, async (_event, id: string) => {
     const list = vsgoStore.get("browserList", []) as BrowserItem[];
     const target = list.find((item) => item.id === id);
     if (!target) return list;
@@ -44,7 +46,7 @@ export function registerBrowserHandlers(): void {
     return next;
   });
 
-  ipcMain.handle(VS_GO_EVENT.BROWSER_REORDER, async (_event, payload: { id: string; order: number; parentId?: string | null }) => {
+  ipcMain.handle(BrowserSettingsEvent.BROWSER_REORDER, async (_event, payload: { id: string; order: number; parentId?: string | null }) => {
     const list = vsgoStore.get("browserList", []) as BrowserItem[];
     const idx = list.findIndex((i) => i.id === payload.id);
     if (idx !== -1) {
@@ -57,12 +59,12 @@ export function registerBrowserHandlers(): void {
     return list;
   });
 
-  ipcMain.handle(VS_GO_EVENT.BROWSER_REMOVE_ALL, async () => {
+  ipcMain.handle(BrowserSettingsEvent.BROWSER_REMOVE_ALL, async () => {
     vsgoStore.set("browserList", []);
     return [];
   });
 
-  ipcMain.handle(VS_GO_EVENT.BROWSER_UPDATE, async (_event, item: BrowserItem) => {
+  ipcMain.handle(BrowserSettingsEvent.BROWSER_UPDATE, async (_event, item: BrowserItem) => {
     const list = vsgoStore.get("browserList", []) as BrowserItem[];
     const index = list.findIndex((i) => i.id === item.id);
     if (index !== -1) {
@@ -72,7 +74,7 @@ export function registerBrowserHandlers(): void {
     return list;
   });
 
-  ipcMain.on(VS_GO_EVENT.FLOATING_WINDOW_CREATE, (_e, item: BrowserItem) => {
+  ipcMain.on(BrowserFloatingEvent.FLOATING_WINDOW_CREATE, (_e, item: BrowserItem) => {
     const url = item.url;
     if (!url) return;
     fileAccessStore.updateAccessTime(url);
@@ -80,26 +82,26 @@ export function registerBrowserHandlers(): void {
     MainWindowManager.hide();
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_OVERLAY_SHOW, (e, payload: { bounds: { x: number; y: number; width: number; height: number }; data: unknown }) => {
+  ipcMain.on(BrowserOverlayEvent.BROWSER_OVERLAY_SHOW, (e, payload: { bounds: { x: number; y: number; width: number; height: number }; data: unknown }) => {
     const bw = BrowserWindow.fromWebContents(e.sender);
     if (bw) {
       TabbedBrowserWindowManager.showOverlay(bw.id, payload.bounds, payload.data);
     }
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_OVERLAY_HIDE, (e) => {
+  ipcMain.on(BrowserOverlayEvent.BROWSER_OVERLAY_HIDE, (e) => {
     const bw = BrowserWindow.fromWebContents(e.sender);
     if (bw) {
       TabbedBrowserWindowManager.hideOverlay(bw.id);
     }
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, (event, payload: Record<string, unknown>) => {
+  ipcMain.on(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, (event, payload: Record<string, unknown>) => {
     TabbedBrowserWindowManager.handleOverlayAction(event, payload);
   });
 
   ipcMain.handle(
-    VS_GO_EVENT.FLOATING_WINDOW_SEARCH_URL,
+    BrowserFloatingEvent.FLOATING_WINDOW_SEARCH_URL,
     async (_event, searchWord = "") => {
       const list = vsgoStore.get("browserList", []) as BrowserItem[];
       if (!searchWord) return list;

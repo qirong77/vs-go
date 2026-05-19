@@ -13,7 +13,8 @@ import {
   FolderOutlined,
 } from "@ant-design/icons";
 import { Button, ConfigProvider, Typography, theme } from "antd";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { BrowserOverlayEvent } from "@windows/browser/events/overlay";
+import { BrowserSettingsEvent } from "@windows/browser/events/settings";
 import { type BrowserItem, type OverlayBounds } from "@shared/type";
 import { generateId } from "@shared/utils";
 import {
@@ -107,14 +108,14 @@ export function BookmarkChromeProvider({
   const [nameDialog, setNameDialog] = useState<NameDialogState>(null);
 
   const showOverlay = useCallback((type: string, bounds: OverlayBounds, data: unknown): void => {
-    ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_SHOW, {
+    ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_SHOW, {
       bounds,
       data: { type, data },
     });
   }, []);
 
   const hideOverlay = useCallback((): void => {
-    ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_HIDE);
+    ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_HIDE);
   }, []);
 
   // 以下 callbacks 必须在 useEffect 依赖数组之前声明，避免 TDZ 错误
@@ -122,12 +123,12 @@ export function BookmarkChromeProvider({
     const name = (overlayName ?? bookmarkDraftName).trim();
     if (!name || !bookmarkTargetUrl) return;
     if (existingBookmark) {
-      await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_UPDATE, {
+      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
         ...existingBookmark,
         name,
       } satisfies BrowserItem);
     } else {
-      await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_ADD, {
+      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
         id: generateId(),
         name,
         url: bookmarkTargetUrl,
@@ -141,7 +142,7 @@ export function BookmarkChromeProvider({
 
   const handleBookmarkRemove = useCallback(async (): Promise<void> => {
     if (!existingBookmark) return;
-    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, existingBookmark.id);
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_REMOVE, existingBookmark.id);
     await onBookmarksUpdated();
     setBookmarkPopoverOpen(false);
     hideOverlay();
@@ -160,7 +161,7 @@ export function BookmarkChromeProvider({
         const target = bookmarks.find((b) => b.id === parentId);
         if (!target || target.type !== "folder") return;
       }
-      await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_UPDATE, {
+      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
         ...item,
         parentId,
       } satisfies BrowserItem);
@@ -172,7 +173,7 @@ export function BookmarkChromeProvider({
 
   const deleteBrowserItem = useCallback(
     async (item: BrowserItem): Promise<void> => {
-      await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, item.id);
+      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_REMOVE, item.id);
       await onBookmarksUpdated();
       setBookmarkBarMenu(null);
       setFolderDropdown(null);
@@ -298,7 +299,7 @@ export function BookmarkChromeProvider({
           ctx.setNameDialog((prev) => {
             if (!prev) return prev;
             if (prev.kind === "rename") {
-              ipcRenderer.invoke(VS_GO_EVENT.BROWSER_UPDATE, {
+              ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
                 ...prev.item,
                 name,
               } satisfies BrowserItem).then(() => {
@@ -306,7 +307,7 @@ export function BookmarkChromeProvider({
               });
               return null;
             } else {
-              ipcRenderer.invoke(VS_GO_EVENT.BROWSER_ADD, {
+              ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
                 id: generateId(),
                 name,
                 type: "folder",
@@ -335,9 +336,9 @@ export function BookmarkChromeProvider({
         }
       }
     };
-    ipcRenderer.on(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, handler);
+    ipcRenderer.on(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, handler);
     return () => {
-      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, handler);
+      ipcRenderer.removeListener(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, handler);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -392,14 +393,14 @@ export function BookmarkChromeProvider({
     if (nameDialog.kind === "rename") {
       const name = nameDialog.draft.trim();
       if (!name) return;
-      await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_UPDATE, {
+      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
         ...nameDialog.item,
         name,
       } satisfies BrowserItem);
     } else {
       const name = nameDialog.draft.trim();
       if (!name) return;
-      await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_ADD, {
+      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
         id: generateId(),
         name,
         type: "folder",
@@ -578,7 +579,7 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
       for (let i = 0; i < siblings.length; i++) {
         const s = siblings[i];
         if ((s.order ?? i) !== i) {
-          await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REORDER, {
+          await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_REORDER, {
             id: s.id,
             order: i,
           });

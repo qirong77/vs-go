@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useDebouncedCallback } from "use-debounce";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { DisplayEvent } from "@windows/display-manager/events";
 
 const { ipcRenderer } = window.electron;
 
@@ -22,7 +22,7 @@ function DisplayManager() {
 
   const fetchDisplays = useCallback(async () => {
     setLoading(true);
-    const res: DisplayInfo[] = await ipcRenderer.invoke(VS_GO_EVENT.DISPLAY_GET_ALL);
+    const res: DisplayInfo[] = await ipcRenderer.invoke(DisplayEvent.DISPLAY_GET_ALL);
     setDisplays(res ?? []);
     setLoading(false);
   }, []);
@@ -138,7 +138,7 @@ function DisplayCard({
   const { id, label, bounds, size, scaleFactor, rotation, internal, brightness, brightnessSupported } = display;
 
   const debouncedSetBrightness = useDebouncedCallback((value: number) => {
-    ipcRenderer.invoke(VS_GO_EVENT.DISPLAY_SET_BRIGHTNESS, id, value);
+    ipcRenderer.invoke(DisplayEvent.DISPLAY_SET_BRIGHTNESS, id, value);
   }, 50);
 
   const handleBrightnessInput = (value: number) => {

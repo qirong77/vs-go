@@ -1,12 +1,12 @@
 import type { BrowserWindow } from "electron";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { CookieEvent } from "@windows/cookie-manager/events";
 import { createWindowRef, openManagedSubWindow } from "@platform/electron/managedSubWindow";
 
 const windowRef = createWindowRef();
 
 function sendCurrentUrl(window: BrowserWindow, currentUrl?: string): void {
   if (!currentUrl) return;
-  window.webContents.send(VS_GO_EVENT.COOKIE_UPDATE_CURRENT_URL, currentUrl);
+  window.webContents.send(CookieEvent.COOKIE_UPDATE_CURRENT_URL, currentUrl);
 }
 
 export function createCookieManagerWindow(currentUrl?: string): BrowserWindow {

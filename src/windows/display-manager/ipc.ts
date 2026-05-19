@@ -2,7 +2,7 @@ import { ipcMain, screen, app } from "electron";
 import { execFile } from "node:child_process";
 import { writeFileSync, readFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
 import path from "node:path";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { DisplayEvent } from "@windows/display-manager/events";
 
 const HELPER_VERSION = 7;
 
@@ -866,7 +866,7 @@ function mapDisplays(
 }
 
 export function registerDisplayHandlers(): void {
-  ipcMain.handle(VS_GO_EVENT.DISPLAY_GET_ALL, async () => {
+  ipcMain.handle(DisplayEvent.DISPLAY_GET_ALL, async () => {
     const displays = screen.getAllDisplays();
     electronToNativeDisplayId.clear();
 
@@ -910,7 +910,7 @@ export function registerDisplayHandlers(): void {
   });
 
   ipcMain.handle(
-    VS_GO_EVENT.DISPLAY_SET_BRIGHTNESS,
+    DisplayEvent.DISPLAY_SET_BRIGHTNESS,
     async (_event, displayId: number, brightness: number) => {
       try {
         const value = Math.max(0, Math.min(100, brightness)) / 100;

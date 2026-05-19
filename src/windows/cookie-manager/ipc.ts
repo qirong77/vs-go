@@ -1,5 +1,5 @@
 import { ipcMain, session } from "electron";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { CookieEvent } from "@windows/cookie-manager/events";
 import type { SavedCookieByUrl } from "@shared/type";
 import { generateId, formatError } from "@shared/utils";
 import { cookieStore, cookieByUrlStore } from "./store";
@@ -75,7 +75,7 @@ function parseCookieString(cookieString: string, targetUrl: string): CookieDetai
 }
 
 export function registerCookieHandlers(): void {
-  ipcMain.handle(VS_GO_EVENT.COOKIE_GET_CURRENT, async (_event, url: string) => {
+  ipcMain.handle(CookieEvent.COOKIE_GET_CURRENT, async (_event, url: string) => {
     try {
       return await session.defaultSession.cookies.get({ url });
     } catch (error) {
@@ -84,7 +84,7 @@ export function registerCookieHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.COOKIE_SAVE, async (_event, cookieData) => {
+  ipcMain.handle(CookieEvent.COOKIE_SAVE, async (_event, cookieData) => {
     try {
       const now = new Date();
       const savedCookie = {
@@ -100,7 +100,7 @@ export function registerCookieHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.COOKIE_GET_SAVED_LIST, async () => {
+  ipcMain.handle(CookieEvent.COOKIE_GET_SAVED_LIST, async () => {
     try {
       return cookieStore.getSavedCookies();
     } catch (error) {
@@ -109,7 +109,7 @@ export function registerCookieHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.COOKIE_DELETE, async (_event, cookieId: string) => {
+  ipcMain.handle(CookieEvent.COOKIE_DELETE, async (_event, cookieId: string) => {
     try {
       cookieStore.deleteCookie(cookieId);
       return { success: true };
@@ -118,7 +118,7 @@ export function registerCookieHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.COOKIE_APPLY, async (_event, cookie, targetUrl: string) => {
+  ipcMain.handle(CookieEvent.COOKIE_APPLY, async (_event, cookie, targetUrl: string) => {
     try {
       await session.defaultSession.cookies.set({
         url: targetUrl,
@@ -139,7 +139,7 @@ export function registerCookieHandlers(): void {
 
   // --- 基于 URL 的 Cookie 操作 ---
 
-  ipcMain.handle(VS_GO_EVENT.COOKIE_SAVE_BY_URL, async (_event, url: string) => {
+  ipcMain.handle(CookieEvent.COOKIE_SAVE_BY_URL, async (_event, url: string) => {
     try {
       const cookies = await session.defaultSession.cookies.get({ url });
       if (cookies.length === 0) {
@@ -178,7 +178,7 @@ export function registerCookieHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.COOKIE_GET_SAVED_LIST_BY_URL, async () => {
+  ipcMain.handle(CookieEvent.COOKIE_GET_SAVED_LIST_BY_URL, async () => {
     try {
       return cookieByUrlStore.getAll();
     } catch (error) {
@@ -187,7 +187,7 @@ export function registerCookieHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.COOKIE_DELETE_BY_URL, async (_event, cookieId: string) => {
+  ipcMain.handle(CookieEvent.COOKIE_DELETE_BY_URL, async (_event, cookieId: string) => {
     try {
       cookieByUrlStore.delete(cookieId);
       return { success: true };
@@ -197,7 +197,7 @@ export function registerCookieHandlers(): void {
   });
 
   ipcMain.handle(
-    VS_GO_EVENT.COOKIE_APPLY_BY_URL,
+    CookieEvent.COOKIE_APPLY_BY_URL,
     async (_event, cookieData: SavedCookieByUrl, targetUrl: string) => {
       try {
         const cookiesToSet = parseCookieString(cookieData.cookieString, targetUrl);

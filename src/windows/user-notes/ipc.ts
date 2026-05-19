@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { MonacoEditorEvent, UserNotesEvent } from "@windows/user-notes/events";
 import { formatError } from "@shared/utils";
 import {
   monacoNotesStore,
@@ -11,7 +11,7 @@ import {
 export function registerNotesHandlers(): void {
   // --- Monaco 编辑器笔记 ---
 
-  ipcMain.handle(VS_GO_EVENT.MONACO_EDITOR_GET_CONTENT, async (_event, url?: string) => {
+  ipcMain.handle(MonacoEditorEvent.MONACO_EDITOR_GET_CONTENT, async (_event, url?: string) => {
     try {
       return monacoNotesStore.get(url || "global");
     } catch (error) {
@@ -21,7 +21,7 @@ export function registerNotesHandlers(): void {
   });
 
   ipcMain.handle(
-    VS_GO_EVENT.MONACO_EDITOR_CONTENT_CHANGED,
+    MonacoEditorEvent.MONACO_EDITOR_CONTENT_CHANGED,
     async (_event, content: string, url?: string) => {
       try {
         monacoNotesStore.save(url || "global", content);
@@ -34,7 +34,7 @@ export function registerNotesHandlers(): void {
 
   // --- 用户笔记（Milkdown）---
 
-  ipcMain.handle(VS_GO_EVENT.USER_NOTES_GET_CONTENT, async () => {
+  ipcMain.handle(UserNotesEvent.USER_NOTES_GET_CONTENT, async () => {
     try {
       return userNotesStore.getContent();
     } catch (error) {
@@ -43,7 +43,7 @@ export function registerNotesHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.USER_NOTES_SAVE_CONTENT, async (_event, content: string) => {
+  ipcMain.handle(UserNotesEvent.USER_NOTES_SAVE_CONTENT, async (_event, content: string) => {
     try {
       userNotesStore.saveContent(content);
       return { success: true };
@@ -54,7 +54,7 @@ export function registerNotesHandlers(): void {
 
   // --- 用户笔记文件树 ---
 
-  ipcMain.handle(VS_GO_EVENT.USER_NOTES_GET_TREE, async () => {
+  ipcMain.handle(UserNotesEvent.USER_NOTES_GET_TREE, async () => {
     try {
       return userNotesTreeStore.getTree();
     } catch (error) {
@@ -63,7 +63,7 @@ export function registerNotesHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.USER_NOTES_GET_FILE, async (_event, fileId: string) => {
+  ipcMain.handle(UserNotesEvent.USER_NOTES_GET_FILE, async (_event, fileId: string) => {
     try {
       return userNotesTreeStore.getFileContent(fileId);
     } catch (error) {
@@ -73,7 +73,7 @@ export function registerNotesHandlers(): void {
   });
 
   ipcMain.handle(
-    VS_GO_EVENT.USER_NOTES_SAVE_FILE,
+    UserNotesEvent.USER_NOTES_SAVE_FILE,
     async (_event, fileId: string, content: string) => {
       try {
         userNotesTreeStore.saveFileContent(fileId, content);
@@ -85,7 +85,7 @@ export function registerNotesHandlers(): void {
   );
 
   ipcMain.handle(
-    VS_GO_EVENT.USER_NOTES_CREATE_FILE,
+    UserNotesEvent.USER_NOTES_CREATE_FILE,
     async (_event, name: string, parentId?: string) => {
       try {
         const newNode = userNotesTreeStore.createFile(name, parentId);
@@ -97,7 +97,7 @@ export function registerNotesHandlers(): void {
   );
 
   ipcMain.handle(
-    VS_GO_EVENT.USER_NOTES_CREATE_FOLDER,
+    UserNotesEvent.USER_NOTES_CREATE_FOLDER,
     async (_event, name: string, parentId?: string) => {
       try {
         const newNode = userNotesTreeStore.createFolder(name, parentId);
@@ -108,7 +108,7 @@ export function registerNotesHandlers(): void {
     }
   );
 
-  ipcMain.handle(VS_GO_EVENT.USER_NOTES_DELETE_NODE, async (_event, nodeId: string) => {
+  ipcMain.handle(UserNotesEvent.USER_NOTES_DELETE_NODE, async (_event, nodeId: string) => {
     try {
       const result = userNotesTreeStore.deleteNode(nodeId);
       return { success: result };
@@ -118,7 +118,7 @@ export function registerNotesHandlers(): void {
   });
 
   ipcMain.handle(
-    VS_GO_EVENT.USER_NOTES_RENAME_NODE,
+    UserNotesEvent.USER_NOTES_RENAME_NODE,
     async (_event, nodeId: string, newName: string) => {
       try {
         const result = userNotesTreeStore.renameNode(nodeId, newName);
@@ -129,7 +129,7 @@ export function registerNotesHandlers(): void {
     }
   );
 
-  ipcMain.handle(VS_GO_EVENT.USER_NOTES_GET_CURRENT_FILE, async () => {
+  ipcMain.handle(UserNotesEvent.USER_NOTES_GET_CURRENT_FILE, async () => {
     try {
       return userNotesTreeStore.getCurrentFile();
     } catch (error) {
@@ -138,7 +138,7 @@ export function registerNotesHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.USER_NOTES_SET_CURRENT_FILE, async (_event, fileId: string) => {
+  ipcMain.handle(UserNotesEvent.USER_NOTES_SET_CURRENT_FILE, async (_event, fileId: string) => {
     try {
       userNotesTreeStore.setCurrentFile(fileId);
       return { success: true };
@@ -147,7 +147,7 @@ export function registerNotesHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.USER_NOTES_HISTORY_LIST, async (_event, fileId: string) => {
+  ipcMain.handle(UserNotesEvent.USER_NOTES_HISTORY_LIST, async (_event, fileId: string) => {
     try {
       return userNotesHistoryStore.listMetaForFile(fileId);
     } catch (error) {
@@ -157,7 +157,7 @@ export function registerNotesHandlers(): void {
   });
 
   ipcMain.handle(
-    VS_GO_EVENT.USER_NOTES_HISTORY_GET,
+    UserNotesEvent.USER_NOTES_HISTORY_GET,
     async (_event, fileId: string, versionId: string) => {
       try {
         const entry = userNotesHistoryStore.getEntry(fileId, versionId);
@@ -170,7 +170,7 @@ export function registerNotesHandlers(): void {
   );
 
   ipcMain.handle(
-    VS_GO_EVENT.USER_NOTES_HISTORY_APPEND_SNAPSHOT,
+    UserNotesEvent.USER_NOTES_HISTORY_APPEND_SNAPSHOT,
     async (_event, fileId: string, content: string) => {
       try {
         userNotesHistoryStore.appendSnapshot(fileId, content);

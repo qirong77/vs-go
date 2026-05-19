@@ -2,7 +2,7 @@ import { is } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
 import { presentWindowOnCurrentDesktop } from "@platform/electron/createWindow";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { MainWindowEvent } from "@windows/main-window/events";
 import { setupContextMenu } from "@platform/electron/contextMenu";
 
 let _mainWindow: BrowserWindow;
@@ -35,7 +35,7 @@ function createMainWindow(): BrowserWindow {
   window.setAlwaysOnTop(true, "torn-off-menu", 10);
 
   window.on("show", () => {
-    window.webContents.send(VS_GO_EVENT.MAIN_WINDOW_SHOW);
+    window.webContents.send(MainWindowEvent.MAIN_WINDOW_SHOW);
   });
 
   setupContextMenu(window);

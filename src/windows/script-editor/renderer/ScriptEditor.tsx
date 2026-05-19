@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import "@renderer/monaco-env";
 import * as monaco from "monaco-editor";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { WindowScriptEvent } from "@windows/script-editor/events";
 
 const { ipcRenderer } = window.electron;
 
@@ -14,7 +14,7 @@ function ScriptEditor() {
     let modelSub: monaco.IDisposable | null = null;
     let cancelled = false;
 
-    void ipcRenderer.invoke(VS_GO_EVENT.WINDOW_SCRIPT_GET).then((content: string) => {
+    void ipcRenderer.invoke(WindowScriptEvent.WINDOW_SCRIPT_GET).then((content: string) => {
       if (cancelled || !containerRef.current) return;
       editor = monaco.editor.create(containerRef.current, {
         value: content,
@@ -29,7 +29,7 @@ function ScriptEditor() {
       const scheduleSave = () => {
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
-          if (editor) void ipcRenderer.invoke(VS_GO_EVENT.WINDOW_SCRIPT_SAVE, editor.getValue());
+          if (editor) void ipcRenderer.invoke(WindowScriptEvent.WINDOW_SCRIPT_SAVE, editor.getValue());
         }, 500);
       };
 

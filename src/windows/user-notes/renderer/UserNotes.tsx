@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { message, Button } from "antd";
 import { HistoryOutlined } from "@ant-design/icons";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { AppEvent } from "@windows/app-setting/events";
+import { UserNotesEvent } from "@windows/user-notes/events";
 import { Editor, rootCtx, defaultValueCtx, editorViewCtx, commandsCtx } from "@milkdown/core";
 import { commonmark } from "@milkdown/preset-commonmark";
 import { gfm, columnResizingPlugin } from "@milkdown/preset-gfm";
@@ -264,7 +265,7 @@ const clickableLinkPlugin = () => {
               if (href) {
                 // 调用 IPC 打开外部链接
                 window.electron.ipcRenderer
-                  .invoke(VS_GO_EVENT.OPEN_EXTERNAL_URL, href)
+                  .invoke(AppEvent.OPEN_EXTERNAL_URL, href)
                   .catch((error) => {
                     console.error("打开链接失败:", error);
                   });
@@ -763,12 +764,12 @@ const UserNotes: React.FC = () => {
     try {
       setIsLoading(true);
       const fileId = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_GET_CURRENT_FILE
+        UserNotesEvent.USER_NOTES_GET_CURRENT_FILE
       );
 
       if (fileId) {
         const fileContent = await window.electron.ipcRenderer.invoke(
-          VS_GO_EVENT.USER_NOTES_GET_FILE,
+          UserNotesEvent.USER_NOTES_GET_FILE,
           fileId
         );
         setCurrentFileId(fileId);
@@ -789,7 +790,7 @@ const UserNotes: React.FC = () => {
     try {
       setIsLoading(true);
       const fileContent = await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_GET_FILE,
+        UserNotesEvent.USER_NOTES_GET_FILE,
         fileId
       );
 
@@ -799,7 +800,7 @@ const UserNotes: React.FC = () => {
       setEditorKey((prev) => prev + 1);
 
       // 保存当前文件ID
-      await window.electron.ipcRenderer.invoke(VS_GO_EVENT.USER_NOTES_SET_CURRENT_FILE, fileId);
+      await window.electron.ipcRenderer.invoke(UserNotesEvent.USER_NOTES_SET_CURRENT_FILE, fileId);
     } catch (error) {
       console.error("加载文件失败:", error);
       messageApi.error("加载文件失败");
@@ -815,7 +816,7 @@ const UserNotes: React.FC = () => {
 
       try {
         await window.electron.ipcRenderer.invoke(
-          VS_GO_EVENT.USER_NOTES_SAVE_FILE,
+          UserNotesEvent.USER_NOTES_SAVE_FILE,
           currentFileId,
           newContent
         );
@@ -844,7 +845,7 @@ const UserNotes: React.FC = () => {
       historyIdleTimerRef.current = setTimeout(async () => {
         try {
           await window.electron.ipcRenderer.invoke(
-            VS_GO_EVENT.USER_NOTES_HISTORY_APPEND_SNAPSHOT,
+            UserNotesEvent.USER_NOTES_HISTORY_APPEND_SNAPSHOT,
             currentFileId,
             contentRef.current
           );

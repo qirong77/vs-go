@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from "electron";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { BrowserTabEvent } from "@windows/browser/events/tab";
+import { BrowserWindowEvent } from "@windows/browser/events/window";
 import { TABBED_BROWSER_DEFAULT_HOME_URL } from "@shared/type";
 import { TabbedBrowserWindowManager } from "./TabbedBrowserWindowManager";
 import type { TabbedBrowserWindow } from "./TabbedBrowserWindow";
@@ -21,28 +22,28 @@ function getSenderWindow(
 // ============================================================
 
 export function registerTabbedBrowserHandlers(): void {
-  ipcMain.handle(VS_GO_EVENT.BROWSER_TAB_GET_STATE, (event) => {
+  ipcMain.handle(BrowserTabEvent.BROWSER_TAB_GET_STATE, (event) => {
     const win = getSenderWindow(event);
     return win ? win.getState() : { tabs: [], activeTabId: null };
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_TAB_NEW, (event, payload: { url?: string } = {}) => {
+  ipcMain.on(BrowserTabEvent.BROWSER_TAB_NEW, (event, payload: { url?: string } = {}) => {
     const win = getSenderWindow(event);
     win?.addTab(payload.url || TABBED_BROWSER_DEFAULT_HOME_URL);
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_TAB_CLOSE, (event, tabId: string) => {
+  ipcMain.on(BrowserTabEvent.BROWSER_TAB_CLOSE, (event, tabId: string) => {
     const win = getSenderWindow(event);
     win?.closeTab(tabId);
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_TAB_SWITCH, (event, tabId: string) => {
+  ipcMain.on(BrowserTabEvent.BROWSER_TAB_SWITCH, (event, tabId: string) => {
     const win = getSenderWindow(event);
     win?.switchTab(tabId);
   });
 
   ipcMain.on(
-    VS_GO_EVENT.BROWSER_TAB_NAVIGATE,
+    BrowserTabEvent.BROWSER_TAB_NAVIGATE,
     (event, payload: { url: string; mode?: "current" | "new" }) => {
       const win = getSenderWindow(event);
       if (!win) return;
@@ -54,20 +55,20 @@ export function registerTabbedBrowserHandlers(): void {
     }
   );
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_TAB_BACK, (event) => {
+  ipcMain.on(BrowserTabEvent.BROWSER_TAB_BACK, (event) => {
     getSenderWindow(event)?.goBack();
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_TAB_FORWARD, (event) => {
+  ipcMain.on(BrowserTabEvent.BROWSER_TAB_FORWARD, (event) => {
     getSenderWindow(event)?.goForward();
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_TAB_RELOAD, (event) => {
+  ipcMain.on(BrowserTabEvent.BROWSER_TAB_RELOAD, (event) => {
     getSenderWindow(event)?.reload();
   });
 
   ipcMain.on(
-    VS_GO_EVENT.BROWSER_TAB_REORDER,
+    BrowserTabEvent.BROWSER_TAB_REORDER,
     (event, payload: { tabId: string; toIndex: number }) => {
       const win = getSenderWindow(event);
       if (!win) return;
@@ -75,29 +76,29 @@ export function registerTabbedBrowserHandlers(): void {
     }
   );
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_TAB_DETACH, (event, tabId: string) => {
+  ipcMain.on(BrowserTabEvent.BROWSER_TAB_DETACH, (event, tabId: string) => {
     const fromWin = getSenderWindow(event);
     if (!fromWin) return;
     TabbedBrowserWindowManager.detachTabToNewWindow(fromWin, tabId);
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_TAB_TOGGLE_DEVTOOLS, (event) => {
+  ipcMain.on(BrowserTabEvent.BROWSER_TAB_TOGGLE_DEVTOOLS, (event) => {
     getSenderWindow(event)?.toggleDevTools();
   });
 
-  ipcMain.handle(VS_GO_EVENT.BROWSER_WINDOW_IS_FULLSCREEN, (event) => {
+  ipcMain.handle(BrowserWindowEvent.BROWSER_WINDOW_IS_FULLSCREEN, (event) => {
     return getSenderWindow(event)?.isFullScreen() ?? false;
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_WINDOW_EXIT_FULLSCREEN, (event) => {
+  ipcMain.on(BrowserWindowEvent.BROWSER_WINDOW_EXIT_FULLSCREEN, (event) => {
     getSenderWindow(event)?.exitFullscreen();
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_WINDOW_MINIMIZE, (event) => {
+  ipcMain.on(BrowserWindowEvent.BROWSER_WINDOW_MINIMIZE, (event) => {
     getSenderWindow(event)?.minimizeWindow();
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_WINDOW_CLOSE_WINDOW, (event) => {
+  ipcMain.on(BrowserWindowEvent.BROWSER_WINDOW_CLOSE_WINDOW, (event) => {
     getSenderWindow(event)?.closeWindow();
   });
 }

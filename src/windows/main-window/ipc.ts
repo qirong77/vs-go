@@ -2,7 +2,7 @@ import { dialog, ipcMain } from "electron";
 import { existsSync } from "node:fs";
 import { exec } from "node:child_process";
 import { is } from "@electron-toolkit/utils";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { MainWindowEvent } from "@windows/main-window/events";
 import type { IMainWindowFile } from "@shared/type";
 import { vscodeBase64 } from "@shared/vscodeBase64";
 import { openFileByVscode } from "@utils/openFileByVsCode";
@@ -13,13 +13,13 @@ import { MainWindowManager } from "./electron";
 import type { AppSettings } from "@shared/type";
 
 export function registerFileHandlers(): void {
-  ipcMain.on(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, (_e, height: number) => {
+  ipcMain.on(MainWindowEvent.SET_SEARCH_WINDOW_HEIGHT, (_e, height: number) => {
     if (!is.dev) {
       MainWindowManager.setWindowSize(700, Math.floor(height));
     }
   });
 
-  ipcMain.on(VS_GO_EVENT.OPEN_FILE, (_e, file: IMainWindowFile) => {
+  ipcMain.on(MainWindowEvent.OPEN_FILE, (_e, file: IMainWindowFile) => {
     const { filePath } = file;
 
     if (!existsSync(filePath)) {
@@ -54,7 +54,7 @@ export function registerFileHandlers(): void {
     MainWindowManager.hide();
   });
 
-  ipcMain.handle(VS_GO_EVENT.GET_FILES_LIST, async () => {
+  ipcMain.handle(MainWindowEvent.GET_FILES_LIST, async () => {
     return getMainWindowFiles();
   });
 }

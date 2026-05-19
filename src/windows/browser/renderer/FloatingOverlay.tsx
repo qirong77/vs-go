@@ -9,7 +9,7 @@ import {
   FolderAddOutlined,
   StarFilled,
 } from "@ant-design/icons";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { BrowserOverlayEvent } from "@windows/browser/events/overlay";
 import type { BrowserItem, OverlayType } from "@shared/type";
 import { getOverlayContentInset } from "@shared/type";
 
@@ -187,7 +187,7 @@ interface OverlayContentPayload {
 }
 
 function sendAction(action: Record<string, unknown>): void {
-  ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, action);
+  ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, action);
 }
 
 // ============================================================
@@ -530,9 +530,9 @@ export default function FloatingOverlay(): React.JSX.Element {
     const handler = (_e: unknown, payload: OverlayContentPayload): void => {
       setContent(payload);
     };
-    ipcRenderer.on(VS_GO_EVENT.BROWSER_OVERLAY_CONTENT, handler);
+    ipcRenderer.on(BrowserOverlayEvent.BROWSER_OVERLAY_CONTENT, handler);
     return () => {
-      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_OVERLAY_CONTENT, handler);
+      ipcRenderer.removeListener(BrowserOverlayEvent.BROWSER_OVERLAY_CONTENT, handler);
     };
   }, []);
 

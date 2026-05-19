@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, SearchIcon } from "./icon";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { MainWindowEvent } from "@windows/main-window/events";
 import { useFileData } from "./hooks/useFileData";
 
 const { ipcRenderer } = window.electron;
@@ -32,7 +32,7 @@ function MainWindow() {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       const targetItem = showFiles[active];
       if (targetItem) {
-        ipcRenderer.send(VS_GO_EVENT.OPEN_FILE, targetItem);
+        ipcRenderer.send(MainWindowEvent.OPEN_FILE, targetItem);
         setInput("");
         setActive(0);
       }
@@ -46,9 +46,9 @@ function MainWindow() {
       setTimeout(() => inputRef.current?.focus(), 100);
     };
 
-    ipcRenderer.on(VS_GO_EVENT.MAIN_WINDOW_SHOW, handleShow);
+    ipcRenderer.on(MainWindowEvent.MAIN_WINDOW_SHOW, handleShow);
     return () => {
-      ipcRenderer.removeAllListeners(VS_GO_EVENT.MAIN_WINDOW_SHOW);
+      ipcRenderer.removeAllListeners(MainWindowEvent.MAIN_WINDOW_SHOW);
     };
   }, []);
 
@@ -56,7 +56,7 @@ function MainWindow() {
     window.requestAnimationFrame(() => {
       const { height } = containerRef.current?.getBoundingClientRect() || {};
       if (!height) return;
-      ipcRenderer.send(VS_GO_EVENT.SET_SEARCH_WINDOW_HEIGHT, height);
+      ipcRenderer.send(MainWindowEvent.SET_SEARCH_WINDOW_HEIGHT, height);
     });
   }, [showFiles.length]);
 

@@ -1,0 +1,4 @@
+export enum WindowScriptEvent {
+  WINDOW_SCRIPT_GET = "WINDOW_SCRIPT_GET",
+  WINDOW_SCRIPT_SAVE = "WINDOW_SCRIPT_SAVE",
+}

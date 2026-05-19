@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Button, Drawer, Empty, List, Modal, Spin, Typography } from "antd";
 import { HistoryOutlined } from "@ant-design/icons";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { UserNotesEvent } from "@windows/user-notes/events";
 import type { UserNoteHistoryMeta } from "@shared/type";
 
 type Props = {
@@ -44,7 +44,7 @@ const NoteHistoryDrawer: React.FC<Props> = ({ fileId, open, onClose, onRestore }
     setLoading(true);
     try {
       const list = (await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_HISTORY_LIST,
+        UserNotesEvent.USER_NOTES_HISTORY_LIST,
         fileId
       )) as UserNoteHistoryMeta[];
       setItems(Array.isArray(list) ? list : []);
@@ -68,7 +68,7 @@ const NoteHistoryDrawer: React.FC<Props> = ({ fileId, open, onClose, onRestore }
     setPreviewLoading(true);
     try {
       const text = (await window.electron.ipcRenderer.invoke(
-        VS_GO_EVENT.USER_NOTES_HISTORY_GET,
+        UserNotesEvent.USER_NOTES_HISTORY_GET,
         fileId,
         meta.id
       )) as string;

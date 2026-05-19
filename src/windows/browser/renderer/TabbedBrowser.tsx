@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { BrowserSettingsEvent } from "@windows/browser/events/settings";
+import { BrowserTabEvent } from "@windows/browser/events/tab";
+import { BrowserWindowEvent } from "@windows/browser/events/window";
 import {
   BROWSER_CHROME_HEIGHT,
   tabUrlForAddressBarDisplay,
@@ -63,16 +65,16 @@ function TabbedBrowser(): React.JSX.Element {
     !!bookmarkTargetUrl && bookmarkTargetUrl !== "about:blank";
 
   const refreshBookmarks = useCallback(async (): Promise<void> => {
-    const list = (await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_LIST)) as BrowserItem[] | null;
+    const list = (await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_LIST)) as BrowserItem[] | null;
     setBookmarks(Array.isArray(list) ? list : []);
   }, []);
 
   // 初始拉取 state + 订阅更新
   useEffect(() => {
-    ipcRenderer.invoke(VS_GO_EVENT.BROWSER_TAB_GET_STATE).then((s: TabbedBrowserState) => {
+    ipcRenderer.invoke(BrowserTabEvent.BROWSER_TAB_GET_STATE).then((s: TabbedBrowserState) => {
       setState(s);
     });
-    ipcRenderer.invoke(VS_GO_EVENT.BROWSER_WINDOW_IS_FULLSCREEN).then((fs: boolean) => {
+    ipcRenderer.invoke(BrowserWindowEvent.BROWSER_WINDOW_IS_FULLSCREEN).then((fs: boolean) => {
       setIsFullscreen(fs);
     });
     const onUpdate = (_e: unknown, s: TabbedBrowserState): void => {
@@ -92,15 +94,15 @@ function TabbedBrowser(): React.JSX.Element {
     const onFullscreenChanged = (_e: unknown, fs: boolean): void => {
       setIsFullscreen(fs);
     };
-    ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
-    ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
-    ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
-    ipcRenderer.on(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
+    ipcRenderer.on(BrowserTabEvent.BROWSER_TAB_STATE_UPDATED, onUpdate);
+    ipcRenderer.on(BrowserTabEvent.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
+    ipcRenderer.on(BrowserTabEvent.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
+    ipcRenderer.on(BrowserWindowEvent.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
     return () => {
-      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
-      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
-      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
-      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
+      ipcRenderer.removeListener(BrowserTabEvent.BROWSER_TAB_STATE_UPDATED, onUpdate);
+      ipcRenderer.removeListener(BrowserTabEvent.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
+      ipcRenderer.removeListener(BrowserTabEvent.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
+      ipcRenderer.removeListener(BrowserWindowEvent.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
     };
   }, []);
 
@@ -123,7 +125,7 @@ function TabbedBrowser(): React.JSX.Element {
   const submitAddress = useCallback((mode: "current" | "new", overrideUrl?: string): void => {
     const url = (overrideUrl ?? address).trim();
     if (!url) return;
-    ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_NAVIGATE, { url, mode });
+    ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_NAVIGATE, { url, mode });
     addressInputRef.current?.blur();
     setEditing(false);
   }, [address]);
@@ -147,14 +149,14 @@ function TabbedBrowser(): React.JSX.Element {
 
   // 标签操作
   const onSwitch = (id: string): void => {
-    ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_SWITCH, id);
+    ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_SWITCH, id);
   };
   const onClose = (id: string, e?: React.MouseEvent): void => {
     e?.stopPropagation();
-    ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_CLOSE, id);
+    ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_CLOSE, id);
   };
   const onNewTab = (): void => {
-    ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_NEW, {});
+    ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_NEW, {});
   };
 
   // 鼠标中键关闭
@@ -229,7 +231,7 @@ function TabbedBrowser(): React.JSX.Element {
             e.clientX < barRect.left - 60 ||
             e.clientX > barRect.right + 60);
         if (isDetach) {
-          ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_DETACH, prev.tabId);
+          ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_DETACH, prev.tabId);
         }
         return null;
       });
@@ -264,7 +266,7 @@ function TabbedBrowser(): React.JSX.Element {
       }
       const currentIndex = state.tabs.findIndex((t) => t.id === drag.tabId);
       if (currentIndex !== -1 && currentIndex !== newIndex) {
-        ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_REORDER, {
+        ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_REORDER, {
           tabId: drag.tabId,
           toIndex: newIndex,
         });
@@ -348,19 +350,19 @@ function TabbedBrowser(): React.JSX.Element {
               color="#ff5f57"
               hoverColor="#ff3b30"
               title="关闭窗口"
-              onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_WINDOW_CLOSE_WINDOW)}
+              onClick={() => ipcRenderer.send(BrowserWindowEvent.BROWSER_WINDOW_CLOSE_WINDOW)}
             />
             <TrafficDot
               color="#febc2e"
               hoverColor="#ff9500"
               title="最小化"
-              onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_WINDOW_MINIMIZE)}
+              onClick={() => ipcRenderer.send(BrowserWindowEvent.BROWSER_WINDOW_MINIMIZE)}
             />
             <TrafficDot
               color="#28c840"
               hoverColor="#34c759"
               title="退出全屏"
-              onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_WINDOW_EXIT_FULLSCREEN)}
+              onClick={() => ipcRenderer.send(BrowserWindowEvent.BROWSER_WINDOW_EXIT_FULLSCREEN)}
             />
           </div>
         )}
@@ -514,18 +516,18 @@ function TabbedBrowser(): React.JSX.Element {
         <NavButton
           title="后退"
           disabled={!activeTab?.canGoBack}
-          onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_BACK)}
+          onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_BACK)}
         >
           ‹
         </NavButton>
         <NavButton
           title="前进"
           disabled={!activeTab?.canGoForward}
-          onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_FORWARD)}
+          onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_FORWARD)}
         >
           ›
         </NavButton>
-        <NavButton title="刷新" onClick={() => ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_RELOAD)}>
+        <NavButton title="刷新" onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_RELOAD)}>
           ⟳
         </NavButton>
         <div

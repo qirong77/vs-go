@@ -1,5 +1,5 @@
 import { ipcMain, shell } from "electron";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { AppEvent } from "@windows/app-setting/events";
 import type { AppSettings } from "@shared/type";
 import { formatError } from "@shared/utils";
 import { TabbedBrowserWindowManager } from "@windows/browser/electron/TabbedBrowserWindowManager";
@@ -22,7 +22,7 @@ async function openUrlInTabbedBrowserOrExternal(url: string): Promise<void> {
 const DEFAULT_SETTINGS: AppSettings = { defaultEditor: "vscode" };
 
 export function registerSettingsHandlers(): void {
-  ipcMain.handle(VS_GO_EVENT.APP_SETTINGS_GET, async () => {
+  ipcMain.handle(AppEvent.APP_SETTINGS_GET, async () => {
     try {
       return vsgoStore.get("appSettings", DEFAULT_SETTINGS);
     } catch (error) {
@@ -31,7 +31,7 @@ export function registerSettingsHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.APP_SETTINGS_SET, async (_event, settings: AppSettings) => {
+  ipcMain.handle(AppEvent.APP_SETTINGS_SET, async (_event, settings: AppSettings) => {
     try {
       vsgoStore.set("appSettings", settings);
       return { success: true };
@@ -40,7 +40,7 @@ export function registerSettingsHandlers(): void {
     }
   });
 
-  ipcMain.handle(VS_GO_EVENT.OPEN_EXTERNAL_URL, async (_event, url: string) => {
+  ipcMain.handle(AppEvent.OPEN_EXTERNAL_URL, async (_event, url: string) => {
     try {
       await openUrlInTabbedBrowserOrExternal(url);
       return { success: true };

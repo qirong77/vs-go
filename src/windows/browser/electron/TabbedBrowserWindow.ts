@@ -9,7 +9,9 @@ import {
 } from "electron";
 import { is } from "@electron-toolkit/utils";
 import path from "node:path";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { BrowserOverlayEvent } from "@windows/browser/events/overlay";
+import { BrowserTabEvent } from "@windows/browser/events/tab";
+import { BrowserWindowEvent } from "@windows/browser/events/window";
 import {
   BROWSER_CHROME_HEIGHT,
   TABBED_BROWSER_DEFAULT_HOME_URL,
@@ -392,13 +394,13 @@ export class TabbedBrowserWindow {
 
   focusAddressBar(): void {
     if (!this.hostWindow.isDestroyed()) {
-      this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS);
+      this.hostWindow.webContents.send(BrowserTabEvent.BROWSER_TAB_FOCUS_ADDRESS);
     }
   }
 
   blurAddressBar(): void {
     if (!this.hostWindow.isDestroyed()) {
-      this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS);
+      this.hostWindow.webContents.send(BrowserTabEvent.BROWSER_TAB_BLUR_ADDRESS);
     }
   }
 
@@ -456,7 +458,7 @@ export class TabbedBrowserWindow {
 
   private broadcastState(): void {
     if (this.closed || this.hostWindow.isDestroyed()) return;
-    this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, this.getState());
+    this.hostWindow.webContents.send(BrowserTabEvent.BROWSER_TAB_STATE_UPDATED, this.getState());
   }
 
   /** WebContentsView 顶部偏移，避开 Chrome 外壳 */
@@ -506,7 +508,7 @@ export class TabbedBrowserWindow {
       // 页面还在加载，先缓存内容，等 did-finish-load 后再发送
       this.overlayPendingContent = content;
     } else {
-      this.overlayWindow.webContents.send(VS_GO_EVENT.BROWSER_OVERLAY_CONTENT, content);
+      this.overlayWindow.webContents.send(BrowserOverlayEvent.BROWSER_OVERLAY_CONTENT, content);
       this.presentOverlayWindow(needsKeyboard);
     }
     this.installOverlayOutsideDismiss();
@@ -591,7 +593,7 @@ export class TabbedBrowserWindow {
 
   handleOverlayAction(payload: Record<string, unknown>): void {
     if (this.closed || this.hostWindow.isDestroyed()) return;
-    this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, payload);
+    this.hostWindow.webContents.send(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, payload);
   }
 
   private ensureOverlayWindow(): void {
@@ -625,7 +627,7 @@ export class TabbedBrowserWindow {
     win.webContents.on("did-finish-load", () => {
       if (this.overlayPendingContent && this.overlayWindow && !this.overlayWindow.isDestroyed()) {
         const pending = this.overlayPendingContent;
-        this.overlayWindow.webContents.send(VS_GO_EVENT.BROWSER_OVERLAY_CONTENT, pending);
+        this.overlayWindow.webContents.send(BrowserOverlayEvent.BROWSER_OVERLAY_CONTENT, pending);
         this.overlayPendingContent = null;
         this.presentOverlayWindow(this.overlayTypeNeedsKeyboard(pending.type));
         this.installOverlayOutsideDismiss();
@@ -827,7 +829,7 @@ export class TabbedBrowserWindow {
 
   private broadcastFullscreen(isFullscreen: boolean): void {
     if (this.closed || this.hostWindow.isDestroyed()) return;
-    this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, isFullscreen);
+    this.hostWindow.webContents.send(BrowserWindowEvent.BROWSER_WINDOW_FULLSCREEN_CHANGED, isFullscreen);
   }
 }
 

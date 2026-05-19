@@ -16,7 +16,7 @@ import {
   theme,
 } from "antd";
 import type { TreeProps } from "antd";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { BrowserSettingsEvent } from "@windows/browser/events/settings";
 import { generateId } from "@shared/utils";
 import type { BrowserItem } from "@shared/type";
 import {
@@ -67,7 +67,7 @@ function BrowserSettingInner(): React.JSX.Element {
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
-      const res = (await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_LIST)) as BrowserItem[] | null;
+      const res = (await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_LIST)) as BrowserItem[] | null;
       setList(Array.isArray(res) ? res : []);
     } finally {
       setLoading(false);
@@ -117,13 +117,13 @@ function BrowserSettingInner(): React.JSX.Element {
         message.warning("URL 不能为空");
         return;
       }
-      await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_UPDATE, {
+      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
         ...selectedItem,
         name,
         url,
       } satisfies BrowserItem);
     } else {
-      await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_UPDATE, {
+      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
         ...selectedItem,
         name,
       } satisfies BrowserItem);
@@ -133,14 +133,14 @@ function BrowserSettingInner(): React.JSX.Element {
   };
 
   const handleRemove = async (id: string): Promise<void> => {
-    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, id);
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_REMOVE, id);
     message.success("已删除");
     setSelectedKeys([]);
     await fetchList();
   };
 
   const handleRemoveAll = async (): Promise<void> => {
-    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE_ALL);
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_REMOVE_ALL);
     message.success("已清空");
     setSelectedKeys([]);
     await fetchList();
@@ -148,7 +148,7 @@ function BrowserSettingInner(): React.JSX.Element {
 
   const handleMoveTo = async (parentId: string | null): Promise<void> => {
     if (!selectedItem) return;
-    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_UPDATE, {
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
       ...selectedItem,
       parentId,
     } satisfies BrowserItem);
@@ -163,7 +163,7 @@ function BrowserSettingInner(): React.JSX.Element {
       message.warning("请填写书签名称与 URL");
       return;
     }
-    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_ADD, {
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
       id: generateId(),
       name,
       url,
@@ -182,7 +182,7 @@ function BrowserSettingInner(): React.JSX.Element {
       message.warning("请填写文件夹名称");
       return;
     }
-    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_ADD, {
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
       id: generateId(),
       name,
       type: "folder",
@@ -200,7 +200,7 @@ function BrowserSettingInner(): React.JSX.Element {
       message.warning("请填写书签名称与 URL");
       return;
     }
-    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_ADD, {
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
       id: generateId(),
       name,
       url,
@@ -219,7 +219,7 @@ function BrowserSettingInner(): React.JSX.Element {
       message.warning("请填写文件夹名称");
       return;
     }
-    await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_ADD, {
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
       id: generateId(),
       name,
       type: "folder",

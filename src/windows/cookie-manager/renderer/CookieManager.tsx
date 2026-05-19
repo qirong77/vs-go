@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button, message, Empty, Card, Typography } from "antd";
-import { VS_GO_EVENT } from "@shared/EVENT";
+import { CookieEvent } from "@windows/cookie-manager/events";
 import type { SavedCookieByUrl } from "@shared/type";
 
 const { Title, Text } = Typography;
@@ -16,16 +16,16 @@ const CookieManager: React.FC = () => {
     loadSavedCookies();
 
     const handleUrlUpdate = (_event: unknown, url: string) => setCurrentUrl(url);
-    ipcRenderer.on(VS_GO_EVENT.COOKIE_UPDATE_CURRENT_URL, handleUrlUpdate);
+    ipcRenderer.on(CookieEvent.COOKIE_UPDATE_CURRENT_URL, handleUrlUpdate);
 
     return () => {
-      ipcRenderer.removeAllListeners(VS_GO_EVENT.COOKIE_UPDATE_CURRENT_URL);
+      ipcRenderer.removeAllListeners(CookieEvent.COOKIE_UPDATE_CURRENT_URL);
     };
   }, []);
 
   const loadSavedCookies = async () => {
     try {
-      const cookies = await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_GET_SAVED_LIST_BY_URL);
+      const cookies = await ipcRenderer.invoke(CookieEvent.COOKIE_GET_SAVED_LIST_BY_URL);
       setSavedCookies(cookies);
     } catch (error) {
       console.error("加载 Cookie 列表失败:", error);
@@ -34,7 +34,7 @@ const CookieManager: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      const result = await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_DELETE_BY_URL, id);
+      const result = await ipcRenderer.invoke(CookieEvent.COOKIE_DELETE_BY_URL, id);
       if (result.success) {
         messageApi.success("删除成功");
         await loadSavedCookies();
@@ -55,7 +55,7 @@ const CookieManager: React.FC = () => {
 
     setLoading(true);
     try {
-      const result = await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_APPLY_BY_URL, cookie, currentUrl);
+      const result = await ipcRenderer.invoke(CookieEvent.COOKIE_APPLY_BY_URL, cookie, currentUrl);
       if (result.success) {
         messageApi.success(`成功应用 ${result.count} 个 Cookie`);
       } else {
@@ -77,7 +77,7 @@ const CookieManager: React.FC = () => {
 
     setLoading(true);
     try {
-      const result = await ipcRenderer.invoke(VS_GO_EVENT.COOKIE_SAVE_BY_URL, currentUrl);
+      const result = await ipcRenderer.invoke(CookieEvent.COOKIE_SAVE_BY_URL, currentUrl);
       if (result.success) {
         messageApi.success(`成功保存 ${result.cookie.domain} 的 Cookie`);
         await loadSavedCookies();
