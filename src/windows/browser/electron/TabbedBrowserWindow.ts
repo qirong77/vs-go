@@ -476,6 +476,23 @@ export class TabbedBrowserWindow {
 
   // -------------------- 浮动覆盖层窗口 --------------------
 
+  private overlayTypeNeedsKeyboard(type: OverlayType): boolean {
+    return type === "bookmark-star" || type === "name-dialog";
+  }
+
+  private presentOverlayWindow(needsKeyboard: boolean): void {
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+    if (needsKeyboard) {
+      if (!this.overlayWindow.isVisible()) {
+        this.overlayWindow.show();
+      }
+      this.overlayWindow.focus();
+      this.overlayWindow.webContents.focus();
+    } else if (!this.overlayWindow.isVisible()) {
+      this.overlayWindow.showInactive();
+    }
+  }
+
   showOverlay(bounds: OverlayBounds, content: OverlayContentPayload): void {
     this.overlayBounds = bounds;
     this.overlayType = content.type;
@@ -483,15 +500,14 @@ export class TabbedBrowserWindow {
     if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
 
     this.applyOverlayWindowBounds();
+    const needsKeyboard = this.overlayTypeNeedsKeyboard(content.type);
 
     if (this.overlayWindow.webContents.isLoading()) {
       // 页面还在加载，先缓存内容，等 did-finish-load 后再发送
       this.overlayPendingContent = content;
     } else {
       this.overlayWindow.webContents.send(VS_GO_EVENT.BROWSER_OVERLAY_CONTENT, content);
-      if (!this.overlayWindow.isVisible()) {
-        this.overlayWindow.showInactive();
-      }
+      this.presentOverlayWindow(needsKeyboard);
     }
     this.installOverlayOutsideDismiss();
   }
@@ -507,6 +523,10 @@ export class TabbedBrowserWindow {
     }
     this.overlayBounds = null;
     this.overlayType = null;
+    if (!this.hostWindow.isDestroyed()) {
+      this.hostWindow.focus();
+      this.hostWindow.webContents.focus();
+    }
   }
 
   private isOverlayVisible(): boolean {
@@ -517,23 +537,48 @@ export class TabbedBrowserWindow {
     );
   }
 
+  private isPointerInsideOverlayWindow(point: Electron.Point): boolean {
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return false;
+    const b = this.overlayWindow.getBounds();
+    return (
+      point.x >= b.x &&
+      point.x < b.x + b.width &&
+      point.y >= b.y &&
+      point.y < b.y + b.height
+    );
+  }
+
+  private tryDismissOverlayFromOutsidePointer(): void {
+    if (!this.isOverlayVisible()) return;
+    if (this.isPointerInsideOverlayWindow(screen.getCursorScreenPoint())) return;
+    this.handleOverlayAction({ action: "dismiss-overlay" });
+  }
+
+  private readonly onOverlayOutsideBeforeInput = (
+    _event: Electron.Event,
+    input: Electron.Input
+  ): void => {
+    if (input.type === "mouseDown") this.tryDismissOverlayFromOutsidePointer();
+  };
+
   private attachOverlayOutsideDismissToWebContents(wc: WebContents): () => void {
-    const onBeforeInput = (_event: Electron.Event, input: Electron.Input): void => {
-      if (input.type === "mouseDown" && this.isOverlayVisible()) {
-        this.handleOverlayAction({ action: "dismiss-overlay" });
-      }
+    const onInputEvent = (_event: Electron.Event, inputEvent: Electron.InputEvent): void => {
+      if (inputEvent.type === "mouseDown") this.tryDismissOverlayFromOutsidePointer();
     };
-    wc.on("before-input-event", onBeforeInput);
+    wc.on("before-input-event", this.onOverlayOutsideBeforeInput);
+    wc.on("input-event", onInputEvent);
     return () => {
       if (!wc.isDestroyed()) {
-        wc.removeListener("before-input-event", onBeforeInput);
+        wc.removeListener("before-input-event", this.onOverlayOutsideBeforeInput);
+        wc.removeListener("input-event", onInputEvent);
       }
     };
   }
 
   private installOverlayOutsideDismiss(): void {
     this.clearOverlayOutsideDismiss();
-    // 仅监听标签页：chrome 区域由 BookmarkChromeBar 的 document mousedown 处理（含星标等排除逻辑）
+    // 标签页区域：用屏幕坐标判断点击是否在浮层窗外（WebContentsView 上 document 事件不可靠）
+    // chrome 区域：由 BookmarkChromeBar 的 capture 阶段 mousedown 处理（含星标排除）
     this.overlayOutsideDismissCleanups = this.tabs.map((tab) =>
       this.attachOverlayOutsideDismissToWebContents(tab.view.webContents)
     );
@@ -556,7 +601,7 @@ export class TabbedBrowserWindow {
       transparent: true,
       frame: false,
       alwaysOnTop: true,
-      focusable: false,
+      focusable: true,
       resizable: false,
       hasShadow: false,
       skipTaskbar: true,
@@ -579,11 +624,11 @@ export class TabbedBrowserWindow {
 
     win.webContents.on("did-finish-load", () => {
       if (this.overlayPendingContent && this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-        this.overlayWindow.webContents.send(VS_GO_EVENT.BROWSER_OVERLAY_CONTENT, this.overlayPendingContent);
+        const pending = this.overlayPendingContent;
+        this.overlayWindow.webContents.send(VS_GO_EVENT.BROWSER_OVERLAY_CONTENT, pending);
         this.overlayPendingContent = null;
-        if (!this.overlayWindow.isVisible()) {
-          this.overlayWindow.showInactive();
-        }
+        this.presentOverlayWindow(this.overlayTypeNeedsKeyboard(pending.type));
+        this.installOverlayOutsideDismiss();
       }
     });
 

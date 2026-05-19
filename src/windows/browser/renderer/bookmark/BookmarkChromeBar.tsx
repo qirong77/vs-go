@@ -359,14 +359,19 @@ export function BookmarkChromeProvider({
       if (t instanceof Element && t.closest("[data-bookmark-chip]")) return;
       if (t instanceof Element && t.closest("[data-bookmark-star-wrap]")) return;
 
+      const hasOverlay =
+        bookmarkPopoverOpen || bookmarkBarMenu !== null || folderDropdown !== null || nameDialog !== null;
+      if (!hasOverlay) return;
+
       if (bookmarkPopoverOpen) setBookmarkPopoverOpen(false);
       setBookmarkBarMenu(null);
       setFolderDropdown(null);
+      setNameDialog(null);
       hideOverlay();
     };
-    document.addEventListener("mousedown", onDocMouseDown);
-    return () => document.removeEventListener("mousedown", onDocMouseDown);
-  }, [bookmarkPopoverOpen, bookmarkBarMenu, folderDropdown, hideOverlay]);
+    document.addEventListener("mousedown", onDocMouseDown, true);
+    return () => document.removeEventListener("mousedown", onDocMouseDown, true);
+  }, [bookmarkPopoverOpen, bookmarkBarMenu, folderDropdown, nameDialog, hideOverlay]);
 
   const initStarDraft = useCallback((): void => {
     const defaultName =

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConfigProvider, Input, Menu, theme } from "antd";
-import type { MenuProps } from "antd";
+import type { InputRef, MenuProps } from "antd";
 import {
   FolderOutlined,
   PlusOutlined,
@@ -16,12 +16,21 @@ import { getOverlayContentInset } from "@shared/type";
 const { ipcRenderer } = window.electron;
 
 const OVERLAY_STYLES = `
-  .vsgo-overlay-root {
+  html, body, #root {
     cursor: default;
+  }
+  .vsgo-overlay-root {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
   .vsgo-overlay-card {
     animation: vsgoOverlayIn 0.16s ease-out;
+    cursor: default;
+  }
+  .vsgo-overlay-card button,
+  .vsgo-overlay-card .ant-menu-item:not(.ant-menu-item-disabled),
+  .vsgo-overlay-card .ant-menu-item:not(.ant-menu-item-disabled) .ant-menu-title-content,
+  .vsgo-overlay-card .ant-menu-item:not(.ant-menu-item-disabled) .anticon {
+    cursor: pointer !important;
   }
   @keyframes vsgoOverlayIn {
     from { opacity: 0; transform: translateY(-3px); }
@@ -163,8 +172,12 @@ const OVERLAY_STYLES = `
     color: #202124;
     user-select: none;
   }
-  .vsgo-overlay-panel .ant-input {
-    cursor: text;
+  .vsgo-overlay-panel .ant-input,
+  .vsgo-overlay-panel .ant-input-affix-wrapper {
+    cursor: text !important;
+  }
+  .vsgo-overlay-panel .ant-input-clear-icon {
+    cursor: pointer !important;
   }
 `;
 
@@ -189,10 +202,19 @@ interface BookmarkStarData {
 
 function BookmarkStarOverlay({ data }: { data: BookmarkStarData }): React.JSX.Element {
   const [name, setName] = useState(data.draftName);
+  const inputRef = useRef<InputRef>(null);
 
   useEffect(() => {
     setName(data.draftName);
   }, [data.draftName]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.input?.select();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const hasExisting = !!data.existingBookmark;
   const trimmed = name.trim();
@@ -208,6 +230,7 @@ function BookmarkStarOverlay({ data }: { data: BookmarkStarData }): React.JSX.El
         <span>{hasExisting ? "编辑书签" : "添加书签"}</span>
       </div>
       <Input
+        ref={inputRef}
         className="vsgo-bookmark-name-input"
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -397,11 +420,20 @@ interface NameDialogData {
 
 function NameDialogOverlay({ data }: { data: NameDialogData }): React.JSX.Element {
   const [name, setName] = useState(data.draft);
+  const inputRef = useRef<InputRef>(null);
   const title = data.kind === "rename" ? "重命名" : "新建文件夹";
 
   useEffect(() => {
     setName(data.draft);
   }, [data.draft]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.input?.select();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const trimmed = name.trim();
   const commit = (): void => {
@@ -413,6 +445,7 @@ function NameDialogOverlay({ data }: { data: NameDialogData }): React.JSX.Elemen
     <div className="vsgo-overlay-panel" style={{ width: 320 }}>
       <div className="vsgo-name-dialog-title">{title}</div>
       <Input
+        ref={inputRef}
         className="vsgo-bookmark-name-input"
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -454,6 +487,13 @@ function NameDialogOverlay({ data }: { data: NameDialogData }): React.JSX.Elemen
 // Main Overlay
 // ============================================================
 
+function isInteractiveOverlayTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return !!target.closest(
+    "button, .ant-menu-item:not(.ant-menu-item-disabled), .ant-input-clear-icon, [role='menuitem']"
+  );
+}
+
 export default function FloatingOverlay(): React.JSX.Element {
   const [content, setContent] = useState<OverlayContentPayload | null>(null);
 
@@ -465,6 +505,26 @@ export default function FloatingOverlay(): React.JSX.Element {
       document.body.style.background = "";
     };
   }, []);
+
+  // Electron 透明无边框窗口在 macOS 上常不应用 CSS cursor，需同步到 body
+  useEffect(() => {
+    if (!content) return;
+    const onMove = (e: MouseEvent): void => {
+      document.body.style.cursor = isInteractiveOverlayTarget(e.target)
+        ? "pointer"
+        : "default";
+    };
+    const onLeave = (): void => {
+      document.body.style.cursor = "default";
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseleave", onLeave);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseleave", onLeave);
+      document.body.style.cursor = "";
+    };
+  }, [content]);
 
   useEffect(() => {
     const handler = (_e: unknown, payload: OverlayContentPayload): void => {
@@ -490,8 +550,9 @@ export default function FloatingOverlay(): React.JSX.Element {
     overflow: "hidden",
   };
 
-  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
-    if (e.target !== e.currentTarget) return;
+  const handleRootPointerDownCapture = (e: React.PointerEvent<HTMLDivElement>): void => {
+    const card = e.currentTarget.querySelector(".vsgo-overlay-card");
+    if (card?.contains(e.target as Node)) return;
     sendAction({ action: "dismiss-overlay" });
   };
 
@@ -519,7 +580,7 @@ export default function FloatingOverlay(): React.JSX.Element {
       <style>{OVERLAY_STYLES}</style>
       <div
         className="vsgo-overlay-root"
-        onMouseDown={handleBackdropMouseDown}
+        onPointerDownCapture={handleRootPointerDownCapture}
         style={{
           width: "100vw",
           height: "100vh",
@@ -528,11 +589,7 @@ export default function FloatingOverlay(): React.JSX.Element {
           padding: `${inset.top}px ${inset.right}px ${inset.bottom}px ${inset.left}px`,
         }}
       >
-        <div
-          className="vsgo-overlay-card"
-          style={wrapStyle}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
+        <div className="vsgo-overlay-card" style={wrapStyle}>
           {body}
         </div>
       </div>
