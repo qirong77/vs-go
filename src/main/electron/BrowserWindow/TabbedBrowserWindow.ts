@@ -770,10 +770,23 @@ export function normalizeUrlOrSearch(input: string): string {
   return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
 }
 
+/** 用 try/catch 包裹用户脚本，避免 DOM 未命中等运行时错误以 Uncaught 形式污染页面控制台 */
+export function wrapUserScriptForExecution(script: string): string {
+  const serialized = JSON.stringify(script);
+  return `(function(){
+  try {
+    const fn = new Function(${serialized});
+    fn();
+  } catch (e) {
+    console.error("[VsGo 用户脚本]", e);
+  }
+})();`;
+}
+
 function runUserScript(webContents: WebContents): void {
   const script = windowScriptStore.get().trim();
   if (!script) return;
-  webContents.executeJavaScript(script, false).catch((err) => {
+  webContents.executeJavaScript(wrapUserScriptForExecution(script), false).catch((err) => {
     console.error("[TabbedBrowserWindow] 用户脚本执行失败:", err);
   });
 }
