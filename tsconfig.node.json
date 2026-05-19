@@ -1,10 +1,31 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
-  "include": ["electron.vite.config.*", "src/main/**/*", "src/common/**/*", "src/test"],
+  "include": [
+    "electron.vite.config.*",
+    "src/main/**/*",
+    "src/app.ts",
+    "src/tray/**/*",
+    "src/platform/**/*",
+    "src/windows/**/*",
+    "src/shared/**/*",
+    "src/config/**/*",
+    "src/utils/**/*",
+    "src/setupWorkSpaceApp.ts",
+    "src/test"
+  ],
   "compilerOptions": {
     "composite": true,
     "module": "esnext",
     "moduleResolution": "bundler",
-    "types": ["electron-vite/node", "node"]
+    "types": ["electron-vite/node", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["src/shared/*"],
+      "@platform/*": ["src/platform/*"],
+      "@windows/*": ["src/windows/*"],
+      "@config": ["src/config/index.ts"],
+      "@config/*": ["src/config/*"],
+      "@utils/*": ["src/utils/*"]
+    }
   }
 }

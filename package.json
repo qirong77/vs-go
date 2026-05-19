@@ -48,7 +48,8 @@
     "p-map": "^5.5.0",
     "pinyin": "^4.0.0-alpha.0",
     "prismjs": "^1.30.0",
-    "tailwindcss": "^3.4.3"
+    "tailwindcss": "^3.4.3",
+    "use-debounce": "^10.1.1"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",

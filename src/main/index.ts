@@ -1,6 +1,6 @@
 import { app } from "electron";
 import { electronApp } from "@electron-toolkit/utils";
-import "./electron/index";
+import "../app";
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("com.electron");

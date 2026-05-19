@@ -87,6 +87,9 @@ web_modules/
 .next
 out
 
+# TypeScript emit inside source tree
+src/**/dist/
+
 # Nuxt.js build / generate output
 .nuxt
 dist

@@ -23,6 +23,15 @@ function copyTrayIconPlugin(): Plugin {
   };
 }
 
+const pathAliases = {
+  "@shared": resolve("src/shared"),
+  "@platform": resolve("src/platform"),
+  "@windows": resolve("src/windows"),
+  "@config": resolve("src/config"),
+  "@utils": resolve("src/utils"),
+  "@renderer": resolve("src/platform/renderer"),
+};
+
 export default defineConfig(({ mode }) => {
   loadEnv(mode);
 
@@ -30,6 +39,9 @@ export default defineConfig(({ mode }) => {
     main: {
       envPrefix: "M_VITE_",
       plugins: [externalizeDepsPlugin(), copyTrayIconPlugin()],
+      resolve: {
+        alias: pathAliases,
+      },
       build: {
         rollupOptions: {
           output: {
@@ -40,17 +52,24 @@ export default defineConfig(({ mode }) => {
     },
     preload: {
       plugins: [externalizeDepsPlugin(), react()],
+      resolve: {
+        alias: pathAliases,
+      },
       build: {
         lib: {
-          entry: resolve(__dirname, "src/preload/index.tsx"),
+          entry: resolve(__dirname, "src/platform/preload/index.tsx"),
         },
       },
     },
     renderer: {
-      resolve: {
-        alias: {
-          "@renderer": resolve("src/renderer/src"),
+      root: resolve(__dirname, "src/platform/renderer"),
+      build: {
+        rollupOptions: {
+          input: resolve(__dirname, "src/platform/renderer/index.html"),
         },
+      },
+      resolve: {
+        alias: pathAliases,
       },
       plugins: [react()],
     },
