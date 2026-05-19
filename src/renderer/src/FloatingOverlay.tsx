@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { ConfigProvider, Input, Button, Menu, Typography, theme, Form, Space } from "antd";
 import type { MenuProps } from "antd";
 import { FolderOutlined, PlusOutlined, EditOutlined, DeleteOutlined, FolderAddOutlined } from "@ant-design/icons";
@@ -325,11 +325,20 @@ export default function FloatingOverlay(): React.JSX.Element {
     return <div style={{ width: 1, height: 1 }} />;
   }
 
-  const baseStyle: React.CSSProperties = {
+  const isSuggestions = content.type === "suggestions";
+
+  const wrapStyle: React.CSSProperties = {
     background: "#fff",
-    borderRadius: 10,
+    // 建议列表：顶部与地址栏齐平，不要圆角；其余弹窗四角均有圆角
+    borderRadius: isSuggestions ? "0 0 10px 10px" : 10,
     overflow: "hidden",
-    boxShadow: "0 8px 30px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)",
+    // 建议列表用更明显的阴影，其他弹窗正常阴影
+    boxShadow: isSuggestions
+      ? "0 8px 24px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12)"
+      : "0 8px 30px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)",
+    // 建议列表顶部加蓝色边框，与地址栏焦点色保持一致
+    borderTop: isSuggestions ? "1px solid #1a73e8" : undefined,
+    pointerEvents: "auto",
   };
 
   let body: React.JSX.Element;
@@ -356,7 +365,7 @@ export default function FloatingOverlay(): React.JSX.Element {
 
   return (
     <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm }} componentSize="small">
-      <div style={{ ...baseStyle, pointerEvents: "auto" }}>
+      <div style={wrapStyle}>
         {body}
       </div>
     </ConfigProvider>
