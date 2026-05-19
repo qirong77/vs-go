@@ -3,7 +3,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,15 +11,10 @@ import {
   StarFilled,
   StarOutlined,
   FolderOutlined,
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  FolderAddOutlined,
 } from "@ant-design/icons";
-import { Button, ConfigProvider, Form, Input, Menu, Modal, Popover, Space, Typography, theme } from "antd";
-import type { MenuProps } from "antd";
+import { Button, ConfigProvider, Typography, theme } from "antd";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import { BROWSER_CHROME_HEIGHT, type BrowserItem } from "../../../common/type";
+import { type BrowserItem, type OverlayBounds } from "../../../common/type";
 import { generateId } from "../../../common/utils";
 import {
   flattenFolderChildrenPreorder,
@@ -31,11 +25,6 @@ import {
 
 const { ipcRenderer } = window.electron;
 const { Text } = Typography;
-
-const CHROME_FLOATING_BUFFER = 12;
-const SUGGESTION_ITEM_HEIGHT = 48;
-const SUGGESTION_VISIBLE_ITEMS = 5;
-const SUGGESTION_CHROME_BUFFER = 12;
 
 type BookmarkBarMenuState =
   | { kind: "item"; x: number; y: number; item: BrowserItem }
@@ -48,7 +37,6 @@ type NameDialogState =
   | null;
 
 interface BookmarkChromeContextValue {
-  suggestionsRef: React.RefObject<HTMLDivElement | null>;
   showSuggestions: boolean;
   suggestionsLength: number;
   bookmarks: BrowserItem[];
@@ -59,11 +47,6 @@ interface BookmarkChromeContextValue {
   activeTabId: string | null | undefined;
   existingBookmark: BrowserItem | undefined;
   canBookmark: boolean;
-  starPopoverWrapRef: React.RefObject<HTMLDivElement | null>;
-  bookmarkStarPopoverRef: React.RefObject<HTMLDivElement | null>;
-  folderPanelRef: React.RefObject<HTMLDivElement | null>;
-  bookmarkCtxMenuRef: React.RefObject<HTMLDivElement | null>;
-  nameDialogCardRef: React.RefObject<HTMLDivElement | null>;
   bookmarkPopoverOpen: boolean;
   setBookmarkPopoverOpen: (v: boolean) => void;
   bookmarkDraftName: string;
@@ -82,6 +65,8 @@ interface BookmarkChromeContextValue {
   moveItemToParent: (item: BrowserItem, parentId: string | null) => Promise<void>;
   deleteBrowserItem: (item: BrowserItem) => Promise<void>;
   commitNameDialog: () => Promise<void>;
+  showOverlay: (type: string, bounds: OverlayBounds, data: unknown) => void;
+  hideOverlay: () => void;
 }
 
 const BookmarkChromeCtx = createContext<BookmarkChromeContextValue | null>(null);
@@ -93,7 +78,6 @@ function useBookmarkChrome(): BookmarkChromeContextValue {
 }
 
 export interface BookmarkChromeProviderProps {
-  suggestionsRef: React.RefObject<HTMLDivElement | null>;
   showSuggestions: boolean;
   suggestionsLength: number;
   bookmarks: BrowserItem[];
@@ -108,7 +92,6 @@ export interface BookmarkChromeProviderProps {
 }
 
 export function BookmarkChromeProvider({
-  suggestionsRef,
   showSuggestions,
   suggestionsLength,
   bookmarks,
@@ -129,112 +112,20 @@ export function BookmarkChromeProvider({
   const [bookmarkBarMenu, setBookmarkBarMenu] = useState<BookmarkBarMenuState>(null);
   const [nameDialog, setNameDialog] = useState<NameDialogState>(null);
 
-  const starPopoverWrapRef = useRef<HTMLDivElement>(null);
-  const bookmarkStarPopoverRef = useRef<HTMLDivElement>(null);
-  const folderPanelRef = useRef<HTMLDivElement>(null);
-  const bookmarkCtxMenuRef = useRef<HTMLDivElement>(null);
-  const nameDialogCardRef = useRef<HTMLDivElement>(null);
-
-  const flushChromePaddingFromOverlays = useCallback((): void => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        let maxBottom = 0;
-        const nodes: (HTMLElement | null)[] = [
-          suggestionsRef.current,
-          folderPanelRef.current,
-          bookmarkCtxMenuRef.current,
-          bookmarkStarPopoverRef.current,
-          nameDialogCardRef.current,
-        ];
-        for (const el of nodes) {
-          if (!el) continue;
-          const r = el.getBoundingClientRect();
-          if (r.width === 0 && r.height === 0) continue;
-          maxBottom = Math.max(maxBottom, r.bottom);
-        }
-        const measured = Math.max(0, maxBottom - BROWSER_CHROME_HEIGHT + CHROME_FLOATING_BUFFER);
-        let fallback = 0;
-        if (showSuggestions && suggestionsLength > 0) {
-          fallback =
-            Math.min(suggestionsLength, SUGGESTION_VISIBLE_ITEMS) * SUGGESTION_ITEM_HEIGHT +
-            SUGGESTION_CHROME_BUFFER;
-        }
-        if (bookmarkBarMenu?.kind === "item") {
-          const n = moveParentTargets(bookmarks, bookmarkBarMenu.item).length;
-          fallback = Math.max(fallback, Math.min(280, 120 + n * 28));
-        }
-        ipcRenderer.send(VS_GO_EVENT.BROWSER_CHROME_SET_PADDING, Math.max(measured, fallback));
-      });
+  const showOverlay = useCallback((type: string, bounds: OverlayBounds, data: unknown): void => {
+    ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_SHOW, {
+      bounds,
+      data: { type, data },
     });
-  }, [showSuggestions, suggestionsLength, suggestionsRef, bookmarkBarMenu, bookmarks]);
-
-  useLayoutEffect(() => {
-    flushChromePaddingFromOverlays();
-    const onResize = (): void => {
-      flushChromePaddingFromOverlays();
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [
-    flushChromePaddingFromOverlays,
-    showSuggestions,
-    suggestionsLength,
-    folderDropdown,
-    bookmarkBarMenu,
-    bookmarkPopoverOpen,
-    nameDialog,
-    bookmarks,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      ipcRenderer.send(VS_GO_EVENT.BROWSER_CHROME_SET_PADDING, 0);
-    };
   }, []);
 
-  useEffect(() => {
-    setBookmarkPopoverOpen(false);
-    setFolderDropdown(null);
-    setBookmarkBarMenu(null);
-    setNameDialog(null);
-  }, [activeTabId]);
+  const hideOverlay = useCallback((): void => {
+    ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_HIDE);
+  }, []);
 
-  useEffect(() => {
-    const onDocMouseDown = (e: MouseEvent): void => {
-      const t = e.target instanceof Node ? e.target : null;
-      if (!t) return;
-
-      if (starPopoverWrapRef.current?.contains(t)) return;
-      if (bookmarkStarPopoverRef.current?.contains(t)) return;
-      if (bookmarkPopoverOpen) setBookmarkPopoverOpen(false);
-
-      if (bookmarkCtxMenuRef.current?.contains(t)) return;
-      if (folderPanelRef.current?.contains(t)) return;
-      if (nameDialogCardRef.current?.contains(t)) return;
-
-      setBookmarkBarMenu(null);
-      setFolderDropdown(null);
-    };
-    document.addEventListener("mousedown", onDocMouseDown);
-    return () => document.removeEventListener("mousedown", onDocMouseDown);
-  }, [bookmarkPopoverOpen, bookmarkBarMenu, folderDropdown, nameDialog]);
-
-  const initStarDraft = useCallback((): void => {
-    const defaultName =
-      existingBookmark?.name?.trim() ||
-      activeTabTitle?.trim() ||
-      (() => {
-        try {
-          return new URL(bookmarkTargetUrl).hostname;
-        } catch {
-          return bookmarkTargetUrl;
-        }
-      })();
-    setBookmarkDraftName(defaultName || "书签");
-  }, [existingBookmark, activeTabTitle, bookmarkTargetUrl]);
-
-  const handleBookmarkSave = useCallback(async (): Promise<void> => {
-    const name = bookmarkDraftName.trim();
+  // 以下 callbacks 必须在 useEffect 依赖数组之前声明，避免 TDZ 错误
+  const handleBookmarkSave = useCallback(async (overlayName?: string): Promise<void> => {
+    const name = (overlayName ?? bookmarkDraftName).trim();
     if (!name || !bookmarkTargetUrl) return;
     if (existingBookmark) {
       await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_UPDATE, {
@@ -259,7 +150,8 @@ export function BookmarkChromeProvider({
     await ipcRenderer.invoke(VS_GO_EVENT.BROWSER_REMOVE, existingBookmark.id);
     await onBookmarksUpdated();
     setBookmarkPopoverOpen(false);
-  }, [existingBookmark, onBookmarksUpdated]);
+    hideOverlay();
+  }, [existingBookmark, onBookmarksUpdated, hideOverlay]);
 
   const moveItemToParent = useCallback(
     async (item: BrowserItem, parentId: string | null): Promise<void> => {
@@ -294,6 +186,204 @@ export function BookmarkChromeProvider({
     [onBookmarksUpdated]
   );
 
+  // 用 ref 持有最新的 handler 所需数据，避免 useEffect 因依赖变化反复重注册监听器
+  const overlayActionCtxRef = useRef({
+    handleBookmarkSave,
+    handleBookmarkRemove,
+    moveItemToParent,
+    deleteBrowserItem,
+    submitAddress,
+    showOverlay,
+    hideOverlay,
+    bookmarks,
+    bookmarkBarMenu,
+    onBookmarksUpdated,
+    setBookmarkDraftName,
+    setBookmarkBarMenu,
+    setFolderDropdown,
+    setNameDialog,
+  });
+  overlayActionCtxRef.current = {
+    handleBookmarkSave,
+    handleBookmarkRemove,
+    moveItemToParent,
+    deleteBrowserItem,
+    submitAddress,
+    showOverlay,
+    hideOverlay,
+    bookmarks,
+    bookmarkBarMenu,
+    onBookmarksUpdated,
+    setBookmarkDraftName,
+    setBookmarkBarMenu,
+    setFolderDropdown,
+    setNameDialog,
+  };
+
+  // 监听来自浮动窗口的用户操作（空依赖数组，只注册一次，通过 ref 读取最新上下文）
+  useEffect(() => {
+    const handler = (_e: unknown, payload: { action: string;[key: string]: unknown }): void => {
+      const ctx = overlayActionCtxRef.current;
+      switch (payload.action) {
+        case "save-bookmark": {
+          const name = (payload.name as string) || "";
+          if (name) {
+            ctx.setBookmarkDraftName(name);
+            void ctx.handleBookmarkSave(name);
+            ctx.hideOverlay();
+          }
+          break;
+        }
+        case "remove-bookmark": {
+          void ctx.handleBookmarkRemove();
+          ctx.hideOverlay();
+          break;
+        }
+        case "select-folder-item": {
+          const url = payload.url as string;
+          if (url) ctx.submitAddress("current", url);
+          ctx.setFolderDropdown(null);
+          ctx.hideOverlay();
+          break;
+        }
+        case "rename-item": {
+          const itemId = payload.itemId as string;
+          const itemName = payload.itemName as string;
+          const item = ctx.bookmarks.find((b) => b.id === itemId);
+          if (item) {
+            ctx.setBookmarkBarMenu(null);
+            ctx.setNameDialog({ kind: "rename", item, draft: itemName });
+            ctx.hideOverlay();
+            requestAnimationFrame(() => {
+              ctx.showOverlay("name-dialog", { x: 200, y: 120, width: 360, height: 160 }, {
+                kind: "rename",
+                draft: itemName,
+                itemName,
+              });
+            });
+          }
+          break;
+        }
+        case "new-folder": {
+          const parentId = (payload.parentId ?? null) as string | null;
+          ctx.setBookmarkBarMenu(null);
+          ctx.setNameDialog({ kind: "newFolder", parentId, draft: "新文件夹" });
+          ctx.hideOverlay();
+          requestAnimationFrame(() => {
+            ctx.showOverlay("name-dialog", { x: 200, y: 120, width: 360, height: 160 }, {
+              kind: "newFolder",
+              draft: "新文件夹",
+            });
+          });
+          break;
+        }
+        case "move-item": {
+          const parentId = (payload.parentId ?? null) as string | null;
+          if (ctx.bookmarkBarMenu?.kind === "item") {
+            const item = ctx.bookmarkBarMenu.item;
+            void ctx.moveItemToParent(item, parentId).then(() => {
+              ctx.hideOverlay();
+            });
+          }
+          break;
+        }
+        case "delete-item": {
+          if (ctx.bookmarkBarMenu?.kind === "item") {
+            const item = ctx.bookmarkBarMenu.item;
+            void ctx.deleteBrowserItem(item).then(() => {
+              ctx.hideOverlay();
+            });
+          }
+          break;
+        }
+        case "commit-name": {
+          const name = (payload.name as string) || "";
+          if (!name) return;
+          ctx.setNameDialog((prev) => {
+            if (!prev) return prev;
+            if (prev.kind === "rename") {
+              ipcRenderer.invoke(VS_GO_EVENT.BROWSER_UPDATE, {
+                ...prev.item,
+                name,
+              } satisfies BrowserItem).then(() => {
+                void ctx.onBookmarksUpdated();
+              });
+              return null;
+            } else {
+              ipcRenderer.invoke(VS_GO_EVENT.BROWSER_ADD, {
+                id: generateId(),
+                name,
+                type: "folder",
+                parentId: prev.parentId,
+              } satisfies BrowserItem).then(() => {
+                void ctx.onBookmarksUpdated();
+              });
+              return null;
+            }
+          });
+          ctx.hideOverlay();
+          break;
+        }
+        case "close-name-dialog": {
+          ctx.setNameDialog(null);
+          ctx.hideOverlay();
+          break;
+        }
+      }
+    };
+    ipcRenderer.on(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, handler);
+    return () => {
+      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, handler);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      ipcRenderer.send(VS_GO_EVENT.BROWSER_CHROME_SET_PADDING, 0);
+    };
+  }, []);
+
+  useEffect(() => {
+    setBookmarkPopoverOpen(false);
+    setFolderDropdown(null);
+    setBookmarkBarMenu(null);
+    setNameDialog(null);
+    hideOverlay();
+  }, [activeTabId, hideOverlay]);
+
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent): void => {
+      const t = e.target instanceof Node ? e.target : null;
+      if (!t) return;
+
+      if (t instanceof Element && t.closest("input[type='text']")) return;
+      if (t instanceof Element && t.closest("[data-bookmark-chip]")) return;
+      if (t instanceof Element && t.closest("[data-bookmark-star-wrap]")) return;
+
+      if (bookmarkPopoverOpen) setBookmarkPopoverOpen(false);
+      setBookmarkBarMenu(null);
+      setFolderDropdown(null);
+      hideOverlay();
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [bookmarkPopoverOpen, bookmarkBarMenu, folderDropdown, hideOverlay]);
+
+  const initStarDraft = useCallback((): void => {
+    const defaultName =
+      existingBookmark?.name?.trim() ||
+      activeTabTitle?.trim() ||
+      (() => {
+        try {
+          return new URL(bookmarkTargetUrl).hostname;
+        } catch {
+          return bookmarkTargetUrl;
+        }
+      })();
+    setBookmarkDraftName(defaultName || "书签");
+  }, [existingBookmark, activeTabTitle, bookmarkTargetUrl]);
+
   const commitNameDialog = useCallback(async (): Promise<void> => {
     if (!nameDialog) return;
     if (nameDialog.kind === "rename") {
@@ -319,7 +409,6 @@ export function BookmarkChromeProvider({
 
   const value = useMemo(
     (): BookmarkChromeContextValue => ({
-      suggestionsRef,
       showSuggestions,
       suggestionsLength,
       bookmarks,
@@ -330,11 +419,6 @@ export function BookmarkChromeProvider({
       activeTabId,
       existingBookmark,
       canBookmark,
-      starPopoverWrapRef,
-      bookmarkStarPopoverRef,
-      folderPanelRef,
-      bookmarkCtxMenuRef,
-      nameDialogCardRef,
       bookmarkPopoverOpen,
       setBookmarkPopoverOpen,
       bookmarkDraftName,
@@ -351,9 +435,10 @@ export function BookmarkChromeProvider({
       moveItemToParent,
       deleteBrowserItem,
       commitNameDialog,
+      showOverlay,
+      hideOverlay,
     }),
     [
-      suggestionsRef,
       showSuggestions,
       suggestionsLength,
       bookmarks,
@@ -375,6 +460,8 @@ export function BookmarkChromeProvider({
       moveItemToParent,
       deleteBrowserItem,
       commitNameDialog,
+      showOverlay,
+      hideOverlay,
     ]
   );
 
@@ -390,83 +477,59 @@ export function BookmarkChromeProvider({
   );
 }
 
-const getPopupContainer = (node: HTMLElement): HTMLElement =>
-  (node.closest(".tabbed-browser-chrome-root") as HTMLElement) ?? document.body;
-
 export function BookmarkChromeStar(): React.JSX.Element {
   const ctx = useBookmarkChrome();
-  const starPopoverContent = (
-    <div ref={ctx.bookmarkStarPopoverRef} style={{ width: 280 }}>
-      <Text strong>{ctx.existingBookmark ? "修改书签" : "添加书签"}</Text>
-      <Form layout="vertical" style={{ marginTop: 12 }} size="small">
-        <Form.Item label="名称">
-          <Input
-            value={ctx.bookmarkDraftName}
-            onChange={(e) => ctx.setBookmarkDraftName(e.target.value)}
-            onPressEnter={() => void ctx.handleBookmarkSave()}
-            placeholder="书签名称"
-            allowClear
-          />
-        </Form.Item>
-        <Text type="secondary" style={{ fontSize: 12, wordBreak: "break-all", display: "block" }}>
-          {ctx.bookmarkTargetUrl}
-        </Text>
-        <Space style={{ marginTop: 12, justifyContent: "flex-end", width: "100%" }} wrap>
-          {ctx.existingBookmark && (
-            <Button danger type="link" size="small" onClick={() => void ctx.handleBookmarkRemove()}>
-              删除
-            </Button>
-          )}
-          <Button type="primary" size="small" onClick={() => void ctx.handleBookmarkSave()}>
-            完成
-          </Button>
-        </Space>
-      </Form>
-    </div>
-  );
+  const starRef = useRef<HTMLDivElement>(null);
+
+  const openStarOverlay = useCallback((): void => {
+    if (!ctx.canBookmark) return;
+    ctx.initStarDraft();
+    ctx.setBookmarkPopoverOpen(true);
+
+    const el = starRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+
+    ctx.showOverlay("bookmark-star", {
+      x: Math.max(8, rect.right - 300),
+      y: rect.bottom + 4,
+      width: 300,
+      height: 220,
+    }, {
+      existingBookmark: ctx.existingBookmark,
+      bookmarkTargetUrl: ctx.bookmarkTargetUrl,
+      draftName: ctx.existingBookmark?.name?.trim() || ctx.activeTabTitle?.trim() || (() => {
+        try { return new URL(ctx.bookmarkTargetUrl).hostname; } catch { return ctx.bookmarkTargetUrl; }
+      })() || "书签",
+    });
+  }, [ctx]);
 
   return (
     <div
-      ref={ctx.starPopoverWrapRef}
+      ref={starRef}
       data-bookmark-star-wrap
-      style={
-        {
-          position: "relative",
-          flexShrink: 0,
-          WebkitAppRegion: "no-drag",
-        } as React.CSSProperties
-      }
+      style={{ position: "relative", flexShrink: 0, WebkitAppRegion: "no-drag" } as React.CSSProperties}
     >
-      <Popover
-        open={ctx.bookmarkPopoverOpen}
-        onOpenChange={(open) => {
-          if (!ctx.canBookmark) {
-            if (open) return;
+      <Button
+        type="text"
+        size="small"
+        disabled={!ctx.canBookmark}
+        icon={
+          ctx.existingBookmark ? <StarFilled style={{ color: "#1677ff" }} /> : <StarOutlined />
+        }
+        onMouseDown={(e) => {
+          e.preventDefault();
+          if (ctx.bookmarkPopoverOpen) {
             ctx.setBookmarkPopoverOpen(false);
-            return;
+            ctx.hideOverlay();
+          } else {
+            openStarOverlay();
           }
-          if (open) ctx.initStarDraft();
-          ctx.setBookmarkPopoverOpen(open);
         }}
-        trigger="click"
-        placement="bottomRight"
-        getPopupContainer={(node) => getPopupContainer(node)}
-        content={starPopoverContent}
-        destroyOnHidden
-      >
-        <Button
-          type="text"
-          size="small"
-          disabled={!ctx.canBookmark}
-          icon={
-            ctx.existingBookmark ? <StarFilled style={{ color: "#1677ff" }} /> : <StarOutlined />
-          }
-          onMouseDown={(e) => e.preventDefault()}
-          title={ctx.existingBookmark ? "已加入书签 — 点击编辑" : "为此页添加书签"}
-          tabIndex={-1}
-          style={{ width: 36, height: 28 }}
-        />
-      </Popover>
+        title={ctx.existingBookmark ? "已加入书签 — 点击编辑" : "为此页添加书签"}
+        tabIndex={-1}
+        style={{ width: 36, height: 28 }}
+      />
     </div>
   );
 }
@@ -527,88 +590,79 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
     [ctx.bookmarks, ctx.onBookmarksUpdated, rootBarItems]
   );
 
-  const folderMenuItems: MenuProps["items"] = useMemo(() => {
-    if (!ctx.folderDropdown) return [];
-    return flattenFolderChildrenPreorder(ctx.bookmarks, ctx.folderDropdown.folderId, 0).map(
-      ({ item, depth }) => {
-        if (item.type === "folder") {
-          return {
-            key: item.id,
-            label: (
-              <span style={{ paddingLeft: depth * 10, color: "var(--ant-color-text-secondary)" }}>
-                <FolderOutlined style={{ marginRight: 6 }} />
-                {item.name}
-              </span>
-            ),
-            disabled: true,
-          };
-        }
-        return {
-          key: item.id,
-          label: <span style={{ paddingLeft: depth * 10 }}>{item.name}</span>,
-          onClick: () => {
-            if (item.url) ctx.submitAddress("current", item.url);
-            ctx.setFolderDropdown(null);
-          },
-        };
-      }
-    );
-  }, [ctx.folderDropdown, ctx.bookmarks, ctx.submitAddress, ctx.setFolderDropdown]);
+  // 文件夹下拉显示时，用浮动窗口
+  useEffect(() => {
+    if (ctx.folderDropdown) {
+      const items = flattenFolderChildrenPreorder(ctx.bookmarks, ctx.folderDropdown.folderId, 0).map(
+        ({ item, depth }) => ({
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          depth,
+          url: item.url,
+        })
+      );
+      ctx.showOverlay("folder-dropdown", {
+        x: Math.max(8, Math.min(ctx.folderDropdown.x, window.innerWidth - 220)),
+        y: ctx.folderDropdown.y + 2,
+        width: 220,
+        height: Math.min(360, 8 + items.length * 36),
+      }, { items });
+    }
+  }, [ctx.folderDropdown?.folderId]);
 
-  const contextMenuItems = useMemo((): MenuProps["items"] => {
-    if (!ctx.bookmarkBarMenu || ctx.bookmarkBarMenu.kind === "blank") return [];
-    const item = ctx.bookmarkBarMenu.item;
-    const targets = moveParentTargets(ctx.bookmarks, item);
-    const moveGroup: MenuProps["items"] = targets.map((t) => ({
-      key: `to-${t.id ?? "root"}`,
-      label: t.name,
-      onClick: () => void ctx.moveItemToParent(item, t.id),
-    }));
-    const items: MenuProps["items"] = [
-      {
-        key: "rename",
-        label: "重命名…",
-        icon: <EditOutlined />,
-        onClick: () => {
-          ctx.setBookmarkBarMenu(null);
-          ctx.setNameDialog({ kind: "rename", item, draft: item.name });
-        },
-      },
-    ];
-    if (item.type === "folder") {
-      items.push({
-        key: "subfolder",
-        label: "在此文件夹内新建子文件夹…",
-        icon: <FolderAddOutlined />,
-        onClick: () => {
-          ctx.setBookmarkBarMenu(null);
-          ctx.setNameDialog({ kind: "newFolder", parentId: item.id, draft: "新文件夹" });
-        },
+  // 右键菜单显示时，用浮动窗口
+  useEffect(() => {
+    if (ctx.bookmarkBarMenu) {
+      const items = ctx.bookmarkBarMenu;
+      if (items.kind === "blank") {
+        ctx.showOverlay("context-menu", {
+          x: items.x,
+          y: items.y,
+          width: 240,
+          height: 80,
+        }, { kind: "blank", targets: [] });
+      } else {
+        const targets = moveParentTargets(ctx.bookmarks, items.item).map((t) => ({ id: t.id, name: t.name }));
+        const itemCount = 4 + targets.length;
+        ctx.showOverlay("context-menu", {
+          x: items.x,
+          y: items.y,
+          width: 240,
+          height: Math.min(320, 8 + itemCount * 36),
+        }, {
+          kind: "item",
+          item: items.item,
+          targets,
+        });
+      }
+    }
+  }, [ctx.bookmarkBarMenu]);
+
+  // 名称对话框显示时，用浮动窗口
+  useEffect(() => {
+    if (ctx.nameDialog) {
+      ctx.showOverlay("name-dialog", {
+        x: Math.max(100, (window.innerWidth - 360) / 2),
+        y: 120,
+        width: 360,
+        height: 160,
+      }, {
+        kind: ctx.nameDialog.kind,
+        draft: ctx.nameDialog.draft,
+        itemName: ctx.nameDialog.kind === "rename" ? ctx.nameDialog.item.name : undefined,
       });
     }
-    items.push(
-      { type: "divider" },
-      { type: "group", label: "移动到", children: moveGroup },
-      { type: "divider" },
-      {
-        key: "delete",
-        label: item.type === "folder" ? "删除文件夹…" : "删除",
-        danger: true,
-        icon: <DeleteOutlined />,
-        onClick: () => {
-          ctx.setBookmarkBarMenu(null);
-          void ctx.deleteBrowserItem(item);
-        },
-      }
-    );
-    return items;
-  }, [ctx.bookmarkBarMenu, ctx.bookmarks, ctx.moveItemToParent, ctx.setBookmarkBarMenu, ctx.setNameDialog, ctx.deleteBrowserItem]);
+  }, [ctx.nameDialog]);
 
   return (
     <>
       <div
         className="vsgo-bookmark-bar-scroll tabbed-browser-bookmark-bar"
-        onScroll={() => ctx.setFolderDropdown(null)}
+        onScroll={() => {
+          ctx.setFolderDropdown(null);
+          ctx.hideOverlay();
+        }}
         onContextMenu={(e) => {
           if ((e.target as HTMLElement).closest("[data-bookmark-chip]")) return;
           e.preventDefault();
@@ -713,104 +767,6 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
           )
         )}
       </div>
-
-      {ctx.folderDropdown && (
-        <div
-          ref={ctx.folderPanelRef}
-          className="vsgo-bookmark-bar-scroll"
-          style={{
-            position: "fixed",
-            left: Math.max(8, Math.min(ctx.folderDropdown.x, window.innerWidth - 220)),
-            top: ctx.folderDropdown.y + 2,
-            minWidth: 200,
-            maxWidth: 320,
-            maxHeight: 360,
-            overflowY: "auto",
-            overflowX: "hidden",
-            background: "#fff",
-            borderRadius: 8,
-            boxShadow: "var(--ant-box-shadow-secondary)",
-            zIndex: 1050,
-            padding: "4px 0",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
-        >
-          <Menu
-            mode="vertical"
-            selectable={false}
-            items={folderMenuItems}
-            style={{ border: "none", boxShadow: "none" }}
-          />
-        </div>
-      )}
-
-      {ctx.bookmarkBarMenu && (
-        <div
-          ref={ctx.bookmarkCtxMenuRef}
-          style={{
-            position: "fixed",
-            left: Math.min(ctx.bookmarkBarMenu.x, window.innerWidth - 240),
-            top: Math.min(ctx.bookmarkBarMenu.y, window.innerHeight - 240),
-            zIndex: 1060,
-            minWidth: 200,
-            maxWidth: 280,
-            maxHeight: 320,
-            overflowY: "auto",
-            boxShadow: "var(--ant-box-shadow-secondary)",
-            borderRadius: 8,
-            background: "#fff",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          {ctx.bookmarkBarMenu.kind === "blank" ? (
-            <Menu
-              selectable={false}
-              style={{ border: "none" }}
-              items={[
-                {
-                  key: "nf",
-                  label: "新建文件夹…",
-                  icon: <PlusOutlined />,
-                  onClick: () => {
-                    ctx.setBookmarkBarMenu(null);
-                    ctx.setNameDialog({ kind: "newFolder", parentId: null, draft: "新文件夹" });
-                  },
-                },
-              ]}
-            />
-          ) : (
-            <Menu selectable={false} style={{ border: "none" }} items={contextMenuItems} />
-          )}
-        </div>
-      )}
-
-      <Modal
-        title={ctx.nameDialog?.kind === "rename" ? "重命名" : "新建文件夹"}
-        open={!!ctx.nameDialog}
-        onOk={() => void ctx.commitNameDialog()}
-        onCancel={() => ctx.setNameDialog(null)}
-        okText="确定"
-        cancelText="取消"
-        destroyOnHidden
-        getContainer={() => getPopupContainer(document.querySelector(".tabbed-browser-chrome-root") as HTMLElement)}
-        zIndex={1100}
-      >
-        <div ref={ctx.nameDialogCardRef}>
-          <Input
-            value={ctx.nameDialog?.draft ?? ""}
-            onChange={(e) =>
-              ctx.setNameDialog((prev) => (prev ? { ...prev, draft: e.target.value } : prev))
-            }
-            onPressEnter={() => void ctx.commitNameDialog()}
-            placeholder={ctx.nameDialog?.kind === "rename" ? "名称" : "文件夹名称"}
-            allowClear
-            autoFocus
-          />
-        </div>
-      </Modal>
     </>
   );
 }

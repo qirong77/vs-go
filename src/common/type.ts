@@ -161,3 +161,35 @@ export interface TabbedBrowserState {
   tabs: TabState[];
   activeTabId: string | null;
 }
+
+// --- 浮动覆盖层窗口 ---
+
+export type OverlayType =
+  | "suggestions"
+  | "bookmark-star"
+  | "folder-dropdown"
+  | "context-menu"
+  | "name-dialog";
+
+export interface OverlayBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface OverlayShowPayload {
+  type: OverlayType;
+  bounds: OverlayBounds;
+  data: unknown;
+}
+
+export interface OverlayContentPayload {
+  type: OverlayType;
+  data: unknown;
+}
+
+export interface OverlayActionPayload {
+  type: string;
+  [key: string]: unknown;
+}

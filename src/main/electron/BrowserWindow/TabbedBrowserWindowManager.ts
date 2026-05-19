@@ -1,4 +1,4 @@
-import { screen } from "electron";
+import { screen, BrowserWindow } from "electron";
 import { TABBED_BROWSER_DEFAULT_HOME_URL } from "../../../common/type";
 import { TabbedBrowserWindow, type Tab } from "./TabbedBrowserWindow";
 
@@ -131,6 +131,27 @@ class Manager {
   setChromePadding(hostId: number, extraHeight: number): void {
     const win = this.findByHostId(hostId);
     win?.setChromePadding(extraHeight);
+  }
+
+  /** 浮动覆盖层窗口 */
+  showOverlay(hostId: number, bounds: { x: number; y: number; width: number; height: number }, content: unknown): void {
+    const win = this.findByHostId(hostId);
+    win?.showOverlay(bounds, content as never);
+  }
+
+  hideOverlay(hostId: number): void {
+    const win = this.findByHostId(hostId);
+    win?.hideOverlay();
+  }
+
+  handleOverlayAction(event: Electron.IpcMainEvent, payload: Record<string, unknown>): void {
+    const floatWin = BrowserWindow.fromWebContents(event.sender);
+    if (!floatWin) return;
+    const hostWin = floatWin.getParentWindow();
+    if (hostWin) {
+      const win = this.findByHostId(hostWin.id);
+      win?.handleOverlayAction(payload);
+    }
   }
 
   // 暴露光标屏幕坐标，供 IPC 使用

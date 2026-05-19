@@ -15,6 +15,8 @@ import {
   TABBED_BROWSER_DEFAULT_HOME_URL,
   type TabState,
   type TabbedBrowserState,
+  type OverlayContentPayload,
+  type OverlayBounds,
 } from "../../../common/type";
 import { generateId } from "../../../common/utils";
 import { setupContextMenu } from "../contextMenu";
@@ -115,6 +117,10 @@ export class TabbedBrowserWindow {
   private activeTabId: string | null = null;
   private closed = false;
   private chromeExtraHeight = 0;
+  private overlayWindow: BrowserWindow | null = null;
+  private overlayBounds: OverlayBounds | null = null;
+  /** 窗口首次加载期间缓存的待发送内容，加载完成后立即投递 */
+  private overlayPendingContent: OverlayContentPayload | null = null;
 
   /** 外部检测：是否正在销毁中，避免空窗口重复清理 */
   get isDestroyed(): boolean {
@@ -148,10 +154,21 @@ export class TabbedBrowserWindow {
 
     this.hostWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-    this.hostWindow.on("resize", () => this.updateActiveViewBounds());
+    this.hostWindow.on("resize", () => {
+      this.updateActiveViewBounds();
+      this.repositionOverlay();
+    });
     this.hostWindow.on("closed", () => this.handleClosed());
-    this.hostWindow.on("enter-full-screen", () => this.broadcastFullscreen(true));
-    this.hostWindow.on("leave-full-screen", () => this.broadcastFullscreen(false));
+    this.hostWindow.on("enter-full-screen", () => {
+      this.broadcastFullscreen(true);
+      this.repositionOverlay();
+    });
+    this.hostWindow.on("leave-full-screen", () => {
+      this.broadcastFullscreen(false);
+      this.repositionOverlay();
+    });
+    this.hostWindow.on("move", () => this.repositionOverlay());
+    this.hostWindow.on("minimize", () => this.hideOverlay());
     this.hostWindow.webContents.on("before-input-event", (event, input) =>
       this.handleKeyboard(event, input)
     );
@@ -172,6 +189,16 @@ export class TabbedBrowserWindow {
     });
     this.tabs = [];
     this.activeTabId = null;
+
+    // 销毁浮动覆盖层窗口
+    try {
+      if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+        this.overlayWindow.close();
+      }
+    } catch {
+      // ignore
+    }
+    this.overlayWindow = null;
   }
 
   // -------------------- Tab 创建与事件绑定 --------------------
@@ -430,6 +457,113 @@ export class TabbedBrowserWindow {
     this.updateActiveViewBounds();
   }
 
+  // -------------------- 浮动覆盖层窗口 --------------------
+
+  showOverlay(bounds: OverlayBounds, content: OverlayContentPayload): void {
+    this.overlayBounds = bounds;
+    this.ensureOverlayWindow();
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+
+    const contentBounds = this.hostWindow.getContentBounds();
+    const screenX = contentBounds.x + bounds.x;
+    const screenY = contentBounds.y + bounds.y;
+
+    this.overlayWindow.setBounds({
+      x: Math.round(screenX),
+      y: Math.round(screenY),
+      width: Math.round(bounds.width),
+      height: Math.round(bounds.height),
+    });
+
+    if (this.overlayWindow.webContents.isLoading()) {
+      // 页面还在加载，先缓存内容，等 did-finish-load 后再发送
+      this.overlayPendingContent = content;
+    } else {
+      this.overlayWindow.webContents.send(VS_GO_EVENT.BROWSER_OVERLAY_CONTENT, content);
+      if (!this.overlayWindow.isVisible()) {
+        this.overlayWindow.showInactive();
+      }
+    }
+  }
+
+  hideOverlay(): void {
+    try {
+      if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+        this.overlayWindow.hide();
+      }
+    } catch {
+      // ignore
+    }
+    this.overlayBounds = null;
+  }
+
+  handleOverlayAction(payload: Record<string, unknown>): void {
+    if (this.closed || this.hostWindow.isDestroyed()) return;
+    this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, payload);
+  }
+
+  private ensureOverlayWindow(): void {
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) return;
+
+    const win = new BrowserWindow({
+      transparent: true,
+      frame: false,
+      alwaysOnTop: true,
+      focusable: false,
+      resizable: false,
+      hasShadow: false,
+      skipTaskbar: true,
+      show: false,
+      parent: this.hostWindow,
+      webPreferences: {
+        preload: path.join(__dirname, "../preload/index.js"),
+        sandbox: false,
+        contextIsolation: true,
+      },
+    });
+
+    if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+      win.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#/floating-overlay`);
+    } else {
+      win.loadFile(path.join(__dirname, "../renderer/index.html"), {
+        hash: "/floating-overlay",
+      });
+    }
+
+    win.webContents.on("did-finish-load", () => {
+      if (this.overlayPendingContent && this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+        this.overlayWindow.webContents.send(VS_GO_EVENT.BROWSER_OVERLAY_CONTENT, this.overlayPendingContent);
+        this.overlayPendingContent = null;
+        if (!this.overlayWindow.isVisible()) {
+          this.overlayWindow.showInactive();
+        }
+      }
+    });
+
+    win.on("closed", () => {
+      this.overlayWindow = null;
+      this.overlayPendingContent = null;
+    });
+
+    this.overlayWindow = win;
+  }
+
+  private repositionOverlay(): void {
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return;
+    if (!this.overlayBounds) return;
+
+    const contentBounds = this.hostWindow.getContentBounds();
+    const screenX = contentBounds.x + this.overlayBounds.x;
+    const screenY = contentBounds.y + this.overlayBounds.y;
+
+    this.overlayWindow.setBounds({
+      x: Math.round(screenX),
+      y: Math.round(screenY),
+      width: Math.round(this.overlayBounds.width),
+      height: Math.round(this.overlayBounds.height),
+    });
+  }
+
   private updateActiveViewBounds(): void {
     const tab = this.getActiveTab();
     if (!tab || this.hostWindow.isDestroyed()) return;
@@ -582,6 +716,7 @@ export class TabbedBrowserWindow {
   present(): void {
     if (this.hostWindow.isDestroyed()) return;
     if (!this.hostWindow.isVisible()) this.hostWindow.show();
+    this.updateActiveViewBounds();
   }
 
   hide(): void {

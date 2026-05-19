@@ -7,6 +7,7 @@ import {
   type TabState,
   type TabbedBrowserState,
   type BrowserSuggestion,
+  type OverlayBounds,
 } from "../../common/type";
 import { bookmarkUrlsMatch } from "./bookmark/bookmarkUtils";
 import {
@@ -60,7 +61,7 @@ function TabbedBrowser(): React.JSX.Element {
     }
   });
   const addressInputRef = useRef<HTMLInputElement>(null);
-  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const addressBarWrapperRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
   const addressHistoryRef = useRef<string[]>(addressHistory);
   /** 作废过期的地址建议请求，避免 blur / 切 tab 后仍回调 chrome padding 把主进程留白撑开 */
@@ -101,6 +102,56 @@ function TabbedBrowser(): React.JSX.Element {
     );
   }, []);
 
+  // 浮动覆盖层：建议列表相关常量与辅助 hooks（必须在 openHistorySuggestions / fetchSuggestions 之前声明）
+  const SUGGESTION_ITEM_HEIGHT = 48;
+  const SUGGESTION_VISIBLE_ITEMS = 5;
+  const SUGGESTION_OVERLAY_PADDING = 12;
+
+  const getAddressBarOverlayBounds = useCallback((): OverlayBounds => {
+    const el = addressBarWrapperRef.current;
+    if (!el) return { x: 0, y: 0, width: 400, height: 300 };
+    const rect = el.getBoundingClientRect();
+    return {
+      x: rect.left,
+      y: rect.bottom,
+      width: rect.width,
+      height: 0,
+    };
+  }, []);
+
+  const showOverlaySuggestions = useCallback(
+    (sugs: BrowserSuggestion[], idx: number): void => {
+      const bounds = getAddressBarOverlayBounds();
+      const itemCount = Math.min(sugs.length, SUGGESTION_VISIBLE_ITEMS);
+      bounds.height = itemCount * SUGGESTION_ITEM_HEIGHT + SUGGESTION_OVERLAY_PADDING;
+      ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_SHOW, {
+        bounds,
+        data: {
+          type: "suggestions",
+          data: { suggestions: sugs, suggestionIndex: idx },
+        },
+      });
+    },
+    [getAddressBarOverlayBounds]
+  );
+
+  const updateOverlaySuggestionIndex = useCallback(
+    (idx: number): void => {
+      if (!showSuggestions || suggestions.length === 0) return;
+      const bounds = getAddressBarOverlayBounds();
+      const itemCount = Math.min(suggestions.length, SUGGESTION_VISIBLE_ITEMS);
+      bounds.height = itemCount * SUGGESTION_ITEM_HEIGHT + SUGGESTION_OVERLAY_PADDING;
+      ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_SHOW, {
+        bounds,
+        data: {
+          type: "suggestions",
+          data: { suggestions, suggestionIndex: idx },
+        },
+      });
+    },
+    [showSuggestions, suggestions, getAddressBarOverlayBounds]
+  );
+
   const openHistorySuggestions = useCallback((): void => {
     const list: BrowserSuggestion[] = addressHistoryRef.current
       .slice(0, ADDRESS_HISTORY_PREVIEW_COUNT)
@@ -108,7 +159,8 @@ function TabbedBrowser(): React.JSX.Element {
     setSuggestions(list);
     setSuggestionIndex(list.length > 0 ? 0 : -1);
     setShowSuggestions(list.length > 0);
-  }, []);
+    if (list.length > 0) showOverlaySuggestions(list, 0);
+  }, [showOverlaySuggestions]);
 
   // 初始拉取 state + 订阅更新
   useEffect(() => {
@@ -137,15 +189,22 @@ function TabbedBrowser(): React.JSX.Element {
     const onFullscreenChanged = (_e: unknown, fs: boolean): void => {
       setIsFullscreen(fs);
     };
+    const onOverlayAction = (_e: unknown, payload: { action: string;[key: string]: unknown }): void => {
+      if (payload.action === "select-suggestion") {
+        submitAddress((payload.mode as "current" | "new") || "current", payload.url as string);
+      }
+    };
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
+    ipcRenderer.on(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, onOverlayAction);
     return () => {
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
+      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, onOverlayAction);
     };
   }, []);
 
@@ -193,24 +252,27 @@ function TabbedBrowser(): React.JSX.Element {
     const list = result ?? [];
     setSuggestions(list);
     setSuggestionIndex(list.length > 0 ? 0 : -1);
-  }, []);
+    if (list.length > 0) showOverlaySuggestions(list, 0);
+    else ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_HIDE);
+  }, [showOverlaySuggestions]);
 
   const closeSuggestions = useCallback((): void => {
     suggestionsFetchGenRef.current += 1;
     setShowSuggestions(false);
     setSuggestions([]);
     setSuggestionIndex(-1);
+    ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_HIDE);
   }, []);
 
-  // 地址栏操作
-  const submitAddress = (mode: "current" | "new", overrideUrl?: string): void => {
+  // 地址栏操作（useCallback 保证引用稳定，避免 BookmarkChromeProvider 内的 useEffect 频繁重注册）
+  const submitAddress = useCallback((mode: "current" | "new", overrideUrl?: string): void => {
     const url = (overrideUrl ?? address).trim();
     if (!url) return;
     ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_NAVIGATE, { url, mode });
     addressInputRef.current?.blur();
     setEditing(false);
     closeSuggestions();
-  };
+  }, [address, closeSuggestions]);
 
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const val = e.target.value;
@@ -226,12 +288,20 @@ function TabbedBrowser(): React.JSX.Element {
   const handleAddressKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSuggestionIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
+      setSuggestionIndex((prev) => {
+        const next = Math.min(prev + 1, suggestions.length - 1);
+        updateOverlaySuggestionIndex(next);
+        return next;
+      });
       return;
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSuggestionIndex((prev) => Math.max(prev - 1, -1));
+      setSuggestionIndex((prev) => {
+        const next = Math.max(prev - 1, -1);
+        updateOverlaySuggestionIndex(next);
+        return next;
+      });
       return;
     }
     if (e.key === "Enter") {
@@ -388,9 +458,6 @@ function TabbedBrowser(): React.JSX.Element {
     return Math.max(TAB_MIN_WIDTH, Math.min(TAB_MAX_WIDTH, w));
   }, [state.tabs.length]);
 
-  const SUGGESTION_ITEM_HEIGHT = 48;
-  const SUGGESTION_VISIBLE_ITEMS = 5;
-
   return (
     <div
       className="tabbed-browser-chrome-root"
@@ -410,7 +477,6 @@ function TabbedBrowser(): React.JSX.Element {
       }}
     >
       <BookmarkChromeProvider
-        suggestionsRef={suggestionsRef}
         showSuggestions={showSuggestions}
         suggestionsLength={suggestions.length}
         bookmarks={bookmarks}
@@ -641,6 +707,7 @@ function TabbedBrowser(): React.JSX.Element {
           ⟳
         </NavButton>
         <div
+          ref={addressBarWrapperRef}
           style={{
             flex: 1,
             position: "relative",
@@ -669,7 +736,6 @@ function TabbedBrowser(): React.JSX.Element {
                 openHistorySuggestions();
               }}
               onBlur={(e) => {
-                if (suggestionsRef.current?.contains(e.relatedTarget as Node)) return;
                 const rt = e.relatedTarget;
                 if (rt instanceof Element && rt.closest("[data-bookmark-star-wrap]")) return;
                 setEditing(false);
@@ -691,87 +757,6 @@ function TabbedBrowser(): React.JSX.Element {
               }}
             />
           </div>
-
-          {/* 建议下拉列表 */}
-          {showSuggestions && suggestions.length > 0 && (
-            <div
-              ref={suggestionsRef}
-              onMouseLeave={() => {
-                if (suggestions.length > 0) setSuggestionIndex(0);
-              }}
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                background: "#ffffff",
-                border: "1px solid #1a73e8",
-                borderTop: "none",
-                borderRadius: "0 0 10px 10px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                zIndex: 1000,
-                maxHeight: SUGGESTION_VISIBLE_ITEMS * SUGGESTION_ITEM_HEIGHT,
-                overflowY: "scroll",
-              }}
-            >
-              {suggestions.map((suggestion, idx) => (
-                <div
-                  key={suggestion.url}
-                  tabIndex={-1}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    submitAddress("current", suggestion.url);
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "8px 12px",
-                    cursor: "pointer",
-                    background: idx === suggestionIndex ? "#e8f0fe" : "transparent",
-                    gap: 8,
-                    flexShrink: 0,
-                  }}
-                  onMouseEnter={() => setSuggestionIndex(idx)}
-                >
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: suggestion.type === "bookmark" ? "#1a73e8" : "#5f6368",
-                      flexShrink: 0,
-                      width: 14,
-                      textAlign: "center",
-                    }}
-                  >
-                    {suggestion.type === "bookmark" ? "★" : "🕐"}
-                  </span>
-                  <div style={{ flex: 1, overflow: "hidden" }}>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: "#202124",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {suggestion.title}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: "#5f6368",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {suggestion.url}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <BookmarkChromeStar />

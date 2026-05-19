@@ -86,6 +86,24 @@ export function registerBrowserHandlers(): void {
     }
   });
 
+  ipcMain.on(VS_GO_EVENT.BROWSER_OVERLAY_SHOW, (e, payload: { bounds: { x: number; y: number; width: number; height: number }; data: unknown }) => {
+    const bw = BrowserWindow.fromWebContents(e.sender);
+    if (bw) {
+      TabbedBrowserWindowManager.showOverlay(bw.id, payload.bounds, payload.data);
+    }
+  });
+
+  ipcMain.on(VS_GO_EVENT.BROWSER_OVERLAY_HIDE, (e) => {
+    const bw = BrowserWindow.fromWebContents(e.sender);
+    if (bw) {
+      TabbedBrowserWindowManager.hideOverlay(bw.id);
+    }
+  });
+
+  ipcMain.on(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, (event, payload: Record<string, unknown>) => {
+    TabbedBrowserWindowManager.handleOverlayAction(event, payload);
+  });
+
   ipcMain.handle(VS_GO_EVENT.BROWSER_ADDRESS_SUGGESTIONS, async (_e, query: string = "") => {
     const bookmarks = vsgoStore.get("browserList", []) as BrowserItem[];
     const history = browserHistoryStore.getAll();

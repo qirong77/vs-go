@@ -8,6 +8,7 @@ import DisplayManager from "./DisplayManager";
 import ScriptEditor from "./ScriptEditor";
 import TabbedBrowser from "./TabbedBrowser";
 import Settings from "./Settings";
+import FloatingOverlay from "./FloatingOverlay";
 
 const ROUTES: Record<string, React.FC> = {
   "browser-setting": BrowserSetting,
@@ -18,6 +19,7 @@ const ROUTES: Record<string, React.FC> = {
   "script-editor": ScriptEditor,
   "tabbed-browser": TabbedBrowser,
   settings: Settings,
+  "floating-overlay": FloatingOverlay,
 };
 
 const hash = window.location.hash;
