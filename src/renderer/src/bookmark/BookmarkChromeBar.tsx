@@ -37,8 +37,6 @@ type NameDialogState =
   | null;
 
 interface BookmarkChromeContextValue {
-  showSuggestions: boolean;
-  suggestionsLength: number;
   bookmarks: BrowserItem[];
   onBookmarksUpdated: () => Promise<void>;
   submitAddress: (mode: "current" | "new", url?: string) => void;
@@ -78,8 +76,6 @@ function useBookmarkChrome(): BookmarkChromeContextValue {
 }
 
 export interface BookmarkChromeProviderProps {
-  showSuggestions: boolean;
-  suggestionsLength: number;
   bookmarks: BrowserItem[];
   onBookmarksUpdated: () => Promise<void>;
   submitAddress: (mode: "current" | "new", url?: string) => void;
@@ -92,8 +88,6 @@ export interface BookmarkChromeProviderProps {
 }
 
 export function BookmarkChromeProvider({
-  showSuggestions,
-  suggestionsLength,
   bookmarks,
   onBookmarksUpdated,
   submitAddress,
@@ -339,12 +333,6 @@ export function BookmarkChromeProvider({
   }, []);
 
   useEffect(() => {
-    return () => {
-      ipcRenderer.send(VS_GO_EVENT.BROWSER_CHROME_SET_PADDING, 0);
-    };
-  }, []);
-
-  useEffect(() => {
     setBookmarkPopoverOpen(false);
     setFolderDropdown(null);
     setBookmarkBarMenu(null);
@@ -409,8 +397,6 @@ export function BookmarkChromeProvider({
 
   const value = useMemo(
     (): BookmarkChromeContextValue => ({
-      showSuggestions,
-      suggestionsLength,
       bookmarks,
       onBookmarksUpdated,
       submitAddress,
@@ -439,8 +425,6 @@ export function BookmarkChromeProvider({
       hideOverlay,
     }),
     [
-      showSuggestions,
-      suggestionsLength,
       bookmarks,
       onBookmarksUpdated,
       submitAddress,

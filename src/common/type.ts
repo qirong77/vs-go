@@ -25,19 +25,13 @@ export interface BrowserItem {
   order?: number;
 }
 
-// --- 浏览器历史 & 地址栏建议 ---
+// --- 浏览器历史 ---
 
 export interface BrowserHistoryEntry {
   id: string;
   url: string;
   title: string;
   visitTime: number;
-}
-
-export interface BrowserSuggestion {
-  url: string;
-  title: string;
-  type: "bookmark" | "history";
 }
 
 // --- 主窗口文件列表 ---
@@ -165,7 +159,6 @@ export interface TabbedBrowserState {
 // --- 浮动覆盖层窗口 ---
 
 export type OverlayType =
-  | "suggestions"
   | "bookmark-star"
   | "folder-dropdown"
   | "context-menu"
@@ -208,11 +201,8 @@ export interface OverlayContentInset {
   left: number;
 }
 
-export function getOverlayContentInset(type: OverlayType): OverlayContentInset {
+export function getOverlayContentInset(_type: OverlayType): OverlayContentInset {
   const { horizontal, bottom, top } = OVERLAY_SHADOW_INSET;
-  if (type === "suggestions") {
-    return { top: 0, right: horizontal, bottom, left: horizontal };
-  }
   return { top, right: horizontal, bottom, left: horizontal };
 }
 

@@ -127,12 +127,6 @@ class Manager {
     }
   }
 
-  /** 根据 host BrowserWindow id 临时扩展 Chrome 高度 */
-  setChromePadding(hostId: number, extraHeight: number): void {
-    const win = this.findByHostId(hostId);
-    win?.setChromePadding(extraHeight);
-  }
-
   /** 浮动覆盖层窗口 */
   showOverlay(hostId: number, bounds: { x: number; y: number; width: number; height: number }, content: unknown): void {
     const win = this.findByHostId(hostId);

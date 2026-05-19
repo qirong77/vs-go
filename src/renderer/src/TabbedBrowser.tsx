@@ -6,8 +6,6 @@ import {
   type BrowserItem,
   type TabState,
   type TabbedBrowserState,
-  type BrowserSuggestion,
-  type OverlayBounds,
 } from "../../common/type";
 import { bookmarkUrlsMatch } from "./bookmark/bookmarkUtils";
 import {
@@ -23,9 +21,6 @@ const TAB_BAR_HEIGHT = 32;
 const ADDRESS_ROW_HEIGHT = 40;
 const TAB_MIN_WIDTH = 80;
 const TAB_MAX_WIDTH = 220;
-const ADDRESS_HISTORY_STORAGE_KEY = "vs-go.address-history";
-const ADDRESS_HISTORY_MAX_COUNT = 100;
-const ADDRESS_HISTORY_PREVIEW_COUNT = 8;
 
 interface DragState {
   tabId: string;
@@ -42,30 +37,8 @@ function TabbedBrowser(): React.JSX.Element {
   const [state, setState] = useState<TabbedBrowserState>({ tabs: [], activeTabId: null });
   const [address, setAddress] = useState("");
   const [editing, setEditing] = useState(false);
-  const [suggestions, setSuggestions] = useState<BrowserSuggestion[]>([]);
-  const [suggestionIndex, setSuggestionIndex] = useState(-1);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [addressHistory, setAddressHistory] = useState<string[]>(() => {
-    try {
-      const raw = window.localStorage.getItem(ADDRESS_HISTORY_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed
-        .filter((url): url is string => typeof url === "string")
-        .map((url) => url.trim())
-        .filter(Boolean)
-        .slice(0, ADDRESS_HISTORY_MAX_COUNT);
-    } catch {
-      return [];
-    }
-  });
   const addressInputRef = useRef<HTMLInputElement>(null);
-  const addressBarWrapperRef = useRef<HTMLDivElement>(null);
   const tabBarRef = useRef<HTMLDivElement>(null);
-  const addressHistoryRef = useRef<string[]>(addressHistory);
-  /** 作废过期的地址建议请求，避免 blur / 切 tab 后仍回调 chrome padding 把主进程留白撑开 */
-  const suggestionsFetchGenRef = useRef(0);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bookmarks, setBookmarks] = useState<BrowserItem[]>([]);
@@ -94,74 +67,6 @@ function TabbedBrowser(): React.JSX.Element {
     setBookmarks(Array.isArray(list) ? list : []);
   }, []);
 
-  const addAddressToHistory = useCallback((rawUrl: string): void => {
-    const url = rawUrl.trim();
-    if (!url || url === "about:blank") return;
-    setAddressHistory((prev) =>
-      [url, ...prev.filter((item) => item !== url)].slice(0, ADDRESS_HISTORY_MAX_COUNT)
-    );
-  }, []);
-
-  // 浮动覆盖层：建议列表相关常量与辅助 hooks（必须在 openHistorySuggestions / fetchSuggestions 之前声明）
-  const SUGGESTION_ITEM_HEIGHT = 48;
-  const SUGGESTION_VISIBLE_ITEMS = 5;
-  const SUGGESTION_OVERLAY_PADDING = 12;
-
-  const getAddressBarOverlayBounds = useCallback((): OverlayBounds => {
-    const el = addressBarWrapperRef.current;
-    if (!el) return { x: 0, y: 0, width: 400, height: 300 };
-    const rect = el.getBoundingClientRect();
-    return {
-      x: rect.left,
-      y: rect.bottom,
-      width: rect.width,
-      height: 0,
-    };
-  }, []);
-
-  const showOverlaySuggestions = useCallback(
-    (sugs: BrowserSuggestion[], idx: number): void => {
-      const bounds = getAddressBarOverlayBounds();
-      const itemCount = Math.min(sugs.length, SUGGESTION_VISIBLE_ITEMS);
-      bounds.height = itemCount * SUGGESTION_ITEM_HEIGHT + SUGGESTION_OVERLAY_PADDING;
-      ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_SHOW, {
-        bounds,
-        data: {
-          type: "suggestions",
-          data: { suggestions: sugs, suggestionIndex: idx },
-        },
-      });
-    },
-    [getAddressBarOverlayBounds]
-  );
-
-  const updateOverlaySuggestionIndex = useCallback(
-    (idx: number): void => {
-      if (!showSuggestions || suggestions.length === 0) return;
-      const bounds = getAddressBarOverlayBounds();
-      const itemCount = Math.min(suggestions.length, SUGGESTION_VISIBLE_ITEMS);
-      bounds.height = itemCount * SUGGESTION_ITEM_HEIGHT + SUGGESTION_OVERLAY_PADDING;
-      ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_SHOW, {
-        bounds,
-        data: {
-          type: "suggestions",
-          data: { suggestions, suggestionIndex: idx },
-        },
-      });
-    },
-    [showSuggestions, suggestions, getAddressBarOverlayBounds]
-  );
-
-  const openHistorySuggestions = useCallback((): void => {
-    const list: BrowserSuggestion[] = addressHistoryRef.current
-      .slice(0, ADDRESS_HISTORY_PREVIEW_COUNT)
-      .map((url) => ({ url, title: url, type: "history" }));
-    setSuggestions(list);
-    setSuggestionIndex(list.length > 0 ? 0 : -1);
-    setShowSuggestions(list.length > 0);
-    if (list.length > 0) showOverlaySuggestions(list, 0);
-  }, [showOverlaySuggestions]);
-
   // 初始拉取 state + 订阅更新
   useEffect(() => {
     ipcRenderer.invoke(VS_GO_EVENT.BROWSER_TAB_GET_STATE).then((s: TabbedBrowserState) => {
@@ -178,33 +83,24 @@ function TabbedBrowser(): React.JSX.Element {
       requestAnimationFrame(() => {
         addressInputRef.current?.focus();
         addressInputRef.current?.select();
-        openHistorySuggestions();
       });
     };
     const onBlurAddress = (): void => {
-      closeSuggestions();
       setEditing(false);
       addressInputRef.current?.blur();
     };
     const onFullscreenChanged = (_e: unknown, fs: boolean): void => {
       setIsFullscreen(fs);
     };
-    const onOverlayAction = (_e: unknown, payload: { action: string;[key: string]: unknown }): void => {
-      if (payload.action === "select-suggestion") {
-        submitAddress((payload.mode as "current" | "new") || "current", payload.url as string);
-      }
-    };
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
     ipcRenderer.on(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
-    ipcRenderer.on(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, onOverlayAction);
     return () => {
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, onUpdate);
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
       ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
-      ipcRenderer.removeListener(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, onOverlayAction);
     };
   }, []);
 
@@ -219,104 +115,32 @@ function TabbedBrowser(): React.JSX.Element {
     }
   }, [activeTab?.url, activeTab?.id, editing]);
 
-  // 切换标签时收起建议并重置地址栏编辑态，避免上一标签的异步建议或 padding 状态泄漏
+  // 切换标签时重置地址栏编辑态
   useEffect(() => {
-    closeSuggestions();
     setEditing(false);
   }, [activeTab?.id]);
 
-  // 记录最近访问 URL（去重 + 最多 100 条）
-  useEffect(() => {
-    if (!activeTab?.url || activeTab.loading) return;
-    addAddressToHistory(activeTab.url);
-  }, [activeTab?.url, activeTab?.loading, addAddressToHistory]);
-
-  // 持久化地址历史
-  useEffect(() => {
-    addressHistoryRef.current = addressHistory;
-    try {
-      window.localStorage.setItem(ADDRESS_HISTORY_STORAGE_KEY, JSON.stringify(addressHistory));
-    } catch {
-      // ignore
-    }
-  }, [addressHistory]);
-
-  // 获取地址栏建议
-  const fetchSuggestions = useCallback(async (query: string): Promise<void> => {
-    const gen = ++suggestionsFetchGenRef.current;
-    const result: BrowserSuggestion[] = await ipcRenderer.invoke(
-      VS_GO_EVENT.BROWSER_ADDRESS_SUGGESTIONS,
-      query
-    );
-    if (gen !== suggestionsFetchGenRef.current) return;
-    const list = result ?? [];
-    setSuggestions(list);
-    setSuggestionIndex(list.length > 0 ? 0 : -1);
-    if (list.length > 0) showOverlaySuggestions(list, 0);
-    else ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_HIDE);
-  }, [showOverlaySuggestions]);
-
-  const closeSuggestions = useCallback((): void => {
-    suggestionsFetchGenRef.current += 1;
-    setShowSuggestions(false);
-    setSuggestions([]);
-    setSuggestionIndex(-1);
-    ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_HIDE);
-  }, []);
-
-  // 地址栏操作（useCallback 保证引用稳定，避免 BookmarkChromeProvider 内的 useEffect 频繁重注册）
   const submitAddress = useCallback((mode: "current" | "new", overrideUrl?: string): void => {
     const url = (overrideUrl ?? address).trim();
     if (!url) return;
     ipcRenderer.send(VS_GO_EVENT.BROWSER_TAB_NAVIGATE, { url, mode });
     addressInputRef.current?.blur();
     setEditing(false);
-    closeSuggestions();
-  }, [address, closeSuggestions]);
+  }, [address]);
 
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const val = e.target.value;
-    setAddress(val);
-    if (!val.trim()) {
-      openHistorySuggestions();
-      return;
-    }
-    fetchSuggestions(val);
-    setShowSuggestions(true);
+    setAddress(e.target.value);
   };
 
   const handleAddressKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSuggestionIndex((prev) => {
-        const next = Math.min(prev + 1, suggestions.length - 1);
-        updateOverlaySuggestionIndex(next);
-        return next;
-      });
-      return;
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSuggestionIndex((prev) => {
-        const next = Math.max(prev - 1, -1);
-        updateOverlaySuggestionIndex(next);
-        return next;
-      });
-      return;
-    }
     if (e.key === "Enter") {
       e.preventDefault();
-      if (suggestionIndex >= 0 && suggestions[suggestionIndex]) {
-        submitAddress(e.shiftKey ? "new" : "current", suggestions[suggestionIndex].url);
-      } else {
-        submitAddress(e.shiftKey ? "new" : "current");
-      }
+      submitAddress(e.shiftKey ? "new" : "current");
       return;
     }
     if (e.key === "Escape") {
       setEditing(false);
       setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
-      closeSuggestions();
       addressInputRef.current?.blur();
     }
   };
@@ -477,8 +301,6 @@ function TabbedBrowser(): React.JSX.Element {
       }}
     >
       <BookmarkChromeProvider
-        showSuggestions={showSuggestions}
-        suggestionsLength={suggestions.length}
         bookmarks={bookmarks}
         onBookmarksUpdated={refreshBookmarks}
         submitAddress={submitAddress}
@@ -707,7 +529,6 @@ function TabbedBrowser(): React.JSX.Element {
           ⟳
         </NavButton>
         <div
-          ref={addressBarWrapperRef}
           style={{
             flex: 1,
             position: "relative",
@@ -719,7 +540,7 @@ function TabbedBrowser(): React.JSX.Element {
               display: "flex",
               alignItems: "center",
               background: editing ? "#ffffff" : "#f1f3f4",
-              borderRadius: showSuggestions && suggestions.length > 0 ? "10px 10px 0 0" : 18,
+              borderRadius: 18,
               height: 28,
               padding: "0 12px",
               border: editing ? "1px solid #1a73e8" : "1px solid transparent",
@@ -731,15 +552,11 @@ function TabbedBrowser(): React.JSX.Element {
               ref={addressInputRef}
               value={address}
               onChange={handleAddressChange}
-              onFocus={() => {
-                setEditing(true);
-                openHistorySuggestions();
-              }}
+              onFocus={() => setEditing(true)}
               onBlur={(e) => {
                 const rt = e.relatedTarget;
                 if (rt instanceof Element && rt.closest("[data-bookmark-star-wrap]")) return;
                 setEditing(false);
-                closeSuggestions();
                 setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
               }}
               onKeyDown={handleAddressKeyDown}

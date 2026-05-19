@@ -3,7 +3,7 @@ import { ConfigProvider, Input, Button, Menu, Typography, theme, Form, Space } f
 import type { MenuProps } from "antd";
 import { FolderOutlined, PlusOutlined, EditOutlined, DeleteOutlined, FolderAddOutlined } from "@ant-design/icons";
 import { VS_GO_EVENT } from "../../common/EVENT";
-import type { BrowserSuggestion, BrowserItem, OverlayType } from "../../common/type";
+import type { BrowserItem, OverlayType } from "../../common/type";
 import { getOverlayContentInset } from "../../common/type";
 
 const { ipcRenderer } = window.electron;
@@ -16,74 +16,6 @@ interface OverlayContentPayload {
 
 function sendAction(action: Record<string, unknown>): void {
   ipcRenderer.send(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, action);
-}
-
-// ============================================================
-// Suggestions
-// ============================================================
-
-interface SuggestionsData {
-  suggestions: BrowserSuggestion[];
-  suggestionIndex: number;
-}
-
-function SuggestionsOverlay({ data }: { data: SuggestionsData }): React.JSX.Element {
-  const [hoverIndex, setHoverIndex] = useState(data.suggestionIndex);
-
-  useEffect(() => {
-    setHoverIndex(data.suggestionIndex);
-  }, [data.suggestionIndex]);
-
-  if (data.suggestions.length === 0) {
-    return (
-      <div style={{ padding: "16px 20px", color: "#5f6368", fontSize: 13 }}>
-        无建议
-      </div>
-    );
-  }
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      {data.suggestions.map((s, i) => (
-        <div
-          key={s.url}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "10px 16px",
-            cursor: "pointer",
-            background: i === hoverIndex ? "#e8f0fe" : "transparent",
-            gap: 10,
-            flexShrink: 0,
-            borderBottom: i < data.suggestions.length - 1 ? "1px solid #f0f0f0" : "none",
-          }}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            sendAction({ action: "select-suggestion", url: s.url, mode: "current" });
-          }}
-          onMouseEnter={() => setHoverIndex(i)}
-        >
-          <span style={{ fontSize: 12, color: s.type === "bookmark" ? "#1a73e8" : "#5f6368", flexShrink: 0, width: 16, textAlign: "center" }}>
-            {s.type === "bookmark" ? "★" : "🕐"}
-          </span>
-          <div style={{ flex: 1, overflow: "hidden", minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: "#202124", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {s.title}
-            </div>
-            <div style={{ fontSize: 11, color: "#5f6368", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {s.url}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 // ============================================================
@@ -335,16 +267,12 @@ export default function FloatingOverlay(): React.JSX.Element {
     return <div style={{ width: 1, height: 1 }} />;
   }
 
-  const isSuggestions = content.type === "suggestions";
   const inset = getOverlayContentInset(content.type);
 
   const wrapStyle: React.CSSProperties = {
     background: "#fff",
-    borderRadius: isSuggestions ? "0 0 10px 10px" : 10,
-    boxShadow: isSuggestions
-      ? "0 8px 24px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)"
-      : "0 8px 30px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)",
-    borderTop: isSuggestions ? "1px solid #1a73e8" : undefined,
+    borderRadius: 10,
+    boxShadow: "0 8px 30px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)",
     pointerEvents: "auto",
     overflow: "hidden",
   };
@@ -352,9 +280,6 @@ export default function FloatingOverlay(): React.JSX.Element {
   let body: React.JSX.Element;
 
   switch (content.type) {
-    case "suggestions":
-      body = <SuggestionsOverlay data={content.data as SuggestionsData} />;
-      break;
     case "bookmark-star":
       body = <BookmarkStarOverlay data={content.data as BookmarkStarData} />;
       break;

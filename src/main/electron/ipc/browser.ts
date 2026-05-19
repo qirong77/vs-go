@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain } from "electron";
 import { VS_GO_EVENT } from "../../../common/EVENT";
-import type { BrowserItem, BrowserSuggestion } from "../../../common/type";
-import { vsgoStore, fileAccessStore, browserHistoryStore } from "../store";
+import type { BrowserItem } from "../../../common/type";
+import { vsgoStore, fileAccessStore } from "../store";
 import { TabbedBrowserWindowManager } from "../BrowserWindow/TabbedBrowserWindowManager";
 import { MainWindowManager } from "../MainWindow/MainWindow";
 
@@ -79,13 +79,6 @@ export function registerBrowserHandlers(): void {
     MainWindowManager.hide();
   });
 
-  ipcMain.on(VS_GO_EVENT.BROWSER_CHROME_SET_PADDING, (e, extraHeight: number) => {
-    const bw = BrowserWindow.fromWebContents(e.sender);
-    if (bw) {
-      TabbedBrowserWindowManager.setChromePadding(bw.id, extraHeight);
-    }
-  });
-
   ipcMain.on(VS_GO_EVENT.BROWSER_OVERLAY_SHOW, (e, payload: { bounds: { x: number; y: number; width: number; height: number }; data: unknown }) => {
     const bw = BrowserWindow.fromWebContents(e.sender);
     if (bw) {
@@ -102,46 +95,6 @@ export function registerBrowserHandlers(): void {
 
   ipcMain.on(VS_GO_EVENT.BROWSER_OVERLAY_ACTION, (event, payload: Record<string, unknown>) => {
     TabbedBrowserWindowManager.handleOverlayAction(event, payload);
-  });
-
-  ipcMain.handle(VS_GO_EVENT.BROWSER_ADDRESS_SUGGESTIONS, async (_e, query: string = "") => {
-    const bookmarks = vsgoStore.get("browserList", []) as BrowserItem[];
-    const history = browserHistoryStore.getAll();
-    const q = query.toLowerCase().trim();
-
-    const suggestions: BrowserSuggestion[] = [];
-    const seenUrls = new Set<string>();
-
-    const bookmarkEntries = bookmarks.filter(
-      (b): b is BrowserItem & { url: string } =>
-        (b.type === "bookmark" || b.type === "history") && !!b.url
-    );
-
-    const matchBookmarks = q
-      ? bookmarkEntries.filter(
-          (b) => b.name.toLowerCase().includes(q) || b.url.toLowerCase().includes(q)
-        )
-      : bookmarkEntries.slice(0, 8);
-
-    for (const b of matchBookmarks) {
-      suggestions.push({ url: b.url, title: b.name, type: "bookmark" });
-      seenUrls.add(b.url);
-    }
-
-    const matchHistory = q
-      ? history.filter(
-          (h) => h.title.toLowerCase().includes(q) || h.url.toLowerCase().includes(q)
-        )
-      : history.slice(0, 8);
-
-    for (const h of matchHistory) {
-      if (!seenUrls.has(h.url)) {
-        suggestions.push({ url: h.url, title: h.title, type: "history" });
-        seenUrls.add(h.url);
-      }
-    }
-
-    return suggestions.slice(0, 12);
   });
 
   ipcMain.handle(

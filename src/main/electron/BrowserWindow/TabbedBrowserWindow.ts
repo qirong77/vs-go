@@ -118,7 +118,6 @@ export class TabbedBrowserWindow {
   private tabs: Tab[] = [];
   private activeTabId: string | null = null;
   private closed = false;
-  private chromeExtraHeight = 0;
   private overlayWindow: BrowserWindow | null = null;
   private overlayBounds: OverlayBounds | null = null;
   /** 窗口首次加载期间缓存的待发送内容，加载完成后立即投递 */
@@ -339,8 +338,6 @@ export class TabbedBrowserWindow {
 
     this.hostWindow.contentView.addChildView(tab.view);
     this.activeTabId = tab.id;
-    // 切 tab 时立刻收回地址栏下拉预留高度，避免 renderer 异步 suggest 曾把 chromeExtraHeight 顶高后未复位
-    this.chromeExtraHeight = 0;
     this.updateActiveViewBounds();
     this.broadcastState();
   }
@@ -454,10 +451,19 @@ export class TabbedBrowserWindow {
     this.hostWindow.webContents.send(VS_GO_EVENT.BROWSER_TAB_STATE_UPDATED, this.getState());
   }
 
-  /** 临时调整 WebContentsView 的顶部偏移，用于地址栏下拉展开时让出空间 */
-  setChromePadding(extraHeight: number): void {
-    this.chromeExtraHeight = Math.max(0, extraHeight);
-    this.updateActiveViewBounds();
+  /** WebContentsView 顶部偏移，避开 Chrome 外壳 */
+  private updateActiveViewBounds(): void {
+    const tab = this.getActiveTab();
+    if (!tab || this.hostWindow.isDestroyed()) return;
+    const [width, height] = this.hostWindow.getContentSize();
+    const topY = BROWSER_CHROME_HEIGHT;
+    const bounds: Rectangle = {
+      x: 0,
+      y: topY,
+      width,
+      height: Math.max(0, height - topY),
+    };
+    tab.view.setBounds(bounds);
   }
 
   // -------------------- 浮动覆盖层窗口 --------------------
@@ -561,20 +567,6 @@ export class TabbedBrowserWindow {
 
   private repositionOverlay(): void {
     this.applyOverlayWindowBounds();
-  }
-
-  private updateActiveViewBounds(): void {
-    const tab = this.getActiveTab();
-    if (!tab || this.hostWindow.isDestroyed()) return;
-    const [width, height] = this.hostWindow.getContentSize();
-    const topY = BROWSER_CHROME_HEIGHT + this.chromeExtraHeight;
-    const bounds: Rectangle = {
-      x: 0,
-      y: topY,
-      width,
-      height: Math.max(0, height - topY),
-    };
-    tab.view.setBounds(bounds);
   }
 
   private bindTabEvents(tab: Tab): void {
