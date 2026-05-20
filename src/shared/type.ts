@@ -15,23 +15,14 @@ export interface AppSettings {
 export interface BrowserItem {
   id: string;
   name: string;
-  /** 书签、历史类条目必填；文件夹可不存 */
+  /** 书签条目必填；文件夹可不存 */
   url?: string;
   lastVisit?: number;
-  type: "bookmark" | "folder" | "history";
+  type: "bookmark" | "folder";
   /** 书签栏根为 null；旧数据缺省视为 null */
   parentId?: string | null;
   /** 同级内的排序序号，用于拖动排序 */
   order?: number;
-}
-
-// --- 浏览器历史 ---
-
-export interface BrowserHistoryEntry {
-  id: string;
-  url: string;
-  title: string;
-  visitTime: number;
 }
 
 // --- 主窗口文件列表 ---
@@ -70,48 +61,6 @@ export interface SavedCookie {
   sameSite?: "unspecified" | "no_restriction" | "lax" | "strict";
   saveTime: number;
   saveTimeDisplay: string;
-}
-
-// --- 笔记 ---
-
-export interface NoteTreeNode {
-  key: string;
-  title: string;
-  isLeaf?: boolean;
-  children?: NoteTreeNode[];
-}
-
-/** 单条笔记文件的历史快照（全量内容，每文件最多保留 10 条） */
-export interface UserNoteHistoryEntry {
-  id: string;
-  savedAt: number;
-  content: string;
-}
-
-/** 历史列表展示用（不含正文） */
-export interface UserNoteHistoryMeta {
-  id: string;
-  savedAt: number;
-}
-
-export interface NoteItem {
-  id: string;
-  url: string;
-  domain: string;
-  title: string;
-  content: string;
-  createTime: number;
-  updateTime: number;
-  createTimeDisplay: string;
-  updateTimeDisplay: string;
-}
-
-// --- IPC 响应通用类型 ---
-
-export interface IpcResult<T = undefined> {
-  success: boolean;
-  error?: string;
-  data?: T;
 }
 
 // --- Chrome 风格 Tabbed Browser 窗口 ---

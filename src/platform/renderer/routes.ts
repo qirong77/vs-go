@@ -1,8 +1,6 @@
 import type { FC } from "react";
 import MainWindow from "@windows/main-window/renderer/MainWindow";
-import AppSetting from "@windows/app-setting/renderer/AppSetting";
 import CookieManager from "@windows/cookie-manager/renderer/CookieManager";
-import ScriptEditor from "@windows/script-editor/renderer/ScriptEditor";
 import TabbedBrowser from "@windows/browser/renderer/TabbedBrowser";
 import Settings from "@windows/settings/renderer/Settings";
 import FloatingOverlay from "@windows/browser/renderer/FloatingOverlay";
@@ -11,8 +9,6 @@ import FloatingOverlay from "@windows/browser/renderer/FloatingOverlay";
 export const RENDERER_ROUTES: Record<string, FC> = {
   "main-window": MainWindow,
   "cookie-manager": CookieManager,
-  "app-setting": AppSetting,
-  "script-editor": ScriptEditor,
   "tabbed-browser": TabbedBrowser,
   settings: Settings,
   "floating-overlay": FloatingOverlay,

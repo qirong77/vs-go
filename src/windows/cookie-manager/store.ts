@@ -14,9 +14,6 @@ export const cookieStore = {
     const filtered = this.getSavedCookies().filter((c) => c.id !== id);
     vsgoStore.set("savedCookies", filtered);
   },
-  clearAll(): void {
-    vsgoStore.set("savedCookies", []);
-  },
 };
 
 export const cookieByUrlStore = {
@@ -39,8 +36,5 @@ export const cookieByUrlStore = {
   },
   getByUrl(url: string): SavedCookieByUrl | undefined {
     return this.getAll().find((c) => c.url === url);
-  },
-  clearAll(): void {
-    vsgoStore.set("savedCookiesByUrl", []);
   },
 };

@@ -1,19 +1,20 @@
-import { basename, resolve } from "node:path";
-import { homedir } from "node:os";
-import { existsSync, mkdirSync } from "node:fs";
+import { basename } from "node:path";
+import { existsSync } from "node:fs";
 import { getSubDirectory } from "@utils/getSubDirectory";
+import { vsGoConfig } from "@config";
 import { finderBase64 } from "@shared/finderBase64";
 import { vscodeBase64 } from "@shared/vscodeBase64";
 import type { IMainWindowFiles } from "@shared/type";
 import type { BrowserItem } from "@shared/type";
-import { vsgoStore, fileAccessStore } from "../store";
+import { vsgoStore } from "@platform/store/instance";
+import { fileAccessStore } from "../store";
 
 export async function getMainWindowFiles(): Promise<IMainWindowFiles> {
   const browserList = vsgoStore.get("browserList") as BrowserItem[];
   const browserFiles = browserList
     .filter(
       (item): item is BrowserItem & { url: string } =>
-        (item.type === "bookmark" || item.type === "history") && !!item.url
+        item.type === "bookmark" && !!item.url
     )
     .map((item) => ({
       fileName: item.name,
@@ -32,48 +33,30 @@ export async function getMainWindowFiles(): Promise<IMainWindowFiles> {
 }
 
 function getWorkSpaceFiles(): IMainWindowFiles {
-  const projectPath = resolve(homedir(), "Desktop", "VsGo-Projects");
-  if (!existsSync(projectPath)) {
-    mkdirSync(projectPath);
-  }
-
-  const desktopPath = resolve(homedir(), "Desktop");
-
-  return [projectPath, desktopPath]
-    .flatMap((dir) => {
-      const subDirs = getSubDirectory(dir);
-      return subDirs.flatMap((subDir) => [
-        {
-          fileName: basename(subDir),
-          filePath: subDir,
-          iconBase64: finderBase64,
-          useAppBase64: vscodeBase64,
-        },
-        {
-          fileName: basename(subDir),
-          filePath: subDir,
-          iconBase64: finderBase64,
-          useAppBase64: "",
-        },
-      ]);
-    });
+  return vsGoConfig.workSpaceDirectories.flatMap((dir) => {
+    if (!existsSync(dir)) return [];
+    return getSubDirectory(dir).flatMap((subDir) => [
+      {
+        fileName: basename(subDir),
+        filePath: subDir,
+        iconBase64: finderBase64,
+        useAppBase64: vscodeBase64,
+      },
+      {
+        fileName: basename(subDir),
+        filePath: subDir,
+        iconBase64: finderBase64,
+        useAppBase64: "",
+      },
+    ]);
+  });
 }
 
 function getShellConfigFiles(): IMainWindowFiles {
-  const results: IMainWindowFiles = [];
-  const configs = [".zshrc", ".zprofile"];
-
-  for (const configName of configs) {
-    const configPath = resolve(homedir(), configName);
-    if (existsSync(configPath)) {
-      results.push({
-        filePath: configPath,
-        fileName: configName,
-        iconBase64: finderBase64,
-        useAppBase64: vscodeBase64,
-      });
-    }
-  }
-
-  return results;
+  return vsGoConfig.shellConfigFiles.map((configPath) => ({
+    filePath: configPath,
+    fileName: basename(configPath),
+    iconBase64: finderBase64,
+    useAppBase64: vscodeBase64,
+  }));
 }

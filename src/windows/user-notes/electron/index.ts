@@ -38,21 +38,3 @@ export function createUserNotesWindow(): BrowserWindow {
   }
   return openUserNotesBrowserWindow();
 }
-
-export function getUserNotesWindow(): BrowserWindow | null {
-  return windowRef.current;
-}
-
-/** 无实例则创建；可见则 hide，否则 present */
-export function toggleUserNotesWindow(): void {
-  if (!windowRef.current || windowRef.current.isDestroyed()) {
-    createUserNotesWindow();
-    return;
-  }
-
-  if (windowRef.current.isVisible()) {
-    windowRef.current.hide();
-  } else {
-    presentWindowOnCurrentDesktop(windowRef.current);
-  }
-}

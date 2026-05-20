@@ -6,7 +6,6 @@ import "@platform/electron/registerIpc";
 
 app.whenReady().then(async () => {
   await import("./tray");
-  await import("./setupWorkSpaceApp");
 });
 
 process.on("uncaughtException", (error) => {

@@ -16,7 +16,6 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "preview": "electron-vite preview",
     "dev": "electron-vite dev",
-    "dev:monaco": "vite --config ./monaco-markdown-dev/vite.config.ts",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
@@ -28,19 +27,13 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "@types/cheerio": "^0.22.35",
-    "ansi-to-html": "^0.7.2",
     "antd": "^6.1.0",
-    "autoprefixer": "^10.4.19",
-    "cheerio": "^1.1.2",
     "electron-context-menu": "^4.1.1",
     "electron-store": "^10.1.0",
-    "electron-updater": "^6.3.9",
     "monaco-editor": "^0.54.0",
-    "p-map": "^5.5.0",
     "pinyin": "^4.0.0-alpha.0",
-    "tailwindcss": "^3.4.3",
-    "use-debounce": "^10.1.1"
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
@@ -50,6 +43,7 @@
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.3",
+    "autoprefixer": "^10.4.19",
     "electron": "^40.9.2",
     "electron-builder": "^25.1.8",
     "electron-vite": "^4.0.1",
@@ -58,8 +52,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "prettier": "^3.6.2",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "tailwindcss": "^3.4.3",
     "typescript": "^5.9.2",
     "vite": "^7.1.6"
   }

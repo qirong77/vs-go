@@ -14,19 +14,6 @@ const schema = {
     default: {},
     additionalProperties: { type: "number" },
   },
-  browserHistory: {
-    type: "array",
-    default: [],
-    items: {
-      type: "object",
-      properties: {
-        id: { type: "string" },
-        url: { type: "string" },
-        title: { type: "string" },
-        visitTime: { type: "number" },
-      },
-    },
-  },
   savedCookies: {
     type: "array",
     default: [],

@@ -24,7 +24,6 @@ import {
 } from "@shared/type";
 import { generateId } from "@shared/utils";
 import { setupContextMenu } from "@platform/electron/contextMenu";
-import { browserHistoryStore } from "../store";
 import { windowScriptStore } from "@windows/script-editor/store";
 
 // ============================================================
@@ -246,15 +245,6 @@ export class TabbedBrowserWindow {
     } else {
       this.broadcastState();
     }
-    const length = this.tabs.length;
-    view.webContents.once("did-finish-load", () => {
-      const isDefaultHomeUrl = url === TABBED_BROWSER_DEFAULT_HOME_URL;
-      if (length >= 2 && isDefaultHomeUrl ) {
-        console.log("focus and focusAddressBar");
-        this.hostWindow.webContents.focus();
-        // this.focusAddressBar();
-      }
-    });
     return tab;
   }
 
@@ -692,9 +682,6 @@ export class TabbedBrowserWindow {
 
     const onFinish = (): void => {
       runUserScript(wc);
-      const finishUrl = wc.getURL();
-      const finishTitle = wc.getTitle();
-      if (finishUrl) browserHistoryStore.add(finishUrl, finishTitle);
       sync();
     };
 

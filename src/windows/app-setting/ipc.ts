@@ -3,7 +3,7 @@ import { AppEvent } from "@windows/app-setting/events";
 import type { AppSettings } from "@shared/type";
 import { formatError } from "@shared/utils";
 import { TabbedBrowserWindowManager } from "@windows/browser/electron/TabbedBrowserWindowManager";
-import { vsgoStore } from "./store";
+import { vsgoStore } from "@platform/store/instance";
 
 /** 在应用内 TabbedBrowserWindow 新标签中打开（笔记内链接等），其余走系统默认程序 */
 async function openUrlInTabbedBrowserOrExternal(url: string): Promise<void> {

@@ -2,13 +2,11 @@ import { Menu, Tray, app, nativeImage } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { is } from "@electron-toolkit/utils";
-import { createAppSettingWindow } from "@windows/app-setting/electron";
-import { createScriptEditorWindow } from "@windows/script-editor/electron";
+import { createSettingsWindow } from "@windows/settings/electron";
+import { createUserNotesWindow } from "@windows/user-notes/electron";
 
-// dev:   build/rocket-takeoff@2x.png（项目根目录下）
-// prod:  out/rocket-takeoff@2x.png（通过 copyTrayIconPlugin 自动拷贝）
 const thisFile = fileURLToPath(import.meta.url);
-const outDir = path.resolve(path.dirname(thisFile), ".."); // out/
+const outDir = path.resolve(path.dirname(thisFile), "..");
 const projectRoot = path.resolve(outDir, "..");
 
 const imagePath = is.dev
@@ -23,12 +21,12 @@ tray.setToolTip("VsGo");
 
 const contextMenu = Menu.buildFromTemplate([
   {
-    label: "App 设置",
-    click: () => createAppSettingWindow(),
+    label: "笔记",
+    click: () => createUserNotesWindow(),
   },
   {
-    label: "脚本",
-    click: () => createScriptEditorWindow(),
+    label: "设置",
+    click: () => createSettingsWindow(),
   },
   { type: "separator" },
   {

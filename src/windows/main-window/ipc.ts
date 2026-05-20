@@ -3,14 +3,14 @@ import { existsSync } from "node:fs";
 import { exec } from "node:child_process";
 import { is } from "@electron-toolkit/utils";
 import { MainWindowEvent } from "@windows/main-window/events";
-import type { IMainWindowFile } from "@shared/type";
+import type { IMainWindowFile, AppSettings } from "@shared/type";
 import { vscodeBase64 } from "@shared/vscodeBase64";
 import { openFileByVscode } from "@utils/openFileByVsCode";
 import { openFileByCursor } from "@utils/openFileByCursor";
 import { getMainWindowFiles } from "./electron/fileManager";
-import { vsgoStore, fileAccessStore } from "./store";
+import { vsgoStore } from "@platform/store/instance";
+import { fileAccessStore } from "./store";
 import { MainWindowManager } from "./electron";
-import type { AppSettings } from "@shared/type";
 
 export function registerFileHandlers(): void {
   ipcMain.on(MainWindowEvent.SET_SEARCH_WINDOW_HEIGHT, (_e, height: number) => {

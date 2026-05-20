@@ -55,7 +55,7 @@ function TabbedBrowser(): React.JSX.Element {
     () =>
       bookmarks.find(
         (b) =>
-          (b.type === "bookmark" || b.type === "history") &&
+          b.type === "bookmark" &&
           !!b.url &&
           bookmarkUrlsMatch(b.url, bookmarkTargetUrl)
       ),

@@ -2,12 +2,11 @@ import { createWindowRef, openManagedSubWindow } from "@platform/electron/manage
 
 const windowRef = createWindowRef();
 
-export function createAppSettingWindow(): void {
+export function createSettingsWindow(): void {
   openManagedSubWindow(windowRef, {
-    width: 480,
-    height: 360,
-    title: "App 设置",
-    hash: "app-setting",
-    resizable: false,
+    width: 900,
+    height: 700,
+    title: "设置",
+    hash: "settings",
   });
 }
