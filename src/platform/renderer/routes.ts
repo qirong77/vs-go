@@ -3,7 +3,6 @@ import MainWindow from "@windows/main-window/renderer/MainWindow";
 import AppSetting from "@windows/app-setting/renderer/AppSetting";
 import BrowserSetting from "@windows/browser/renderer/BrowserSetting";
 import CookieManager from "@windows/cookie-manager/renderer/CookieManager";
-import UserNotes from "@windows/user-notes/renderer/UserNotes";
 import DisplayManager from "@windows/display-manager/renderer/DisplayManager";
 import ScriptEditor from "@windows/script-editor/renderer/ScriptEditor";
 import TabbedBrowser from "@windows/browser/renderer/TabbedBrowser";
@@ -15,7 +14,6 @@ export const RENDERER_ROUTES: Record<string, FC> = {
   "main-window": MainWindow,
   "browser-setting": BrowserSetting,
   "cookie-manager": CookieManager,
-  "user-notes": UserNotes,
   "app-setting": AppSetting,
   "display-manager": DisplayManager,
   "script-editor": ScriptEditor,

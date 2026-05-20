@@ -119,21 +119,31 @@ export interface IpcResult<T = undefined> {
 /** Chrome 外壳 UI 总高度（标签栏 + 地址栏 + 书签栏 + 书签栏底边距），main 与 renderer 共享 */
 export const BROWSER_CHROME_HEIGHT = 106;
 
+/** 笔记窗口 / 浏览器默认首页：语雀文档 */
+export const USER_NOTES_YUQUE_URL =
+  "https://www.yuque.com/qirong-work/fhc6ot/pdqwm8c5gwvi117d";
+
 /** 新标签 / 空输入时的默认首页（与 main 中 load 逻辑保持一致） */
-export const TABBED_BROWSER_DEFAULT_HOME_URL = "vsgo://user-notes";
+export const TABBED_BROWSER_DEFAULT_HOME_URL = USER_NOTES_YUQUE_URL;
+
+function normalizeUrlForHomeCompare(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    const pathname = u.pathname.replace(/\/+$/, "") || "/";
+    return `${u.protocol}//${u.host.toLowerCase()}${pathname}${u.search}`;
+  } catch {
+    return url.trim();
+  }
+}
 
 /** 是否为默认首页 URL（仅用于地址栏展示为空，真实导航 URL 不变） */
 export function isTabbedBrowserDefaultHomeUrl(url: string): boolean {
-  try {
-    const u = new URL((url || "").trim());
-    const d = new URL(TABBED_BROWSER_DEFAULT_HOME_URL);
-    const sameOrigin =
-      u.protocol === d.protocol && u.hostname.toLowerCase() === d.hostname.toLowerCase();
-    const rootPath = u.pathname === "/" || u.pathname === "";
-    return sameOrigin && rootPath && !u.search && !u.hash;
-  } catch {
-    return false;
-  }
+  const trimmed = (url || "").trim();
+  if (!trimmed) return false;
+  return (
+    normalizeUrlForHomeCompare(trimmed) ===
+    normalizeUrlForHomeCompare(TABBED_BROWSER_DEFAULT_HOME_URL)
+  );
 }
 
 /** 地址栏展示用：默认首页显示为空字符串 */

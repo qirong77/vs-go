@@ -1,11 +1,10 @@
 import { useState } from "react";
-import UserNotes from "@windows/user-notes/renderer/UserNotes";
 import DisplayManager from "@windows/display-manager/renderer/DisplayManager";
 import AppSetting from "@windows/app-setting/renderer/AppSetting";
 import BrowserSetting from "@windows/browser/renderer/BrowserSetting";
 import ScriptEditor from "@windows/script-editor/renderer/ScriptEditor";
 
-type MenuKey = "notes" | "display" | "app" | "browser" | "script";
+type MenuKey = "display" | "app" | "browser" | "script";
 
 interface MenuItem {
   key: MenuKey;
@@ -15,7 +14,6 @@ interface MenuItem {
 }
 
 const MENU: MenuItem[] = [
-  { key: "notes", label: "笔记", icon: "📝", Component: UserNotes },
   { key: "display", label: "屏幕管理", icon: "🖥️", Component: DisplayManager },
   { key: "app", label: "App 设置", icon: "⚙️", Component: AppSetting },
   { key: "browser", label: "浏览器设置", icon: "🌐", Component: BrowserSetting },
