@@ -1,7 +1,7 @@
 import { is } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
-import { presentWindowAtCursor } from "@platform/electron/createWindow";
+import { presentWindowOnActiveDisplay } from "@platform/electron/createWindow";
 import { vsgoLog } from "@platform/log/logger";
 import { MainWindowEvent } from "@windows/main-window/events";
 import { setupContextMenu } from "@platform/electron/contextMenu";
@@ -100,7 +100,7 @@ function presentAtCursor(): void {
   }
 
   vsgoLog("MainWindow", "presentAtCursor → 唤起", { detail: state });
-  presentWindowAtCursor(window);
+  presentWindowOnActiveDisplay(window);
   notifyMainWindowShown(window);
   vsgoLog("MainWindow", "presentAtCursor 完成", {
     detail: windowState(window),

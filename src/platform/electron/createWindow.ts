@@ -47,20 +47,16 @@ export function presentWindowOnCurrentDesktop(window: BrowserWindow): void {
   window.focus();
 }
 
-/** 在光标所在屏幕附近显示并置顶、聚焦（用于搜索窗等 Spotlight 式唤起） */
-export function presentWindowAtCursor(window: BrowserWindow): void {
+/** 在光标所在显示器的工作区居中显示并置顶、聚焦 */
+export function presentWindowOnActiveDisplay(window: BrowserWindow): void {
   const cursor = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursor);
-  const [w] = window.getSize();
-  const x = Math.max(display.workArea.x, cursor.x - Math.floor(w / 2));
-  const y = Math.max(display.workArea.y, cursor.y - 20);
+  const [w, h] = window.getSize();
+  const { x: workX, y: workY, width: workW, height: workH } = display.workArea;
+  const x = workX + Math.max(0, Math.floor((workW - w) / 2));
+  const y = workY + Math.max(0, Math.floor((workH - h) / 2));
   const visibleBefore = window.isVisible();
   const focusedBefore = window.isFocused();
-
-  if (process.platform === "darwin") {
-    window.setVisibleOnAllWorkspaces(false);
-    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  }
 
   window.setPosition(x, y);
   if (!window.isVisible()) {
@@ -69,11 +65,13 @@ export function presentWindowAtCursor(window: BrowserWindow): void {
   window.moveTop();
   window.focus();
 
-  vsgoLog("Window", "presentWindowAtCursor", {
+  vsgoLog("Window", "presentWindowOnActiveDisplay", {
     detail: {
       cursor,
       displayId: display.id,
+      workArea: display.workArea,
       position: { x, y },
+      windowSize: { w, h },
       visibleBefore,
       focusedBefore,
       visibleAfter: window.isVisible(),
