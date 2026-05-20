@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from "electron";
 import { is } from "@electron-toolkit/utils";
 import path from "node:path";
+import { vsgoLog } from "@platform/log/logger";
 
 export interface SubWindowOptions {
   width: number;
@@ -53,6 +54,8 @@ export function presentWindowAtCursor(window: BrowserWindow): void {
   const [w] = window.getSize();
   const x = Math.max(display.workArea.x, cursor.x - Math.floor(w / 2));
   const y = Math.max(display.workArea.y, cursor.y - 20);
+  const visibleBefore = window.isVisible();
+  const focusedBefore = window.isFocused();
 
   if (process.platform === "darwin") {
     window.setVisibleOnAllWorkspaces(false);
@@ -65,4 +68,17 @@ export function presentWindowAtCursor(window: BrowserWindow): void {
   }
   window.moveTop();
   window.focus();
+
+  vsgoLog("Window", "presentWindowAtCursor", {
+    detail: {
+      cursor,
+      displayId: display.id,
+      position: { x, y },
+      visibleBefore,
+      focusedBefore,
+      visibleAfter: window.isVisible(),
+      focusedAfter: window.isFocused(),
+      bounds: window.getBounds(),
+    },
+  });
 }

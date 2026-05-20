@@ -1,4 +1,5 @@
 import { screen, BrowserWindow } from "electron";
+import { vsgoLog } from "@platform/log/logger";
 import { TABBED_BROWSER_DEFAULT_HOME_URL } from "@shared/type";
 import { TabbedBrowserWindow, type Tab } from "./TabbedBrowserWindow";
 
@@ -94,9 +95,15 @@ class Manager {
   // -------------------- 对外生命周期 --------------------
 
   hideAll(): void {
+    const visibleCount = this.windows.filter(
+      (w) => !w.isDestroyed && w.hostWindow.isVisible()
+    ).length;
     this.windows.forEach((w) => {
       if (!w.isDestroyed && w.hostWindow.isVisible()) w.hide();
     });
+    if (visibleCount > 0) {
+      vsgoLog("Browser", "hideAll", { detail: { visibleCount } });
+    }
   }
 
   showAll(): void {

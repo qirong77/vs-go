@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { is } from "@electron-toolkit/utils";
 import { createSettingsWindow } from "@windows/settings/electron";
+import { createLogWindow } from "@windows/log-viewer/electron";
 
 const thisFile = fileURLToPath(import.meta.url);
 const outDir = path.resolve(path.dirname(thisFile), "..");
@@ -22,6 +23,10 @@ const contextMenu = Menu.buildFromTemplate([
   {
     label: "设置",
     click: () => createSettingsWindow(),
+  },
+  {
+    label: "日志",
+    click: () => createLogWindow(),
   },
   { type: "separator" },
   {
