@@ -1,4 +1,3 @@
-import type { DataNode } from "antd/es/tree";
 import type { BrowserItem } from "@shared/type";
 
 export function bookmarkUrlsMatch(a: string, b: string): boolean {
@@ -75,37 +74,4 @@ export function moveParentTargets(
     out.push({ id: f.id, name: f.name });
   }
   return out;
-}
-
-/** 构建设置页左侧 Tree 数据（按 store 顺序） */
-export function browserItemsToAntdTreeData(items: BrowserItem[]): DataNode[] {
-  const childrenMap = new Map<string | null, BrowserItem[]>();
-  for (const i of items) {
-    const p = i.parentId ?? null;
-    if (!childrenMap.has(p)) childrenMap.set(p, []);
-    childrenMap.get(p)!.push(i);
-  }
-  const orderIndex = new Map(items.map((it, idx) => [it.id, idx]));
-  const sortKids = (a: BrowserItem, b: BrowserItem) =>
-    (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0);
-
-  function build(parentId: string | null): DataNode[] {
-    const kids = (childrenMap.get(parentId) ?? []).sort(sortKids);
-    return kids.map((it) => {
-      if (it.type === "folder") {
-        return {
-          key: it.id,
-          title: it.name,
-          icon: undefined,
-          children: build(it.id),
-        };
-      }
-      return {
-        key: it.id,
-        title: it.name,
-        isLeaf: true,
-      };
-    });
-  }
-  return build(null);
 }

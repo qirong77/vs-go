@@ -59,11 +59,6 @@ export function registerBrowserHandlers(): void {
     return list;
   });
 
-  ipcMain.handle(BrowserSettingsEvent.BROWSER_REMOVE_ALL, async () => {
-    vsgoStore.set("browserList", []);
-    return [];
-  });
-
   ipcMain.handle(BrowserSettingsEvent.BROWSER_UPDATE, async (_event, item: BrowserItem) => {
     const list = vsgoStore.get("browserList", []) as BrowserItem[];
     const index = list.findIndex((i) => i.id === item.id);

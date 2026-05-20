@@ -1,10 +1,8 @@
 import { useState } from "react";
-import DisplayManager from "@windows/display-manager/renderer/DisplayManager";
 import AppSetting from "@windows/app-setting/renderer/AppSetting";
-import BrowserSetting from "@windows/browser/renderer/BrowserSetting";
 import ScriptEditor from "@windows/script-editor/renderer/ScriptEditor";
 
-type MenuKey = "display" | "app" | "browser" | "script";
+type MenuKey = "app" | "script";
 
 interface MenuItem {
   key: MenuKey;
@@ -14,9 +12,7 @@ interface MenuItem {
 }
 
 const MENU: MenuItem[] = [
-  { key: "display", label: "屏幕管理", icon: "🖥️", Component: DisplayManager },
   { key: "app", label: "App 设置", icon: "⚙️", Component: AppSetting },
-  { key: "browser", label: "浏览器设置", icon: "🌐", Component: BrowserSetting },
   { key: "script", label: "脚本", icon: "📜", Component: ScriptEditor },
 ];
 
@@ -36,7 +32,6 @@ function Settings(): React.JSX.Element {
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       }}
     >
-      {/* 左侧菜单 */}
       <aside
         style={{
           width: 220,
@@ -100,7 +95,6 @@ function Settings(): React.JSX.Element {
         })}
       </aside>
 
-      {/* 右侧内容 */}
       <main
         key={current.key}
         style={{

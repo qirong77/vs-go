@@ -62,39 +62,6 @@ const schema = {
       },
     },
   },
-  savedNotes: {
-    type: "array",
-    default: [],
-    items: {
-      type: "object",
-      properties: {
-        id: { type: "string" },
-        url: { type: "string" },
-        domain: { type: "string" },
-        title: { type: "string" },
-        content: { type: "string" },
-        createTime: { type: "number" },
-        updateTime: { type: "number" },
-        createTimeDisplay: { type: "string" },
-        updateTimeDisplay: { type: "string" },
-      },
-    },
-  },
-  singleNote: {
-    type: "object",
-    default: {
-      title: "",
-      content: "",
-      updateTime: 0,
-      updateTimeDisplay: "",
-    },
-    properties: {
-      title: { type: "string" },
-      content: { type: "string" },
-      updateTime: { type: "number" },
-      updateTimeDisplay: { type: "string" },
-    },
-  },
   appSettings: {
     type: "object",
     default: { defaultEditor: "vscode" },
@@ -107,6 +74,5 @@ const schema = {
     default: "",
   },
 } as const;
-
 
 export const vsgoStore = new Store({ schema });
