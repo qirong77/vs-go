@@ -3,7 +3,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { is } from "@electron-toolkit/utils";
 import { createSettingsWindow } from "@windows/settings/electron";
-import { createUserNotesWindow } from "@windows/user-notes/electron";
 
 const thisFile = fileURLToPath(import.meta.url);
 const outDir = path.resolve(path.dirname(thisFile), "..");
@@ -20,10 +19,6 @@ const tray = new Tray(image);
 tray.setToolTip("VsGo");
 
 const contextMenu = Menu.buildFromTemplate([
-  {
-    label: "笔记",
-    click: () => createUserNotesWindow(),
-  },
   {
     label: "设置",
     click: () => createSettingsWindow(),
