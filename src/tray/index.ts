@@ -2,7 +2,6 @@ import { Menu, Tray, app, nativeImage } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { is } from "@electron-toolkit/utils";
-import { createUserNotesWindow } from "@windows/user-notes/electron";
 import { createAppSettingWindow } from "@windows/app-setting/electron";
 import { createScriptEditorWindow } from "@windows/script-editor/electron";
 
@@ -23,11 +22,6 @@ const tray = new Tray(image);
 tray.setToolTip("VsGo");
 
 const contextMenu = Menu.buildFromTemplate([
-  {
-    label: "笔记",
-    click: () => createUserNotesWindow(),
-  },
-
   {
     label: "App 设置",
     click: () => createAppSettingWindow(),
