@@ -1,7 +1,7 @@
 import { is } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
-import { presentWindowOnCurrentDesktop } from "@platform/electron/createWindow";
+import { presentWindowAtCursor } from "@platform/electron/createWindow";
 import { MainWindowEvent } from "@windows/main-window/events";
 import { setupContextMenu } from "@platform/electron/contextMenu";
 
@@ -35,7 +35,7 @@ function createMainWindow(): BrowserWindow {
   window.setAlwaysOnTop(true, "torn-off-menu", 10);
 
   window.on("show", () => {
-    window.webContents.send(MainWindowEvent.MAIN_WINDOW_SHOW);
+    notifyMainWindowShown(window);
   });
 
   setupContextMenu(window);
@@ -43,22 +43,27 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
-function showOnCurrentDesktop(): void {
-  presentWindowOnCurrentDesktop(_mainWindow);
+function notifyMainWindowShown(window: BrowserWindow): void {
+  if (window.isDestroyed() || window.webContents.isDestroyed()) return;
+  window.webContents.send(MainWindowEvent.MAIN_WINDOW_SHOW);
 }
 
-function toggleIsShowMainWindow(): void {
+function ensureMainWindow(): BrowserWindow {
   if (!_mainWindow || _mainWindow.isDestroyed()) {
     _mainWindow = createMainWindow();
-    showOnCurrentDesktop();
+  }
+  return _mainWindow;
+}
+
+/** Alt+Space：在光标所在屏幕唤起；仅当搜索窗已聚焦时再次按下才隐藏 */
+function presentAtCursor(): void {
+  const window = ensureMainWindow();
+  if (window.isVisible() && window.isFocused()) {
+    window.hide();
     return;
   }
-
-  if (_mainWindow.isVisible()) {
-    _mainWindow.hide();
-  } else {
-    showOnCurrentDesktop();
-  }
+  presentWindowAtCursor(window);
+  notifyMainWindowShown(window);
 }
 
 function setWindowSize(w: number, h: number): void {
@@ -66,7 +71,9 @@ function setWindowSize(w: number, h: number): void {
 }
 
 function hide(): void {
-  _mainWindow.hide();
+  if (_mainWindow && !_mainWindow.isDestroyed()) {
+    _mainWindow.hide();
+  }
 }
 
 function getMainWindow(): BrowserWindow {
@@ -74,7 +81,7 @@ function getMainWindow(): BrowserWindow {
 }
 
 export const MainWindowManager = {
-  toggleIsShowMainWindow,
+  presentAtCursor,
   getMainWindow,
   hide,
   setWindowSize,
