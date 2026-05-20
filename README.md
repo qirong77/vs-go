@@ -6,7 +6,7 @@
 
 **一个为开发者设计的智能工作空间管理工具**
 
-[![Electron](https://img.shields.io/badge/Electron-38.1.2-blue?logo=electron)](https://electronjs.org/)
+[![Electron](https://img.shields.io/badge/Electron-40.9.2-blue?logo=electron)](https://electronjs.org/)
 [![React](https://img.shields.io/badge/React-19.1.1-blue?logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.2-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -15,240 +15,168 @@
 
 </div>
 
-## 📖 项目简介
+## 项目简介
 
-VsGo 是一个基于 Electron 构建的桌面应用程序，旨在提升开发者的工作效率。它集成了文件管理、浏览器书签管理、Cookie 管理、笔记功能等多种实用功能，为开发者提供了一个统一的工作空间管理平台。
+VsGo 是一个基于 Electron 的桌面应用，将文件搜索、多标签浏览器、书签管理、Cookie 管理、代码脚本和笔记整合为一个统一的工作空间，通过全局快捷键随时唤起。
 
-### ✨ 核心特性
+## 核心功能
 
-- 🗂️ **智能文件管理** - 快速访问工作区文件，支持 VS Code 集成
-- 🌐 **浮动浏览器窗口** - 创建独立的浏览器窗口，支持多任务处理
-- 📚 **书签管理** - 导入和管理浏览器书签，支持搜索和分类
-- 🍪 **Cookie 管理** - 保存和管理网站 Cookie，方便开发调试
-- 📝 **笔记功能** - 内置富文本编辑器，支持网页相关笔记
-- ⌨️ **全局快捷键** - 支持快捷键快速呼出主窗口
-- 🎯 **智能搜索** - 支持拼音搜索和模糊匹配
-- 🔄 **文件访问历史** - 记录文件访问时间，智能排序
+### 文件搜索与快速启动
 
-## 🎯 主要功能
+- `Alt + Space` 唤起类 Spotlight 的搜索窗口，输入关键字实时过滤
+- 自动扫描 `~/Desktop/VsGo-Projects` 和 `~/Desktop` 下的文件/文件夹，以及 shell 配置文件（`.zshrc`、`.zprofile`）
+- 支持拼音搜索和模糊匹配
+- 按访问时间排序，常用文件自动靠前
+- 可一键通过 VS Code、Cursor 或 Finder 打开项目，应用列表展示图标
+- 窗口置顶、跨所有桌面可见，随时呼出随时隐藏
 
-### 1. 文件管理与快速访问
+### 多标签浏览器（Chrome 风格）
 
-- 智能扫描桌面和项目目录中的文件和文件夹
-- 支持通过 VS Code 或 Finder 打开文件
-- 文件访问历史记录，常用文件优先显示
-- 支持应用程序快速启动
+- `Cmd + `` 切换唤起多标签浏览器窗口
+- 完整的多标签管理：新建、关闭、切换、拖拽排序、拖拽标签脱离为独立窗口
+- 地址栏支持 URL 导航和 Google 搜索，`Shift + Enter` 在新标签打开
+- 前进、后退、刷新按钮，全屏模式
+- 所有窗口关闭后记忆状态，重新打开恢复标签
 
-### 2. 浮动浏览器窗口
+### 书签管理
 
-- 创建独立的浏览器窗口，不干扰主要工作流程
-- 支持网页导航，前进、后退功能
-- 自动保存浏览历史和书签
-- 始终置顶，方便参考
+- Chrome 风格书签栏，显示在地址栏下方
+- 点击星标按钮添加/编辑当前页面书签
+- 支持文件夹层级分类，拖拽重排
+- 右键菜单：重命名、移动到其他文件夹、新建子文件夹、删除
+- 书签项也会出现在主搜索窗口中，输入关键词即可找到并打开
+- 拖动书签到标签栏释放可在新标签打开
 
-### 3. 书签管理系统
+### Cookie 管理器
 
-- 从浏览器导入书签（支持 HTML 格式）
-- 智能去重，避免重复添加
-- 支持书签搜索和快速访问
-- 自动记录网站标题和图标
+- 右键菜单中打开 Cookie 管理窗口
+- 保存当前页面的 Cookie（按 URL / 域名分类存储）
+- 一键将已保存的 Cookie 应用到当前页面
+- 便于多账号切换、开发调试
 
-### 4. Cookie 管理工具
+### 脚本编辑器
 
-- 保存和管理特定网站的 Cookie
-- 支持按 URL 和域名分类存储
-- 便于开发调试和测试
-- 安全的本地存储
+- 内置 Monaco Editor（VS Code 同款内核），支持 JavaScript 语法高亮
+- 编写自定义脚本，编辑后半秒自动保存到本地
+- 浮动浏览器窗口每次加载页面时会在该页面上下文中自动执行脚本
+- 适合注入调试代码、自动化操作等场景
 
-### 5. 笔记功能
+### 应用设置
 
-- 基于 Slate.js 的富文本编辑器
-- 支持网页相关笔记记录
-- 自动保存，防止数据丢失
-- 支持格式化文本编辑
+- 设置窗口左右分栏布局（App 设置 / 脚本编辑器）
+- 选择默认编辑器：VS Code 或 Cursor
 
-## 🛠️ 技术栈
+## 技术栈
 
-### 前端技术
-
-- **Electron** - 跨平台桌面应用框架
-- **React** - 用户界面构建
-- **TypeScript** - 类型安全的 JavaScript
-- **Tailwind CSS** - 现代化 CSS 框架
-- **Slate.js** - 富文本编辑器框架
-
-### 构建工具
-
-- **Electron Vite** - 现代化的 Electron 构建工具
-- **Electron Builder** - 应用打包和分发
-- **ESLint & Prettier** - 代码质量和格式化
-
-### 核心依赖
-
-- **electron-store** - 数据持久化存储
-- **electron-updater** - 自动更新功能
+- **Electron 40** - 跨平台桌面应用框架
+- **React 19** - UI 框架
+- **TypeScript 5.9** - 类型安全
+- **Ant Design 6** - 组件库
+- **Monaco Editor** - 代码编辑器
+- **Tailwind CSS 3** - CSS 工具类
+- **electron-vite 4** - 构建工具
+- **electron-builder 25** - 应用打包
+- **electron-store** - 数据持久化
 - **cheerio** - HTML 解析（书签导入）
-- **pinyin** - 中文拼音搜索支持
+- **pinyin** - 拼音搜索
 
-## 🚀 快速开始
+## 快速开始
 
 ### 环境要求
 
-- Node.js >= 16.0.0
-- npm >= 8.0.0 或 yarn >= 1.22.0
+- Node.js >= 22
+- npm >= 10
 - macOS 10.13+ / Windows 10+ / Ubuntu 18.04+
 
-### 安装步骤
+### 安装
 
-1. **克隆项目**
+```bash
+git clone https://github.com/qirong77/vs-go.git
+cd vs-go
+npm install
+```
 
-   ```bash
-   git clone https://github.com/qirong77/vs-go.git
-   cd vs-go
-   ```
+### 开发
 
-2. **安装依赖**
+```bash
+npm run dev
+```
 
-   ```bash
-   npm install
-   ```
+### 构建
 
-3. **开发模式启动**
+```bash
+npm run build:mac    # macOS
+npm run build:win    # Windows
+npm run build:linux  # Linux
+```
 
-   ```bash
-   npm run dev
-   ```
+## 快捷键
 
-4. **构建应用**
+| 快捷键 | 功能 |
+| --- | --- |
+| `Alt + Space` | 唤起 / 隐藏文件搜索窗口 |
+| `` Cmd + ` `` | 切换多标签浏览器窗口 |
 
-   ```bash
+## 工作空间
 
-   # 构建 macOS 版
-   npm run build:mac
+- 工作空间目录：`~/Desktop/VsGo-Projects`
+- Shell 配置文件自动扫描：`.zshrc`、`.zprofile`
 
-   # 构建 Windows 版
-   npm run build:win
-
-   # 构建 Linux 版
-   npm run build:linux
-   ```
-
-## 📱 使用指南
-
-### 基本操作
-
-1. **启动应用** - 双击应用图标或使用全局快捷键唤起主窗口
-2. **搜索文件** - 在搜索框中输入文件名或关键词，支持拼音搜索
-3. **打开文件** - 点击文件项或按回车键打开，支持 VS Code 和 Finder 两种方式
-4. **创建浮动窗口** - 选择网址后按相应快捷键创建浮动浏览器窗口
-
-### 快捷键
-
-- `Cmd/Ctrl + 空格` - 唤起主窗口
-- `回车` - 打开选中的文件/网址
-- `上/下箭头` - 切换选中项
-- `Cmd/Ctrl + Alt + I` - 打开开发者工具
-
-### 配置文件
-
-应用会自动创建配置目录和默认工作空间：
-
-- **工作空间目录**: `~/Desktop/VsGo-Projects`
-- **配置文件**: 自动扫描 `.zshrc` 和 `.zprofile`
-- **VS Code 路径**: `/Applications/Visual Studio Code.app`
-
-## 🏗️ 项目结构
+## 项目结构
 
 ```
 vs-go/
-├── build/                     # 构建资源
-│   ├── icon.icns             # macOS 图标
-│   ├── icon.ico              # Windows 图标
-│   └── entitlements.mac.plist # macOS 权限配置
 ├── src/
-│   ├── common/               # 共享类型和工具
-│   │   ├── type.ts          # TypeScript 类型定义
-│   │   ├── EVENT.ts         # IPC 事件定义
-│   │   └── debounce.ts      # 工具函数
-│   ├── main/                # 主进程
-│   │   ├── config/          # 配置管理
-│   │   ├── electron/        # Electron 相关功能
-│   │   │   ├── MainWindow/  # 主窗口管理
-│   │   │   ├── FloateWindow/ # 浮动窗口
-│   │   │   ├── store.ts     # 数据存储
-│   │   │   └── ipcEventHandler.ts # IPC 事件处理
-│   │   └── utils/           # 工具函数
-│   ├── preload/             # 预加载脚本
-│   └── renderer/            # 渲染进程
-│       └── src/
-│           ├── App.tsx      # 主应用组件
-│           ├── hooks/       # React Hooks
-│           └── components/  # React 组件
-├── electron-builder.yml     # 打包配置
-├── electron.vite.config.ts  # Vite 配置
-└── package.json            # 项目配置
+│   ├── shared/                    # 跨进程共享类型、工具函数
+│   ├── config/                    # 配置管理
+│   ├── platform/
+│   │   ├── electron/              # Electron 基础设施（窗口管理、IPC、快捷键、右键菜单）
+│   │   ├── preload/               # 预加载脚本
+│   │   ├── renderer/              # 渲染进程入口、路由、静态资源
+│   │   └── store/                 # 数据持久化
+│   ├── windows/
+│   │   ├── main-window/           # 主搜索窗口
+│   │   ├── browser/               # 多标签浏览器 + Chrome 书签栏
+│   │   ├── cookie-manager/        # Cookie 管理器
+│   │   ├── script-editor/         # 脚本编辑器（Monaco）
+│   │   ├── settings/              # 设置页面（侧边栏导航：App 设置 + 脚本）
+│   │   ├── app-setting/           # 应用设置
+│   │   └── user-notes/            # 笔记窗口
+│   ├── utils/                     # 工具函数（打开编辑器、路径等）
+│   ├── tray/                      # 系统托盘
+│   ├── app.ts                     # 应用入口
+│   └── main/                      # 主进程入口
+├── build/                         # 构建资源（图标、权限配置）
+├── electron-builder.yml
+├── electron.vite.config.ts
+└── package.json
 ```
 
-## 🤝 贡献指南
+## 贡献
 
-我们欢迎所有形式的贡献！请按照以下步骤参与：
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 创建 Pull Request
 
-1. **Fork 项目** 到你的 GitHub 账户
-2. **创建功能分支** (`git checkout -b feature/AmazingFeature`)
-3. **提交更改** (`git commit -m 'Add some AmazingFeature'`)
-4. **推送到分支** (`git push origin feature/AmazingFeature`)
-5. **创建 Pull Request**
+提交前请运行 `npm run lint && npm run typecheck`。
 
-### 开发规范
+## 问题反馈
 
-- 遵循现有的代码风格和格式
-- 为新功能添加相应的类型定义
-- 确保所有功能都有适当的错误处理
-- 提交前运行 `npm run lint` 和 `npm run typecheck`
+[GitHub Issues](https://github.com/qirong77/vs-go/issues)
 
-## 📊 开发状态
+## 许可证
 
-项目当前正在积极开发中，主要功能已基本完成：
+MIT - 详见 [LICENSE](LICENSE)
 
-- ✅ 文件管理和快速访问
-- ✅ 浮动浏览器窗口
-- ✅ 书签管理系统
-- ✅ Cookie 管理工具
-- ✅ 笔记功能
-- ✅ 智能搜索
-- ❌ 其他应用窗口管理（规划中）
-- ❌ 屏幕滑动事件（规划中）
-
-## 🐛 问题反馈
-
-如果你遇到任何问题或有功能建议，请：
-
-1. 查看 [Issues](https://github.com/qirong77/vs-go/issues) 是否有类似问题
-2. 如果没有，请创建新的 Issue，详细描述问题或建议
-3. 提供复现步骤、系统信息等相关信息
-
-## 📄 许可证
-
-本项目采用 MIT license - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 👨‍💻 作者
+## 作者
 
 **qirong77** - [GitHub](https://github.com/qirong77)
-
-## 🙏 致谢
-
-感谢以下优秀的开源项目：
-
-- [Electron](https://electronjs.org/) - 跨平台桌面应用框架
-- [React](https://reactjs.org/) - 用户界面库
-- [Vite](https://vitejs.dev/) - 现代化构建工具
-- [Tailwind CSS](https://tailwindcss.com/) - CSS 框架
-- [Slate.js](https://slatejs.org/) - 富文本编辑器
 
 ---
 
 <div align="center">
 
-**⭐ 如果这个项目对你有帮助，请给它一个 Star！**
+**如果这个项目对你有帮助，请给它一个 Star！**
 
 </div>
