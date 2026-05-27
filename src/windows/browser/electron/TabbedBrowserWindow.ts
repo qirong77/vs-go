@@ -24,6 +24,10 @@ import {
 } from "@shared/type";
 import { generateId } from "@shared/utils";
 import { setupContextMenu } from "@platform/electron/contextMenu";
+import {
+  prepareWindowForActiveSpace,
+  schedulePinWindowToActiveSpace,
+} from "@platform/electron/macosWorkspace";
 import { windowScriptStore } from "@windows/script-editor/store";
 
 // ============================================================
@@ -157,8 +161,6 @@ export class TabbedBrowserWindow {
         hash: "/tabbed-browser",
       });
     }
-
-    this.hostWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
     this.hostWindow.on("resize", () => {
       this.updateActiveViewBounds();
@@ -784,8 +786,21 @@ export class TabbedBrowserWindow {
 
   present(): void {
     if (this.hostWindow.isDestroyed()) return;
-    if (!this.hostWindow.isVisible()) this.hostWindow.show();
+    prepareWindowForActiveSpace(this.hostWindow);
+    schedulePinWindowToActiveSpace(this.hostWindow);
+    if (!this.hostWindow.isVisible()) {
+      if (process.platform === "darwin") {
+        this.hostWindow.showInactive();
+      } else {
+        this.hostWindow.show();
+      }
+    }
     this.updateActiveViewBounds();
+    if (process.platform === "darwin") {
+      setTimeout(() => {
+        if (!this.hostWindow.isDestroyed()) this.hostWindow.focus();
+      }, 0);
+    }
   }
 
   hide(): void {

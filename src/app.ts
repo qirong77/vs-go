@@ -1,4 +1,8 @@
 import { app, dialog } from "electron";
+import { configureMacOsLauncherApp } from "@platform/electron/macosWorkspace";
+
+configureMacOsLauncherApp();
+
 import "@windows/browser/electron/tabbed-browser-ipc";
 import "@platform/electron/GlobalShortCut";
 import "@windows/main-window/electron";

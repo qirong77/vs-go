@@ -18,8 +18,9 @@ function registerGlobalShortcuts(): void {
 
   const searchOk = globalShortcut.register(SHORTCUT_SEARCH, () => {
     vsgoLog("GlobalShortcut", `${SHORTCUT_SEARCH} 触发`);
-    TabbedBrowserWindowManager.hideAll();
+    // 先唤起搜索窗；下一 tick 再 hide 浏览器，避免激活应用时先跳到其它 Space
     MainWindowManager.presentAtCursor();
+    setImmediate(() => TabbedBrowserWindowManager.hideAll());
   });
 
   vsgoLog("GlobalShortcut", "注册全局快捷键", {

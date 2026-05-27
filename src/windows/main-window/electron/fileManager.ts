@@ -9,7 +9,33 @@ import type { BrowserItem } from "@shared/type";
 import { vsgoStore } from "@platform/store/instance";
 import { fileAccessStore } from "../store";
 
+let filesCache: IMainWindowFiles | null = null;
+let refreshPromise: Promise<IMainWindowFiles> | null = null;
+
+export function getMainWindowFilesCache(): IMainWindowFiles | null {
+  return filesCache;
+}
+
+/** 后台刷新列表缓存，供搜索窗即时展示 */
+export function refreshMainWindowFilesCache(): Promise<IMainWindowFiles> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = buildMainWindowFiles()
+    .then((files) => {
+      filesCache = files;
+      return files;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+  return refreshPromise;
+}
+
 export async function getMainWindowFiles(): Promise<IMainWindowFiles> {
+  if (filesCache) return filesCache;
+  return refreshMainWindowFilesCache();
+}
+
+async function buildMainWindowFiles(): Promise<IMainWindowFiles> {
   const browserList = vsgoStore.get("browserList") as BrowserItem[];
   const browserFiles = browserList
     .filter(

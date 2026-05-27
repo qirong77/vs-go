@@ -2,6 +2,10 @@ import { BrowserWindow, screen } from "electron";
 import { is } from "@electron-toolkit/utils";
 import path from "node:path";
 import { vsgoLog } from "@platform/log/logger";
+import {
+  prepareWindowForActiveSpace,
+  schedulePinWindowToActiveSpace,
+} from "@platform/electron/macosWorkspace";
 
 export interface SubWindowOptions {
   width: number;
@@ -58,6 +62,8 @@ export function presentWindowOnActiveDisplay(window: BrowserWindow): void {
   const visibleBefore = window.isVisible();
   const focusedBefore = window.isFocused();
 
+  prepareWindowForActiveSpace(window);
+  schedulePinWindowToActiveSpace(window);
   window.setPosition(x, y);
   if (!window.isVisible()) {
     window.show();

@@ -13,18 +13,24 @@ export function useFileData(searchValue: string) {
   const [allFiles, setAllFiles] = useState<IMainWindowFiles>([]);
   const [showFiles, setShowFiles] = useState<IMainWindowFiles>([]);
 
-  const updateAllFiles = useCallback(() => {
-    ipcRenderer.invoke(MainWindowEvent.GET_FILES_LIST).then((res: IMainWindowFiles) => {
-      setAllFiles(res);
-    });
+  const applyFiles = useCallback((res: IMainWindowFiles) => {
+    setAllFiles(res);
   }, []);
 
+  const updateAllFiles = useCallback(() => {
+    ipcRenderer.invoke(MainWindowEvent.GET_FILES_LIST).then(applyFiles);
+  }, [applyFiles]);
+
   useEffect(() => {
-    ipcRenderer.on(MainWindowEvent.MAIN_WINDOW_SHOW, updateAllFiles);
+    const onShow = (_e: unknown, cached?: IMainWindowFiles) => {
+      if (cached && cached.length > 0) applyFiles(cached);
+      updateAllFiles();
+    };
+    ipcRenderer.on(MainWindowEvent.MAIN_WINDOW_SHOW, onShow);
     return () => {
       ipcRenderer.removeAllListeners(MainWindowEvent.MAIN_WINDOW_SHOW);
     };
-  }, [updateAllFiles]);
+  }, [applyFiles, updateAllFiles]);
 
   useEffect(() => {
     const trimmedSearch = searchValue.trim();

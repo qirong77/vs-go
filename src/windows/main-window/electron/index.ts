@@ -2,14 +2,20 @@ import { is } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
 import { presentWindowOnActiveDisplay } from "@platform/electron/createWindow";
+import { configureMacOsLauncherApp } from "@platform/electron/macosWorkspace";
 import { vsgoLog } from "@platform/log/logger";
 import { MainWindowEvent } from "@windows/main-window/events";
 import { setupContextMenu } from "@platform/electron/contextMenu";
+import {
+  getMainWindowFilesCache,
+  refreshMainWindowFilesCache,
+} from "./fileManager";
 
 let _mainWindow: BrowserWindow;
 
 app.once("ready", () => {
   _mainWindow = createMainWindow();
+  void refreshMainWindowFilesCache();
   vsgoLog("MainWindow", "主搜索窗已创建", {
     detail: { bounds: _mainWindow.getBounds() },
   });
@@ -19,7 +25,7 @@ function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 700,
     height: 600,
-    show: true,
+    show: false,
     frame: is.dev,
     title: "VsGo",
     autoHideMenuBar: !is.dev,
@@ -35,8 +41,8 @@ function createMainWindow(): BrowserWindow {
     window.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "/main-window" });
   }
 
-  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  window.setAlwaysOnTop(true, "torn-off-menu", 10);
+  window.setAlwaysOnTop(true, "screen-saver", 1);
+  configureMacOsLauncherApp();
 
   window.on("show", () => {
     vsgoLog("MainWindow", "show 事件");
@@ -63,6 +69,10 @@ function createMainWindow(): BrowserWindow {
 
   setupContextMenu(window);
 
+  window.webContents.once("did-finish-load", () => {
+    void refreshMainWindowFilesCache();
+  });
+
   return window;
 }
 
@@ -76,8 +86,12 @@ function windowState(window: BrowserWindow): Record<string, unknown> {
 
 function notifyMainWindowShown(window: BrowserWindow): void {
   if (window.isDestroyed() || window.webContents.isDestroyed()) return;
-  window.webContents.send(MainWindowEvent.MAIN_WINDOW_SHOW);
-  vsgoLog("MainWindow", "已发送 MAIN_WINDOW_SHOW");
+  const cached = getMainWindowFilesCache();
+  window.webContents.send(MainWindowEvent.MAIN_WINDOW_SHOW, cached ?? []);
+  void refreshMainWindowFilesCache();
+  vsgoLog("MainWindow", "已发送 MAIN_WINDOW_SHOW", {
+    detail: { cachedCount: cached?.length ?? 0 },
+  });
 }
 
 function ensureMainWindow(): BrowserWindow {
@@ -90,6 +104,7 @@ function ensureMainWindow(): BrowserWindow {
 
 /** Alt+Space：在光标所在屏幕唤起；仅当搜索窗已聚焦时再次按下才隐藏 */
 function presentAtCursor(): void {
+  void refreshMainWindowFilesCache();
   const window = ensureMainWindow();
   const state = windowState(window);
 
