@@ -334,6 +334,16 @@ export function BookmarkChromeProvider({
           ctx.hideOverlay();
           break;
         }
+        case "show-item-context-menu": {
+          const itemId = payload.itemId as string;
+          const found = ctx.bookmarks.find((b) => b.id === itemId);
+          if (found) {
+            const cx = (payload.x as number) + (payload.overlayX as number);
+            const cy = (payload.y as number) + (payload.overlayY as number);
+            ctx.setBookmarkBarMenu({ kind: "item", x: cx, y: cy, item: found });
+          }
+          break;
+        }
       }
     };
     ipcRenderer.on(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, handler);
@@ -602,12 +612,14 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
           url: item.url,
         })
       );
+      const overlayX = Math.max(8, Math.min(ctx.folderDropdown.x, window.innerWidth - 200));
+      const overlayY = ctx.folderDropdown.y + 2;
       ctx.showOverlay("folder-dropdown", {
-        x: Math.max(8, Math.min(ctx.folderDropdown.x, window.innerWidth - 200)),
-        y: ctx.folderDropdown.y + 2,
+        x: overlayX,
+        y: overlayY,
         width: 200,
         height: Math.min(320, 4 + items.length * 30),
-      }, { items });
+      }, { items, overlayX, overlayY });
     }
   }, [ctx.folderDropdown?.folderId]);
 

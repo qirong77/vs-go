@@ -287,16 +287,38 @@ interface FolderItemData {
 
 interface FolderDropdownData {
   items: FolderItemData[];
+  overlayX: number;
+  overlayY: number;
 }
 
 function FolderDropdownOverlay({ data }: { data: FolderDropdownData }): React.JSX.Element {
+  const handleContextMenu = (
+    e: React.MouseEvent,
+    item: FolderItemData
+  ): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    sendAction({
+      action: "show-item-context-menu",
+      itemId: item.id,
+      x: e.clientX,
+      y: e.clientY,
+      overlayX: data.overlayX,
+      overlayY: data.overlayY,
+    });
+  };
+
   const items: MenuProps["items"] = data.items.map((item) => {
     const indent = item.depth * 12;
     if (item.type === "folder") {
       return {
         key: item.id,
         label: (
-          <span className="vsgo-folder-label" style={{ paddingLeft: indent }}>
+          <span
+            className="vsgo-folder-label"
+            style={{ paddingLeft: indent }}
+            onContextMenu={(e) => handleContextMenu(e, item)}
+          >
             <FolderOutlined />
             {item.name}
           </span>
@@ -307,7 +329,11 @@ function FolderDropdownOverlay({ data }: { data: FolderDropdownData }): React.JS
     return {
       key: item.id,
       label: (
-        <span className="vsgo-bookmark-item-label" style={{ paddingLeft: indent }}>
+        <span
+          className="vsgo-bookmark-item-label"
+          style={{ paddingLeft: indent }}
+          onContextMenu={(e) => handleContextMenu(e, item)}
+        >
           {item.name}
         </span>
       ),
