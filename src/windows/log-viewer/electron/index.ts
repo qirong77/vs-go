@@ -1,7 +1,7 @@
 import type { BrowserWindow } from "electron";
 import { createWindowRef, openManagedSubWindow } from "@platform/electron/managedSubWindow";
 import { vsgoLog } from "@platform/log/logger";
-import { subscribeLogViewer } from "@platform/log/store";
+import { subscribeLogViewer } from "@platform/log/buffer";
 
 const windowRef = createWindowRef();
 

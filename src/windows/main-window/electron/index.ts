@@ -1,5 +1,5 @@
 import { is } from "@electron-toolkit/utils";
-import { app, BrowserWindow } from "electron";
+import { BrowserWindow } from "electron";
 import path from "node:path";
 import { presentWindowOnActiveDisplay } from "@platform/electron/createWindow";
 import { configureMacOsLauncherApp } from "@platform/electron/macosWorkspace";
@@ -13,13 +13,13 @@ import {
 
 let _mainWindow: BrowserWindow;
 
-app.once("ready", () => {
+export function initMainWindow(): void {
   _mainWindow = createMainWindow();
   void refreshMainWindowFilesCache();
   vsgoLog("MainWindow", "主搜索窗已创建", {
     detail: { bounds: _mainWindow.getBounds() },
   });
-});
+}
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -102,7 +102,6 @@ function ensureMainWindow(): BrowserWindow {
   return _mainWindow;
 }
 
-/** Alt+Space：在光标所在屏幕唤起；仅当搜索窗已聚焦时再次按下才隐藏 */
 function presentAtCursor(): void {
   void refreshMainWindowFilesCache();
   const window = ensureMainWindow();

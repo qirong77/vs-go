@@ -1,6 +1,5 @@
 import { BrowserWindow, ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from "electron";
-import { BrowserTabEvent } from "@windows/browser/events/tab";
-import { BrowserWindowEvent } from "@windows/browser/events/window";
+import { BrowserTabEvent, BrowserWindowEvent } from "../events";
 import { TABBED_BROWSER_DEFAULT_HOME_URL } from "@shared/type";
 import { TabbedBrowserWindowManager } from "./TabbedBrowserWindowManager";
 import type { TabbedBrowserWindow } from "./TabbedBrowserWindow";
@@ -102,5 +101,3 @@ export function registerTabbedBrowserHandlers(): void {
     getSenderWindow(event)?.closeWindow();
   });
 }
-
-registerTabbedBrowserHandlers();

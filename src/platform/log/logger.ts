@@ -1,4 +1,4 @@
-import { appendLogEntry } from "./store";
+import { appendLogEntry } from "./buffer";
 import type { LogLevel } from "./types";
 
 export function vsgoLog(

@@ -6,7 +6,7 @@ import { TabbedBrowserWindowManager } from "@windows/browser/electron/TabbedBrow
 const SHORTCUT_BROWSER = "Command+`";
 const SHORTCUT_SEARCH = "Alt+Space";
 
-function registerGlobalShortcuts(): void {
+function register(): void {
   globalShortcut.unregisterAll();
 
   const browserOk = globalShortcut.register(SHORTCUT_BROWSER, () => {
@@ -18,7 +18,6 @@ function registerGlobalShortcuts(): void {
 
   const searchOk = globalShortcut.register(SHORTCUT_SEARCH, () => {
     vsgoLog("GlobalShortcut", `${SHORTCUT_SEARCH} 触发`);
-    // 先唤起搜索窗；下一 tick 再 hide 浏览器，避免激活应用时先跳到其它 Space
     MainWindowManager.presentAtCursor();
     setImmediate(() => TabbedBrowserWindowManager.hideAll());
   });
@@ -34,27 +33,29 @@ function registerGlobalShortcuts(): void {
   });
 }
 
-function ensureGlobalShortcuts(): void {
+function ensure(): void {
   const searchRegistered = globalShortcut.isRegistered(SHORTCUT_SEARCH);
   vsgoLog("GlobalShortcut", "检查快捷键注册状态", {
     detail: { searchRegistered },
   });
   if (!searchRegistered) {
-    registerGlobalShortcuts();
+    register();
   }
 }
 
-app.whenReady().then(() => {
-  vsgoLog("App", "应用就绪，注册全局快捷键");
-  registerGlobalShortcuts();
-});
+export function registerGlobalShortcuts(): void {
+  app.whenReady().then(() => {
+    vsgoLog("App", "应用就绪，注册全局快捷键");
+    register();
+  });
 
-app.on("activate", () => {
-  vsgoLog("App", "activate 事件，确保快捷键已注册");
-  ensureGlobalShortcuts();
-});
+  app.on("activate", () => {
+    vsgoLog("App", "activate 事件，确保快捷键已注册");
+    ensure();
+  });
 
-powerMonitor.on("resume", () => {
-  vsgoLog("App", "系统唤醒，确保快捷键已注册");
-  ensureGlobalShortcuts();
-});
+  powerMonitor.on("resume", () => {
+    vsgoLog("App", "系统唤醒，确保快捷键已注册");
+    ensure();
+  });
+}

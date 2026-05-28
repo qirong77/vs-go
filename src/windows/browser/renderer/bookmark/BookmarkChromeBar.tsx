@@ -13,8 +13,7 @@ import {
   FolderOutlined,
 } from "@ant-design/icons";
 import { Button, ConfigProvider, Typography, theme } from "antd";
-import { BrowserOverlayEvent } from "@windows/browser/events/overlay";
-import { BrowserSettingsEvent } from "@windows/browser/events/settings";
+import { BrowserOverlayEvent, BrowserSettingsEvent } from "../../events";
 import { type BrowserItem, type OverlayBounds } from "@shared/type";
 import { generateId } from "@shared/utils";
 import {

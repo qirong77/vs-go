@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import { LogEvent } from "./events";
-import { clearLogEntries, getAllLogEntries } from "./store";
+import { clearLogEntries, getAllLogEntries } from "./buffer";
 
 export function registerLogHandlers(): void {
   ipcMain.handle(LogEvent.GET_ALL, () => getAllLogEntries());

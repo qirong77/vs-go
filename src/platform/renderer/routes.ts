@@ -17,6 +17,6 @@ export const RENDERER_ROUTES: Record<string, FC> = {
 };
 
 export function resolveRouteComponent(hash: string): FC {
-  const match = Object.entries(RENDERER_ROUTES).find(([key]) => hash.includes(key));
+  const match = Object.entries(RENDERER_ROUTES).find(([key]) => hash.startsWith(key));
   return match?.[1] ?? MainWindow;
 }

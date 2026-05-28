@@ -9,9 +9,7 @@ import {
 } from "electron";
 import { is } from "@electron-toolkit/utils";
 import path from "node:path";
-import { BrowserOverlayEvent } from "@windows/browser/events/overlay";
-import { BrowserTabEvent } from "@windows/browser/events/tab";
-import { BrowserWindowEvent } from "@windows/browser/events/window";
+import { BrowserOverlayEvent, BrowserTabEvent, BrowserWindowEvent } from "../events";
 import {
   BROWSER_CHROME_HEIGHT,
   TABBED_BROWSER_DEFAULT_HOME_URL,

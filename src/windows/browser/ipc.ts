@@ -1,6 +1,5 @@
 import { BrowserWindow, ipcMain } from "electron";
-import { BrowserOverlayEvent } from "@windows/browser/events/overlay";
-import { BrowserSettingsEvent } from "@windows/browser/events/settings";
+import { BrowserOverlayEvent, BrowserSettingsEvent } from "./events";
 import type { BrowserItem } from "@shared/type";
 import { browserStore } from "./store";
 import { TabbedBrowserWindowManager } from "./electron/TabbedBrowserWindowManager";

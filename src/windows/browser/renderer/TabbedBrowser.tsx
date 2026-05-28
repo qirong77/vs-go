@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BrowserSettingsEvent } from "@windows/browser/events/settings";
-import { BrowserTabEvent } from "@windows/browser/events/tab";
-import { BrowserWindowEvent } from "@windows/browser/events/window";
+import { BrowserSettingsEvent, BrowserTabEvent, BrowserWindowEvent } from "../events";
 import {
   BROWSER_CHROME_HEIGHT,
   tabUrlForAddressBarDisplay,

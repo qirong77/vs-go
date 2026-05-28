@@ -9,7 +9,7 @@ import {
   FolderAddOutlined,
   StarFilled,
 } from "@ant-design/icons";
-import { BrowserOverlayEvent } from "@windows/browser/events/overlay";
+import { BrowserOverlayEvent } from "../events";
 import type { BrowserItem, OverlayType } from "@shared/type";
 import { getOverlayContentInset } from "@shared/type";
 

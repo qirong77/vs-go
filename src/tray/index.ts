@@ -13,35 +13,35 @@ const imagePath = is.dev
   ? path.join(projectRoot, "build", "rocket-takeoff@2x.png")
   : path.join(outDir, "rocket-takeoff@2x.png");
 
-const image = nativeImage.createFromPath(imagePath);
-image.setTemplateImage(true);
+export function initTray(): void {
+  const image = nativeImage.createFromPath(imagePath);
+  image.setTemplateImage(true);
 
-const tray = new Tray(image);
-tray.setToolTip("VsGo");
+  const tray = new Tray(image);
+  tray.setToolTip("VsGo");
 
-const contextMenu = Menu.buildFromTemplate([
-  {
-    label: "设置",
-    click: () => createSettingsWindow(),
-  },
-  {
-    label: "日志",
-    click: () => createLogWindow(),
-  },
-  { type: "separator" },
-  {
-    label: "重启 App",
-    click: () => {
-      app.relaunch();
-      app.exit(0);
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "设置",
+      click: () => createSettingsWindow(),
     },
-  },
-  {
-    label: "退出 App",
-    click: () => app.quit(),
-  },
-]);
+    {
+      label: "日志",
+      click: () => createLogWindow(),
+    },
+    { type: "separator" },
+    {
+      label: "重启 App",
+      click: () => {
+        app.relaunch();
+        app.exit(0);
+      },
+    },
+    {
+      label: "退出 App",
+      click: () => app.quit(),
+    },
+  ]);
 
-app.whenReady().then(() => {
   tray.setContextMenu(contextMenu);
-});
+}
