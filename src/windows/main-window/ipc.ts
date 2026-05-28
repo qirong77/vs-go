@@ -3,12 +3,12 @@ import { existsSync } from "node:fs";
 import { exec } from "node:child_process";
 import { is } from "@electron-toolkit/utils";
 import { MainWindowEvent } from "@windows/main-window/events";
-import type { IMainWindowFile, AppSettings } from "@shared/type";
+import type { IMainWindowFile } from "@shared/type";
 import { vscodeBase64 } from "@shared/vscodeBase64";
 import { openFileByVscode } from "@utils/openFileByVsCode";
 import { openFileByCursor } from "@utils/openFileByCursor";
 import { getMainWindowFiles } from "./electron/fileManager";
-import { vsgoStore } from "@platform/store/instance";
+import { appSettingStore } from "@windows/app-setting/store";
 import { fileAccessStore } from "./store";
 import { MainWindowManager } from "./electron";
 
@@ -39,7 +39,7 @@ export function registerFileHandlers(): void {
 
     if (file.useAppBase64 === vscodeBase64) {
       MainWindowManager.hide();
-      const appSettings = vsgoStore.get("appSettings", { defaultEditor: "vscode" }) as AppSettings;
+      const appSettings = appSettingStore.getSettings();
       if (appSettings.defaultEditor === "cursor") {
         openFileByCursor(filePath);
       } else {

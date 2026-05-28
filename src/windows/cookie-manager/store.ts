@@ -1,24 +1,64 @@
+import Store from "electron-store";
 import type { SavedCookie, SavedCookieByUrl } from "@shared/type";
-import { vsgoStore } from "@platform/store/instance";
+
+const schema = {
+  savedCookies: {
+    type: "array",
+    default: [],
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        domain: { type: "string" },
+        name: { type: "string" },
+        value: { type: "string" },
+        path: { type: "string" },
+        secure: { type: "boolean" },
+        httpOnly: { type: "boolean" },
+        expirationDate: { type: "number" },
+        sameSite: { type: "string" },
+        saveTime: { type: "number" },
+        saveTimeDisplay: { type: "string" },
+      },
+    },
+  },
+  savedCookiesByUrl: {
+    type: "array",
+    default: [],
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        url: { type: "string" },
+        domain: { type: "string" },
+        cookieString: { type: "string" },
+        saveTime: { type: "number" },
+        saveTimeDisplay: { type: "string" },
+      },
+    },
+  },
+} as const;
+
+const store = new Store({ schema });
 
 export const cookieStore = {
   getSavedCookies(): SavedCookie[] {
-    return vsgoStore.get("savedCookies", []) as SavedCookie[];
+    return store.get("savedCookies", []) as SavedCookie[];
   },
   saveCookie(cookie: SavedCookie): void {
     const cookies = this.getSavedCookies();
     cookies.push(cookie);
-    vsgoStore.set("savedCookies", cookies);
+    store.set("savedCookies", cookies);
   },
   deleteCookie(id: string): void {
     const filtered = this.getSavedCookies().filter((c) => c.id !== id);
-    vsgoStore.set("savedCookies", filtered);
+    store.set("savedCookies", filtered);
   },
 };
 
 export const cookieByUrlStore = {
   getAll(): SavedCookieByUrl[] {
-    return vsgoStore.get("savedCookiesByUrl", []) as SavedCookieByUrl[];
+    return store.get("savedCookiesByUrl", []) as SavedCookieByUrl[];
   },
   save(cookieData: SavedCookieByUrl): void {
     const cookies = this.getAll();
@@ -28,11 +68,11 @@ export const cookieByUrlStore = {
     } else {
       cookies.push(cookieData);
     }
-    vsgoStore.set("savedCookiesByUrl", cookies);
+    store.set("savedCookiesByUrl", cookies);
   },
   delete(id: string): void {
     const filtered = this.getAll().filter((c) => c.id !== id);
-    vsgoStore.set("savedCookiesByUrl", filtered);
+    store.set("savedCookiesByUrl", filtered);
   },
   getByUrl(url: string): SavedCookieByUrl | undefined {
     return this.getAll().find((c) => c.url === url);

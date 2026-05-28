@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { vsgoStore } from '@platform/store/instance'
+import { appSettingStore } from './store'
 import type { WorkspaceApp } from '@shared/type'
 
 export function workspaceApp(displayName: string, bundleName?: string): WorkspaceApp {
@@ -36,7 +36,7 @@ function launchApp({ bundleName }: WorkspaceApp): void {
 
 function getUserApps(): WorkspaceApp[] {
   try {
-    return vsgoStore.get('workspaceApps', []) as WorkspaceApp[]
+    return appSettingStore.getWorkspaceApps()
   } catch {
     return []
   }

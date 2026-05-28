@@ -2,26 +2,26 @@ import { BrowserWindow, ipcMain } from "electron";
 import { BrowserOverlayEvent } from "@windows/browser/events/overlay";
 import { BrowserSettingsEvent } from "@windows/browser/events/settings";
 import type { BrowserItem } from "@shared/type";
-import { vsgoStore } from "@platform/store/instance";
+import { browserStore } from "./store";
 import { TabbedBrowserWindowManager } from "./electron/TabbedBrowserWindowManager";
 
 export function registerBrowserHandlers(): void {
   ipcMain.handle(BrowserSettingsEvent.BROWSER_LIST, async () => {
-    return vsgoStore.get("browserList", []) as BrowserItem[];
+    return browserStore.getList();
   });
 
   ipcMain.handle(BrowserSettingsEvent.BROWSER_ADD, async (_event, item: BrowserItem) => {
-    const list = vsgoStore.get("browserList", []) as BrowserItem[];
+    const list = browserStore.getList();
     const siblings = list.filter((i) => (i.parentId ?? null) === (item.parentId ?? null));
     const maxOrder = siblings.reduce((max, i) => Math.max(max, i.order ?? 0), -1);
     item.order = maxOrder + 1;
     list.push(item);
-    vsgoStore.set("browserList", list);
+    browserStore.setList(list);
     return list;
   });
 
   ipcMain.handle(BrowserSettingsEvent.BROWSER_REMOVE, async (_event, id: string) => {
-    const list = vsgoStore.get("browserList", []) as BrowserItem[];
+    const list = browserStore.getList();
     const target = list.find((item) => item.id === id);
     if (!target) return list;
 
@@ -39,32 +39,32 @@ export function registerBrowserHandlers(): void {
     }
 
     const next = list.filter((item) => !idsToRemove.has(item.id));
-    vsgoStore.set("browserList", next);
+    browserStore.setList(next);
     return next;
   });
 
   ipcMain.handle(
     BrowserSettingsEvent.BROWSER_REORDER,
     async (_event, payload: { id: string; order: number; parentId?: string | null }) => {
-      const list = vsgoStore.get("browserList", []) as BrowserItem[];
+      const list = browserStore.getList();
       const idx = list.findIndex((i) => i.id === payload.id);
       if (idx !== -1) {
         list[idx].order = payload.order;
         if (payload.parentId !== undefined) {
           list[idx].parentId = payload.parentId;
         }
-        vsgoStore.set("browserList", list);
+        browserStore.setList(list);
       }
       return list;
     }
   );
 
   ipcMain.handle(BrowserSettingsEvent.BROWSER_UPDATE, async (_event, item: BrowserItem) => {
-    const list = vsgoStore.get("browserList", []) as BrowserItem[];
+    const list = browserStore.getList();
     const index = list.findIndex((i) => i.id === item.id);
     if (index !== -1) {
       list[index] = item;
-      vsgoStore.set("browserList", list);
+      browserStore.setList(list);
     }
     return list;
   });

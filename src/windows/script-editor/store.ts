@@ -1,10 +1,19 @@
-import { vsgoStore } from "@platform/store/instance";
+import Store from "electron-store";
+
+const schema = {
+  floatingWindowUserScript: {
+    type: "string",
+    default: "",
+  },
+} as const;
+
+const store = new Store({ schema });
 
 export const windowScriptStore = {
   get(): string {
-    return vsgoStore.get("floatingWindowUserScript", "") as string;
+    return store.get("floatingWindowUserScript", "") as string;
   },
   save(content: string): void {
-    vsgoStore.set("floatingWindowUserScript", content);
+    store.set("floatingWindowUserScript", content);
   },
 };

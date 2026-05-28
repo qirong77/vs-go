@@ -4,7 +4,7 @@ import { AppEvent } from "@windows/app-setting/events";
 import type { AppSettings, WorkspaceApp } from "@shared/type";
 import { formatError } from "@shared/utils";
 import { TabbedBrowserWindowManager } from "@windows/browser/electron/TabbedBrowserWindowManager";
-import { vsgoStore } from "@platform/store/instance";
+import { appSettingStore } from "./store";
 import { DEFAULT_WORKSPACE_APPS, isAppInstalled, isAppRunning, checkAllApps } from "./workspace-app";
 
 /** 在应用内 TabbedBrowserWindow 新标签中打开（笔记内链接等），其余走系统默认程序 */
@@ -21,21 +21,19 @@ async function openUrlInTabbedBrowserOrExternal(url: string): Promise<void> {
   await shell.openExternal(url);
 }
 
-const DEFAULT_SETTINGS: AppSettings = { defaultEditor: "vscode" };
-
 export function registerSettingsHandlers(): void {
   ipcMain.handle(AppEvent.APP_SETTINGS_GET, async () => {
     try {
-      return vsgoStore.get("appSettings", DEFAULT_SETTINGS);
+      return appSettingStore.getSettings();
     } catch (error) {
       console.error("获取 App 设置失败:", error);
-      return DEFAULT_SETTINGS;
+      return { defaultEditor: "vscode" };
     }
   });
 
   ipcMain.handle(AppEvent.APP_SETTINGS_SET, async (_event, settings: AppSettings) => {
     try {
-      vsgoStore.set("appSettings", settings);
+      appSettingStore.setSettings(settings);
       return { success: true };
     } catch (error) {
       return { success: false, error: formatError(error) };
@@ -53,7 +51,7 @@ export function registerSettingsHandlers(): void {
 
   ipcMain.handle(AppEvent.WORKSPACE_APPS_GET, async () => {
     try {
-      const userApps = vsgoStore.get("workspaceApps", []) as WorkspaceApp[];
+      const userApps = appSettingStore.getWorkspaceApps();
       const defaultsWithStatus = DEFAULT_WORKSPACE_APPS.map((app) => {
         const installed = isAppInstalled(app);
         return {
@@ -80,13 +78,13 @@ export function registerSettingsHandlers(): void {
 
   ipcMain.handle(AppEvent.WORKSPACE_APPS_ADD, async (_event, app: WorkspaceApp) => {
     try {
-      const userApps = vsgoStore.get("workspaceApps", []) as WorkspaceApp[];
+      const userApps = appSettingStore.getWorkspaceApps();
       const exists = userApps.some((a) => a.bundleName === app.bundleName);
       if (exists) {
         return { success: false, error: "该应用已存在" };
       }
       userApps.push(app);
-      vsgoStore.set("workspaceApps", userApps);
+      appSettingStore.setWorkspaceApps(userApps);
       return { success: true };
     } catch (error) {
       return { success: false, error: formatError(error) };
@@ -95,8 +93,8 @@ export function registerSettingsHandlers(): void {
 
   ipcMain.handle(AppEvent.WORKSPACE_APPS_REMOVE, async (_event, bundleName: string) => {
     try {
-      const userApps = vsgoStore.get("workspaceApps", []) as WorkspaceApp[];
-      vsgoStore.set("workspaceApps", userApps.filter((a) => a.bundleName !== bundleName));
+      const userApps = appSettingStore.getWorkspaceApps();
+      appSettingStore.setWorkspaceApps(userApps.filter((a) => a.bundleName !== bundleName));
       return { success: true };
     } catch (error) {
       return { success: false, error: formatError(error) };

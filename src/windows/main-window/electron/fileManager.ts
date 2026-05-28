@@ -6,7 +6,7 @@ import { finderBase64 } from "@shared/finderBase64";
 import { vscodeBase64 } from "@shared/vscodeBase64";
 import type { IMainWindowFiles } from "@shared/type";
 import type { BrowserItem } from "@shared/type";
-import { vsgoStore } from "@platform/store/instance";
+import { browserStore } from "@windows/browser/store";
 import { fileAccessStore } from "../store";
 
 let filesCache: IMainWindowFiles | null = null;
@@ -36,7 +36,7 @@ export async function getMainWindowFiles(): Promise<IMainWindowFiles> {
 }
 
 async function buildMainWindowFiles(): Promise<IMainWindowFiles> {
-  const browserList = vsgoStore.get("browserList") as BrowserItem[];
+  const browserList = browserStore.getList();
   const browserFiles = browserList
     .filter(
       (item): item is BrowserItem & { url: string } =>
