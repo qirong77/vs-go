@@ -10,7 +10,7 @@ import "@platform/electron/registerIpc";
 
 app.whenReady().then(async () => {
   await import("./tray");
-  await import("./setupWorkSpaceApp");
+  await import("@windows/app-setting/workspace-app").then(m => m.startWorkspaceAppChecker());
 });
 
 process.on("uncaughtException", (error) => {

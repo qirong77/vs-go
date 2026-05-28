@@ -1,8 +1,9 @@
 import { useState } from "react";
 import AppSetting from "@windows/app-setting/renderer/AppSetting";
 import ScriptEditor from "@windows/script-editor/renderer/ScriptEditor";
+import WorkspaceAppSetting from "@windows/app-setting/renderer/WorkspaceAppSetting";
 
-type MenuKey = "app" | "script";
+type MenuKey = "app" | "script" | "workspace";
 
 interface MenuItem {
   key: MenuKey;
@@ -13,6 +14,7 @@ interface MenuItem {
 
 const MENU: MenuItem[] = [
   { key: "app", label: "App 设置", icon: "⚙️", Component: AppSetting },
+  { key: "workspace", label: "工作区 App", icon: "💻", Component: WorkspaceAppSetting },
   { key: "script", label: "脚本", icon: "📜", Component: ScriptEditor },
 ];
 

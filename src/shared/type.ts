@@ -10,6 +10,17 @@ export interface AppSettings {
   defaultEditor: DefaultEditor;
 }
 
+// --- 工作区 App ---
+
+export interface WorkspaceApp {
+  displayName: string
+  bundleName: string
+}
+
+export interface WorkspaceAppsSettings {
+  apps: WorkspaceApp[]
+}
+
 // --- 浏览器 / 书签 ---
 
 export interface BrowserItem {

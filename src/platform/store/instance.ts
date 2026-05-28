@@ -56,6 +56,17 @@ const schema = {
       defaultEditor: { type: "string" },
     },
   },
+  workspaceApps: {
+    type: "array",
+    default: [],
+    items: {
+      type: "object",
+      properties: {
+        displayName: { type: "string" },
+        bundleName: { type: "string" },
+      },
+    },
+  },
   floatingWindowUserScript: {
     type: "string",
     default: "",
