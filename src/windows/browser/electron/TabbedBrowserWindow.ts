@@ -611,13 +611,6 @@ export class TabbedBrowserWindow {
       win.loadFile(path.join(__dirname, "../renderer/index.html"), {
         hash: "/floating-overlay",
       });
-      setTimeout(() => {
-        
-        win.focus();
-      },3000)
-      // win.webContents.once('did-finish-load', () => {
-      //   win.webContents.focus()
-      // });
     }
 
     win.webContents.on("did-finish-load", () => {
