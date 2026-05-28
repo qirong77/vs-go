@@ -14,6 +14,8 @@ import { startWorkspaceAppChecker } from "@windows/app-setting/workspace-app";
 
 configureMacOsLauncherApp();
 
+app.setLoginItemSettings({ openAtLogin: true });
+
 app.whenReady().then(async () => {
   registerFileHandlers();
   registerBrowserHandlers();
