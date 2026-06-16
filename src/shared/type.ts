@@ -13,12 +13,12 @@ export interface AppSettings {
 // --- 工作区 App ---
 
 export interface WorkspaceApp {
-  displayName: string
-  bundleName: string
+  displayName: string;
+  bundleName: string;
 }
 
 export interface WorkspaceAppsSettings {
-  apps: WorkspaceApp[]
+  apps: WorkspaceApp[];
 }
 
 // --- 浏览器 / 书签 ---
@@ -80,8 +80,7 @@ export interface SavedCookie {
 export const BROWSER_CHROME_HEIGHT = 106;
 
 /** 笔记窗口 / 浏览器默认首页：语雀文档 */
-export const USER_NOTES_YUQUE_URL =
-  "https://www.yuque.com/qirong-work/fhc6ot/pdqwm8c5gwvi117d";
+export const USER_NOTES_YUQUE_URL = "https://www.yuque.com/qirong-work/fhc6ot/pdqwm8c5gwvi117d";
 
 /** 新标签 / 空输入时的默认首页（与 main 中 load 逻辑保持一致） */
 export const TABBED_BROWSER_DEFAULT_HOME_URL = USER_NOTES_YUQUE_URL;
@@ -132,6 +131,7 @@ export type OverlayType =
   | "bookmark-star"
   | "folder-dropdown"
   | "context-menu"
+  | "confirm-dialog"
   | "name-dialog";
 
 export interface OverlayBounds {

@@ -16,7 +16,7 @@ import {
 
 const { ipcRenderer } = window.electron;
 
-// 标签栏 32px + 地址栏行 40px + 书签栏 28px + 底边距 6px = 106px（与 common/type.ts BROWSER_CHROME_HEIGHT 一致）
+// 标签栏 32px + 地址栏行 40px + 书签栏 34px = 106px（与 shared/type.ts BROWSER_CHROME_HEIGHT 一致）
 const TAB_BAR_HEIGHT = 32;
 const ADDRESS_ROW_HEIGHT = 40;
 const TAB_MIN_WIDTH = 80;
@@ -310,276 +310,276 @@ function TabbedBrowser(): React.JSX.Element {
         existingBookmark={existingBookmark}
         canBookmark={canBookmark}
       >
-      {/* 标签栏 */}
-      <div
-        ref={tabBarRef}
-        style={
-          {
-            height: TAB_BAR_HEIGHT,
-            display: "flex",
-            alignItems: "flex-end",
-            paddingLeft: 80 /* 给 macOS 红绿灯让位 */,
-            paddingRight: 8,
-            position: "relative",
-            overflow: "hidden",
-            WebkitAppRegion: "drag",
-          } as React.CSSProperties
-        }
-      >
-        {/* 全屏时显示自定义红绿灯按钮（原生红绿灯被 macOS 收进自动隐藏栏） */}
-        {isFullscreen && (
-          <div
-            style={
-              {
-                position: "absolute",
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: 80,
-                display: "flex",
-                alignItems: "center",
-                paddingLeft: 12,
-                gap: 7,
-                WebkitAppRegion: "no-drag",
-              } as React.CSSProperties
-            }
-          >
-            <TrafficDot
-              color="#ff5f57"
-              hoverColor="#ff3b30"
-              title="关闭窗口"
-              onClick={() => ipcRenderer.send(BrowserWindowEvent.BROWSER_WINDOW_CLOSE_WINDOW)}
-            />
-            <TrafficDot
-              color="#febc2e"
-              hoverColor="#ff9500"
-              title="最小化"
-              onClick={() => ipcRenderer.send(BrowserWindowEvent.BROWSER_WINDOW_MINIMIZE)}
-            />
-            <TrafficDot
-              color="#28c840"
-              hoverColor="#34c759"
-              title="退出全屏"
-              onClick={() => ipcRenderer.send(BrowserWindowEvent.BROWSER_WINDOW_EXIT_FULLSCREEN)}
-            />
-          </div>
-        )}
-        {state.tabs.map((tab, idx) => {
-          const isActive = tab.id === state.activeTabId;
-          const isDragging = drag?.tabId === tab.id;
-          const translateX =
-            isDragging && drag ? Math.min(Math.max(drag.currentX - drag.startX, -4000), 4000) : 0;
-          return (
+        {/* 标签栏 */}
+        <div
+          ref={tabBarRef}
+          style={
+            {
+              height: TAB_BAR_HEIGHT,
+              display: "flex",
+              alignItems: "flex-end",
+              paddingLeft: 80 /* 给 macOS 红绿灯让位 */,
+              paddingRight: 8,
+              position: "relative",
+              overflow: "hidden",
+              WebkitAppRegion: "drag",
+            } as React.CSSProperties
+          }
+        >
+          {/* 全屏时显示自定义红绿灯按钮（原生红绿灯被 macOS 收进自动隐藏栏） */}
+          {isFullscreen && (
             <div
-              key={tab.id}
-              data-tab-id={tab.id}
-              onMouseDown={(e) => onTabMouseDown(e, tab, idx)}
-              onAuxClick={(e) => {
-                if (e.button === 1) onClose(tab.id);
-              }}
               style={
                 {
-                  width: tabWidth,
-                  height: TAB_BAR_HEIGHT - 4,
-                  marginRight: 2,
-                  borderTopLeftRadius: 8,
-                  borderTopRightRadius: 8,
-                  background: isActive ? "#ffffff" : "#cfd3d8",
-                  color: "#202124",
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 80,
                   display: "flex",
                   alignItems: "center",
-                  padding: "0 10px",
-                  transform: `translateX(${translateX}px)`,
-                  transition: isDragging ? "none" : "transform 120ms ease",
-                  boxSizing: "border-box",
-                  opacity: drag?.detaching && isDragging ? 0.4 : 1,
-                  cursor: "default",
-                  position: "relative",
-                  zIndex: isActive ? 2 : 1,
+                  paddingLeft: 12,
+                  gap: 7,
                   WebkitAppRegion: "no-drag",
                 } as React.CSSProperties
               }
-              title={tab.title || tab.url}
             >
-              {tab.favicon ? (
-                <img
-                  src={tab.favicon}
-                  alt=""
-                  style={{ width: 14, height: 14, marginRight: 6, flexShrink: 0 }}
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 14,
-                    height: 14,
-                    marginRight: 6,
-                    flexShrink: 0,
-                    borderRadius: 3,
-                    background: "#b7babe",
-                  }}
-                />
-              )}
-              <span
-                style={{
-                  flex: 1,
-                  fontSize: 12,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {tab.loading ? "加载中..." : tab.title || tab.url || "新标签页"}
-              </span>
-              <button
-                onClick={(e) => onClose(tab.id, e)}
-                onMouseDown={(e) => e.stopPropagation()}
-                title="关闭"
-                tabIndex={-1}
-                style={{
-                  border: "none",
-                  outline: "none",
-                  background: "transparent",
-                  width: 18,
-                  height: 18,
-                  borderRadius: 9,
-                  marginLeft: 4,
-                  cursor: "pointer",
-                  fontSize: 14,
-                  lineHeight: 1,
-                  color: "#5f6368",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLButtonElement).style.background = "#e0e0e0")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLButtonElement).style.background = "transparent")
-                }
-              >
-                ×
-              </button>
+              <TrafficDot
+                color="#ff5f57"
+                hoverColor="#ff3b30"
+                title="关闭窗口"
+                onClick={() => ipcRenderer.send(BrowserWindowEvent.BROWSER_WINDOW_CLOSE_WINDOW)}
+              />
+              <TrafficDot
+                color="#febc2e"
+                hoverColor="#ff9500"
+                title="最小化"
+                onClick={() => ipcRenderer.send(BrowserWindowEvent.BROWSER_WINDOW_MINIMIZE)}
+              />
+              <TrafficDot
+                color="#28c840"
+                hoverColor="#34c759"
+                title="退出全屏"
+                onClick={() => ipcRenderer.send(BrowserWindowEvent.BROWSER_WINDOW_EXIT_FULLSCREEN)}
+              />
             </div>
-          );
-        })}
-        <button
-          onClick={onNewTab}
-          title="新建标签页 (Cmd+T)"
-          tabIndex={-1}
-          style={
-            {
-              width: 28,
-              height: 24,
-              marginLeft: 4,
-              marginBottom: 2,
-              border: "none",
-              outline: "none",
-              borderRadius: 4,
-              background: "transparent",
-              cursor: "pointer",
-              fontSize: 16,
-              color: "#5f6368",
-              WebkitAppRegion: "no-drag",
-            } as React.CSSProperties
-          }
-          onMouseEnter={(e) =>
-            ((e.currentTarget as HTMLButtonElement).style.background = "#c2c6cb")
-          }
-          onMouseLeave={(e) =>
-            ((e.currentTarget as HTMLButtonElement).style.background = "transparent")
-          }
-        >
-          +
-        </button>
-      </div>
+          )}
+          {state.tabs.map((tab, idx) => {
+            const isActive = tab.id === state.activeTabId;
+            const isDragging = drag?.tabId === tab.id;
+            const translateX =
+              isDragging && drag ? Math.min(Math.max(drag.currentX - drag.startX, -4000), 4000) : 0;
+            return (
+              <div
+                key={tab.id}
+                data-tab-id={tab.id}
+                onMouseDown={(e) => onTabMouseDown(e, tab, idx)}
+                onAuxClick={(e) => {
+                  if (e.button === 1) onClose(tab.id);
+                }}
+                style={
+                  {
+                    width: tabWidth,
+                    height: TAB_BAR_HEIGHT - 4,
+                    marginRight: 2,
+                    borderTopLeftRadius: 8,
+                    borderTopRightRadius: 8,
+                    background: isActive ? "#ffffff" : "#cfd3d8",
+                    color: "#202124",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0 10px",
+                    transform: `translateX(${translateX}px)`,
+                    transition: isDragging ? "none" : "transform 120ms ease",
+                    boxSizing: "border-box",
+                    opacity: drag?.detaching && isDragging ? 0.4 : 1,
+                    cursor: "default",
+                    position: "relative",
+                    zIndex: isActive ? 2 : 1,
+                    WebkitAppRegion: "no-drag",
+                  } as React.CSSProperties
+                }
+                title={tab.title || tab.url}
+              >
+                {tab.favicon ? (
+                  <img
+                    src={tab.favicon}
+                    alt=""
+                    style={{ width: 14, height: 14, marginRight: 6, flexShrink: 0 }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 14,
+                      height: 14,
+                      marginRight: 6,
+                      flexShrink: 0,
+                      borderRadius: 3,
+                      background: "#b7babe",
+                    }}
+                  />
+                )}
+                <span
+                  style={{
+                    flex: 1,
+                    fontSize: 12,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {tab.loading ? "加载中..." : tab.title || tab.url || "新标签页"}
+                </span>
+                <button
+                  onClick={(e) => onClose(tab.id, e)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  title="关闭"
+                  tabIndex={-1}
+                  style={{
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    width: 18,
+                    height: 18,
+                    borderRadius: 9,
+                    marginLeft: 4,
+                    cursor: "pointer",
+                    fontSize: 14,
+                    lineHeight: 1,
+                    color: "#5f6368",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.background = "#e0e0e0")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLButtonElement).style.background = "transparent")
+                  }
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
+          <button
+            onClick={onNewTab}
+            title="新建标签页 (Cmd+T)"
+            tabIndex={-1}
+            style={
+              {
+                width: 28,
+                height: 24,
+                marginLeft: 4,
+                marginBottom: 2,
+                border: "none",
+                outline: "none",
+                borderRadius: 4,
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 16,
+                color: "#5f6368",
+                WebkitAppRegion: "no-drag",
+              } as React.CSSProperties
+            }
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLButtonElement).style.background = "#c2c6cb")
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLButtonElement).style.background = "transparent")
+            }
+          >
+            +
+          </button>
+        </div>
 
-      {/* 地址栏 */}
-      <div
-        style={{
-          height: ADDRESS_ROW_HEIGHT,
-          background: "#ffffff",
-          display: "flex",
-          alignItems: "center",
-          padding: "0 10px",
-          gap: 4,
-          // borderBottom: "1px solid #e0e0e0",
-          overflow: "visible",
-          position: "relative",
-        }}
-      >
-        <NavButton
-          title="后退"
-          disabled={!activeTab?.canGoBack}
-          onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_BACK)}
+        {/* 地址栏 */}
+        <div
+          style={{
+            height: ADDRESS_ROW_HEIGHT,
+            background: "#ffffff",
+            display: "flex",
+            alignItems: "center",
+            padding: "0 10px",
+            gap: 4,
+            // borderBottom: "1px solid #e0e0e0",
+            overflow: "visible",
+            position: "relative",
+          }}
         >
-          ‹
-        </NavButton>
-        <NavButton
-          title="前进"
-          disabled={!activeTab?.canGoForward}
-          onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_FORWARD)}
-        >
-          ›
-        </NavButton>
+          <NavButton
+            title="后退"
+            disabled={!activeTab?.canGoBack}
+            onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_BACK)}
+          >
+            ‹
+          </NavButton>
+          <NavButton
+            title="前进"
+            disabled={!activeTab?.canGoForward}
+            onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_FORWARD)}
+          >
+            ›
+          </NavButton>
         <NavButton title="刷新" onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_RELOAD)}>
           ⟳
         </NavButton>
-        <div
-          style={{
-            flex: 1,
-            position: "relative",
-            marginLeft: 4,
-          }}
-        >
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              background: editing ? "#ffffff" : "#f1f3f4",
-              borderRadius: 18,
-              height: 28,
-              padding: "0 12px",
-              border: editing ? "1px solid #1a73e8" : "1px solid transparent",
-              boxSizing: "border-box",
-              transition: "background 0.1s, border-color 0.1s",
+              flex: 1,
+              position: "relative",
+              marginLeft: 4,
             }}
           >
-            <input
-              ref={addressInputRef}
-              value={address}
-              onChange={handleAddressChange}
-              onFocus={() => setEditing(true)}
-              onBlur={(e) => {
-                const rt = e.relatedTarget;
-                if (rt instanceof Element && rt.closest("[data-bookmark-star-wrap]")) return;
-                setEditing(false);
-                setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
-              }}
-              onKeyDown={handleAddressKeyDown}
-              placeholder="搜索 Google 或输入网址"
-              spellCheck={false}
+            <div
               style={{
-                flex: 1,
-                border: "none",
-                outline: "none",
-                background: "transparent",
-                fontSize: 13,
-                color: "#202124",
-                userSelect: "text",
-                WebkitUserSelect: "text",
+                display: "flex",
+                alignItems: "center",
+                background: editing ? "#ffffff" : "#f1f3f4",
+                borderRadius: 18,
+                height: 28,
+                padding: "0 12px",
+                border: editing ? "1px solid #1a73e8" : "1px solid transparent",
+                boxSizing: "border-box",
+                transition: "background 0.1s, border-color 0.1s",
               }}
-            />
+            >
+              <input
+                ref={addressInputRef}
+                value={address}
+                onChange={handleAddressChange}
+                onFocus={() => setEditing(true)}
+                onBlur={(e) => {
+                  const rt = e.relatedTarget;
+                  if (rt instanceof Element && rt.closest("[data-bookmark-star-wrap]")) return;
+                  setEditing(false);
+                  setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
+                }}
+                onKeyDown={handleAddressKeyDown}
+                placeholder="搜索 Google 或输入网址"
+                spellCheck={false}
+                style={{
+                  flex: 1,
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  fontSize: 13,
+                  color: "#202124",
+                  userSelect: "text",
+                  WebkitUserSelect: "text",
+                }}
+              />
+            </div>
           </div>
+
+          <BookmarkChromeStar />
         </div>
 
-        <BookmarkChromeStar />
-      </div>
-
-      <BookmarkChromeBarRow />
+        <BookmarkChromeBarRow />
       </BookmarkChromeProvider>
       <div style={{
         height:1,

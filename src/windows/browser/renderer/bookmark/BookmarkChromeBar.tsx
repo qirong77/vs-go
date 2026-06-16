@@ -7,11 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  StarFilled,
-  StarOutlined,
-  FolderOutlined,
-} from "@ant-design/icons";
+import { StarFilled, StarOutlined, FolderOutlined, FolderAddOutlined } from "@ant-design/icons";
 import { Button, ConfigProvider, Typography, theme } from "antd";
 import { BrowserOverlayEvent, BrowserSettingsEvent } from "../../events";
 import { type BrowserItem, type OverlayBounds, type OverlayType } from "@shared/type";
@@ -36,6 +32,38 @@ type NameDialogState =
   | { kind: "newFolder"; parentId: string | null; draft: string }
   | null;
 
+type ConfirmDialogState = { kind: "delete"; item: BrowserItem } | null;
+
+const MENU_WIDTH = 220;
+const CONTEXT_MENU_MAX_HEIGHT = 300;
+const FOLDER_DROPDOWN_WIDTH = 220;
+const FOLDER_DROPDOWN_MAX_HEIGHT = 320;
+const OVERLAY_MARGIN = 8;
+
+function clampOverlayBounds(x: number, y: number, width: number, height: number): OverlayBounds {
+  const maxX = Math.max(OVERLAY_MARGIN, window.innerWidth - width - OVERLAY_MARGIN);
+  const maxY = Math.max(OVERLAY_MARGIN, window.innerHeight - height - OVERLAY_MARGIN);
+  return {
+    x: Math.max(OVERLAY_MARGIN, Math.min(x, maxX)),
+    y: Math.max(OVERLAY_MARGIN, Math.min(y, maxY)),
+    width,
+    height,
+  };
+}
+
+function countFolderDescendants(items: BrowserItem[], folderId: string): number {
+  let count = 0;
+  const visit = (parentId: string): void => {
+    for (const item of items) {
+      if ((item.parentId ?? null) !== parentId) continue;
+      count += 1;
+      if (item.type === "folder") visit(item.id);
+    }
+  };
+  visit(folderId);
+  return count;
+}
+
 interface BookmarkChromeContextValue {
   bookmarks: BrowserItem[];
   onBookmarksUpdated: () => Promise<void>;
@@ -57,6 +85,8 @@ interface BookmarkChromeContextValue {
   setBookmarkBarMenu: React.Dispatch<React.SetStateAction<BookmarkBarMenuState>>;
   nameDialog: NameDialogState;
   setNameDialog: React.Dispatch<React.SetStateAction<NameDialogState>>;
+  confirmDialog: ConfirmDialogState;
+  setConfirmDialog: React.Dispatch<React.SetStateAction<ConfirmDialogState>>;
   initStarDraft: () => void;
   handleBookmarkSave: () => Promise<void>;
   handleBookmarkRemove: () => Promise<void>;
@@ -100,44 +130,53 @@ export function BookmarkChromeProvider({
 }: BookmarkChromeProviderProps): React.JSX.Element {
   const [bookmarkPopoverOpen, setBookmarkPopoverOpen] = useState(false);
   const [bookmarkDraftName, setBookmarkDraftName] = useState("");
-  const [folderDropdown, setFolderDropdown] = useState<{ folderId: string; x: number; y: number } | null>(
-    null
-  );
+  const [folderDropdown, setFolderDropdown] = useState<{
+    folderId: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [bookmarkBarMenu, setBookmarkBarMenu] = useState<BookmarkBarMenuState>(null);
   const [nameDialog, setNameDialog] = useState<NameDialogState>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null);
 
-  const showOverlay = useCallback((type: OverlayType, bounds: OverlayBounds, data: unknown): void => {
-    ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_SHOW, {
-      bounds,
-      data: { type, data },
-    });
-  }, []);
+  const showOverlay = useCallback(
+    (type: OverlayType, bounds: OverlayBounds, data: unknown): void => {
+      ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_SHOW, {
+        bounds,
+        data: { type, data },
+      });
+    },
+    []
+  );
 
   const hideOverlay = useCallback((): void => {
     ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_HIDE);
   }, []);
 
   // 以下 callbacks 必须在 useEffect 依赖数组之前声明，避免 TDZ 错误
-  const handleBookmarkSave = useCallback(async (overlayName?: string): Promise<void> => {
-    const name = (overlayName ?? bookmarkDraftName).trim();
-    if (!name || !bookmarkTargetUrl) return;
-    if (existingBookmark) {
-      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
-        ...existingBookmark,
-        name,
-      } satisfies BrowserItem);
-    } else {
-      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
-        id: generateId(),
-        name,
-        url: bookmarkTargetUrl,
-        type: "bookmark",
-        parentId: null,
-      } satisfies BrowserItem);
-    }
-    await onBookmarksUpdated();
-    setBookmarkPopoverOpen(false);
-  }, [bookmarkDraftName, bookmarkTargetUrl, existingBookmark, onBookmarksUpdated]);
+  const handleBookmarkSave = useCallback(
+    async (overlayName?: string): Promise<void> => {
+      const name = (overlayName ?? bookmarkDraftName).trim();
+      if (!name || !bookmarkTargetUrl) return;
+      if (existingBookmark) {
+        await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
+          ...existingBookmark,
+          name,
+        } satisfies BrowserItem);
+      } else {
+        await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
+          id: generateId(),
+          name,
+          url: bookmarkTargetUrl,
+          type: "bookmark",
+          parentId: null,
+        } satisfies BrowserItem);
+      }
+      await onBookmarksUpdated();
+      setBookmarkPopoverOpen(false);
+    },
+    [bookmarkDraftName, bookmarkTargetUrl, existingBookmark, onBookmarksUpdated]
+  );
 
   const handleBookmarkRemove = useCallback(async (): Promise<void> => {
     if (!existingBookmark) return;
@@ -197,6 +236,7 @@ export function BookmarkChromeProvider({
     setBookmarkBarMenu,
     setFolderDropdown,
     setNameDialog,
+    setConfirmDialog,
   });
   overlayActionCtxRef.current = {
     handleBookmarkSave,
@@ -214,11 +254,12 @@ export function BookmarkChromeProvider({
     setBookmarkBarMenu,
     setFolderDropdown,
     setNameDialog,
+    setConfirmDialog,
   };
 
   // 监听来自浮动窗口的用户操作（空依赖数组，只注册一次，通过 ref 读取最新上下文）
   useEffect(() => {
-    const handler = (_e: unknown, payload: { action: string;[key: string]: unknown }): void => {
+    const handler = (_e: unknown, payload: { action: string; [key: string]: unknown }): void => {
       const ctx = overlayActionCtxRef.current;
       switch (payload.action) {
         case "save-bookmark": {
@@ -237,9 +278,19 @@ export function BookmarkChromeProvider({
         }
         case "select-folder-item": {
           const url = payload.url as string;
-          if (url) ctx.submitAddress("current", url);
+          const mode = payload.mode === "new" ? "new" : "current";
+          if (url) ctx.submitAddress(mode, url);
           ctx.setFolderDropdown(null);
           ctx.hideOverlay();
+          break;
+        }
+        case "open-item": {
+          const itemId = payload.itemId as string;
+          const mode = payload.mode === "new" ? "new" : "current";
+          const item = ctx.bookmarks.find((b) => b.id === itemId);
+          ctx.setBookmarkBarMenu(null);
+          ctx.hideOverlay();
+          if (item?.url) ctx.submitAddress(mode, item.url);
           break;
         }
         case "rename-item": {
@@ -248,35 +299,27 @@ export function BookmarkChromeProvider({
           const item = ctx.bookmarks.find((b) => b.id === itemId);
           if (item) {
             ctx.setBookmarkBarMenu(null);
+            ctx.setConfirmDialog(null);
             ctx.setNameDialog({ kind: "rename", item, draft: itemName });
             ctx.hideOverlay();
-            requestAnimationFrame(() => {
-              ctx.showOverlay("name-dialog", { x: 200, y: 120, width: 320, height: 140 }, {
-                kind: "rename",
-                draft: itemName,
-                itemName,
-              });
-            });
           }
           break;
         }
         case "new-folder": {
           const parentId = (payload.parentId ?? null) as string | null;
           ctx.setBookmarkBarMenu(null);
+          ctx.setFolderDropdown(null);
+          ctx.setConfirmDialog(null);
           ctx.setNameDialog({ kind: "newFolder", parentId, draft: "新文件夹" });
           ctx.hideOverlay();
-          requestAnimationFrame(() => {
-            ctx.showOverlay("name-dialog", { x: 200, y: 120, width: 320, height: 140 }, {
-              kind: "newFolder",
-              draft: "新文件夹",
-            });
-          });
           break;
         }
         case "move-item": {
           const parentId = (payload.parentId ?? null) as string | null;
           if (ctx.bookmarkBarMenu?.kind === "item") {
             const item = ctx.bookmarkBarMenu.item;
+            ctx.setBookmarkBarMenu(null);
+            ctx.hideOverlay();
             void ctx.moveItemToParent(item, parentId).then(() => {
               ctx.hideOverlay();
             });
@@ -286,10 +329,33 @@ export function BookmarkChromeProvider({
         case "delete-item": {
           if (ctx.bookmarkBarMenu?.kind === "item") {
             const item = ctx.bookmarkBarMenu.item;
+            ctx.setBookmarkBarMenu(null);
+            ctx.hideOverlay();
+            if (item.type === "folder" && countFolderDescendants(ctx.bookmarks, item.id) > 0) {
+              ctx.setConfirmDialog({ kind: "delete", item });
+            } else {
+              void ctx.deleteBrowserItem(item).then(() => {
+                ctx.hideOverlay();
+              });
+            }
+          }
+          break;
+        }
+        case "confirm-delete": {
+          const itemId = payload.itemId as string;
+          const item = ctx.bookmarks.find((b) => b.id === itemId);
+          ctx.setConfirmDialog(null);
+          ctx.hideOverlay();
+          if (item) {
             void ctx.deleteBrowserItem(item).then(() => {
               ctx.hideOverlay();
             });
           }
+          break;
+        }
+        case "cancel-confirm": {
+          ctx.setConfirmDialog(null);
+          ctx.hideOverlay();
           break;
         }
         case "commit-name": {
@@ -298,22 +364,26 @@ export function BookmarkChromeProvider({
           ctx.setNameDialog((prev) => {
             if (!prev) return prev;
             if (prev.kind === "rename") {
-              ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
-                ...prev.item,
-                name,
-              } satisfies BrowserItem).then(() => {
-                void ctx.onBookmarksUpdated();
-              });
+              ipcRenderer
+                .invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
+                  ...prev.item,
+                  name,
+                } satisfies BrowserItem)
+                .then(() => {
+                  void ctx.onBookmarksUpdated();
+                });
               return null;
             } else {
-              ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
-                id: generateId(),
-                name,
-                type: "folder",
-                parentId: prev.parentId,
-              } satisfies BrowserItem).then(() => {
-                void ctx.onBookmarksUpdated();
-              });
+              ipcRenderer
+                .invoke(BrowserSettingsEvent.BROWSER_ADD, {
+                  id: generateId(),
+                  name,
+                  type: "folder",
+                  parentId: prev.parentId,
+                } satisfies BrowserItem)
+                .then(() => {
+                  void ctx.onBookmarksUpdated();
+                });
               return null;
             }
           });
@@ -330,6 +400,7 @@ export function BookmarkChromeProvider({
           ctx.setBookmarkBarMenu(null);
           ctx.setFolderDropdown(null);
           ctx.setNameDialog(null);
+          ctx.setConfirmDialog(null);
           ctx.hideOverlay();
           break;
         }
@@ -339,6 +410,7 @@ export function BookmarkChromeProvider({
           if (found) {
             const cx = (payload.x as number) + (payload.overlayX as number);
             const cy = (payload.y as number) + (payload.overlayY as number);
+            ctx.setFolderDropdown(null);
             ctx.setBookmarkBarMenu({ kind: "item", x: cx, y: cy, item: found });
           }
           break;
@@ -349,7 +421,7 @@ export function BookmarkChromeProvider({
     return () => {
       ipcRenderer.removeListener(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, handler);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -357,6 +429,7 @@ export function BookmarkChromeProvider({
     setFolderDropdown(null);
     setBookmarkBarMenu(null);
     setNameDialog(null);
+    setConfirmDialog(null);
     hideOverlay();
   }, [activeTabId, hideOverlay]);
 
@@ -370,18 +443,30 @@ export function BookmarkChromeProvider({
       if (t instanceof Element && t.closest("[data-bookmark-star-wrap]")) return;
 
       const hasOverlay =
-        bookmarkPopoverOpen || bookmarkBarMenu !== null || folderDropdown !== null || nameDialog !== null;
+        bookmarkPopoverOpen ||
+        bookmarkBarMenu !== null ||
+        folderDropdown !== null ||
+        nameDialog !== null ||
+        confirmDialog !== null;
       if (!hasOverlay) return;
 
       if (bookmarkPopoverOpen) setBookmarkPopoverOpen(false);
       setBookmarkBarMenu(null);
       setFolderDropdown(null);
       setNameDialog(null);
+      setConfirmDialog(null);
       hideOverlay();
     };
     document.addEventListener("mousedown", onDocMouseDown, true);
     return () => document.removeEventListener("mousedown", onDocMouseDown, true);
-  }, [bookmarkPopoverOpen, bookmarkBarMenu, folderDropdown, nameDialog, hideOverlay]);
+  }, [
+    bookmarkPopoverOpen,
+    bookmarkBarMenu,
+    folderDropdown,
+    nameDialog,
+    confirmDialog,
+    hideOverlay,
+  ]);
 
   const initStarDraft = useCallback((): void => {
     const defaultName =
@@ -440,6 +525,8 @@ export function BookmarkChromeProvider({
       setBookmarkBarMenu,
       nameDialog,
       setNameDialog,
+      confirmDialog,
+      setConfirmDialog,
       initStarDraft,
       handleBookmarkSave,
       handleBookmarkRemove,
@@ -463,6 +550,7 @@ export function BookmarkChromeProvider({
       folderDropdown,
       bookmarkBarMenu,
       nameDialog,
+      confirmDialog,
       initStarDraft,
       handleBookmarkSave,
       handleBookmarkRemove,
@@ -479,7 +567,9 @@ export function BookmarkChromeProvider({
       <ConfigProvider theme={{ algorithm: theme.defaultAlgorithm }} componentSize="small">
         {children}
         <style>
-          {".tabbed-browser-chrome-root .vsgo-bookmark-bar-scroll{scrollbar-width:none;-ms-overflow-style:none}.tabbed-browser-chrome-root .vsgo-bookmark-bar-scroll::-webkit-scrollbar{display:none;height:0;width:0}"}
+          {
+            ".tabbed-browser-chrome-root .vsgo-bookmark-bar-scroll{scrollbar-width:none;-ms-overflow-style:none}.tabbed-browser-chrome-root .vsgo-bookmark-bar-scroll::-webkit-scrollbar{display:none;height:0;width:0}"
+          }
         </style>
       </ConfigProvider>
     </BookmarkChromeCtx.Provider>
@@ -499,33 +589,45 @@ export function BookmarkChromeStar(): React.JSX.Element {
     if (!el) return;
     const rect = el.getBoundingClientRect();
 
-    ctx.showOverlay("bookmark-star", {
-      x: Math.max(8, rect.right - 272),
-      y: rect.bottom + 4,
-      width: 272,
-      height: 190,
-    }, {
-      existingBookmark: ctx.existingBookmark,
-      bookmarkTargetUrl: ctx.bookmarkTargetUrl,
-      draftName: ctx.existingBookmark?.name?.trim() || ctx.activeTabTitle?.trim() || (() => {
-        try { return new URL(ctx.bookmarkTargetUrl).hostname; } catch { return ctx.bookmarkTargetUrl; }
-      })() || "书签",
-    });
+    ctx.showOverlay(
+      "bookmark-star",
+      {
+        x: Math.max(8, rect.right - 272),
+        y: rect.bottom + 4,
+        width: 272,
+        height: 190,
+      },
+      {
+        existingBookmark: ctx.existingBookmark,
+        bookmarkTargetUrl: ctx.bookmarkTargetUrl,
+        draftName:
+          ctx.existingBookmark?.name?.trim() ||
+          ctx.activeTabTitle?.trim() ||
+          (() => {
+            try {
+              return new URL(ctx.bookmarkTargetUrl).hostname;
+            } catch {
+              return ctx.bookmarkTargetUrl;
+            }
+          })() ||
+          "书签",
+      }
+    );
   }, [ctx]);
 
   return (
     <div
       ref={starRef}
       data-bookmark-star-wrap
-      style={{ position: "relative", flexShrink: 0, WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      style={
+        { position: "relative", flexShrink: 0, WebkitAppRegion: "no-drag" } as React.CSSProperties
+      }
     >
       <Button
         type="text"
         size="small"
         disabled={!ctx.canBookmark}
-        icon={
-          ctx.existingBookmark ? <StarFilled style={{ color: "#1677ff" }} /> : <StarOutlined />
-        }
+        icon={ctx.existingBookmark ? <StarFilled style={{ color: "#1677ff" }} /> : <StarOutlined />}
         onMouseDown={(e) => {
           e.preventDefault();
           if (ctx.bookmarkPopoverOpen) {
@@ -602,69 +704,102 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
   // 文件夹下拉显示时，用浮动窗口
   useEffect(() => {
     if (ctx.folderDropdown) {
-      const items = flattenFolderChildrenPreorder(ctx.bookmarks, ctx.folderDropdown.folderId, 0).map(
-        ({ item, depth }) => ({
-          id: item.id,
-          name: item.name,
-          type: item.type,
-          depth,
-          url: item.url,
-        })
+      const items = flattenFolderChildrenPreorder(
+        ctx.bookmarks,
+        ctx.folderDropdown.folderId,
+        0
+      ).map(({ item, depth }) => ({
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        depth,
+        url: item.url,
+      }));
+      const bounds = clampOverlayBounds(
+        ctx.folderDropdown.x,
+        ctx.folderDropdown.y + 2,
+        FOLDER_DROPDOWN_WIDTH,
+        Math.min(FOLDER_DROPDOWN_MAX_HEIGHT, Math.max(40, 4 + items.length * 30))
       );
-      const overlayX = Math.max(8, Math.min(ctx.folderDropdown.x, window.innerWidth - 200));
-      const overlayY = ctx.folderDropdown.y + 2;
-      ctx.showOverlay("folder-dropdown", {
-        x: overlayX,
-        y: overlayY,
-        width: 200,
-        height: Math.min(320, 4 + items.length * 30),
-      }, { items, overlayX, overlayY });
+      ctx.showOverlay("folder-dropdown", bounds, { items, overlayX: bounds.x, overlayY: bounds.y });
     }
-  }, [ctx.folderDropdown?.folderId]);
+  }, [ctx.folderDropdown, ctx.bookmarks, ctx.showOverlay]);
 
   // 右键菜单显示时，用浮动窗口
   useEffect(() => {
     if (ctx.bookmarkBarMenu) {
       const items = ctx.bookmarkBarMenu;
       if (items.kind === "blank") {
-        ctx.showOverlay("context-menu", {
-          x: items.x,
-          y: items.y,
-          width: 220,
-          height: 64,
-        }, { kind: "blank", targets: [] });
-      } else {
-        const targets = moveParentTargets(ctx.bookmarks, items.item).map((t) => ({ id: t.id, name: t.name }));
-        const itemCount = 4 + targets.length;
-        ctx.showOverlay("context-menu", {
-          x: items.x,
-          y: items.y,
-          width: 220,
-          height: Math.min(300, 4 + itemCount * 30),
-        }, {
-          kind: "item",
-          item: items.item,
-          targets,
+        ctx.showOverlay("context-menu", clampOverlayBounds(items.x, items.y, MENU_WIDTH, 64), {
+          kind: "blank",
+          targets: [],
         });
+      } else {
+        const targets = moveParentTargets(ctx.bookmarks, items.item).map((t) => ({
+          id: t.id,
+          name: t.name,
+        }));
+        const baseItems = items.item.type === "bookmark" ? 8 : 6;
+        const itemCount = baseItems + targets.length;
+        ctx.showOverlay(
+          "context-menu",
+          clampOverlayBounds(
+            items.x,
+            items.y,
+            MENU_WIDTH,
+            Math.min(CONTEXT_MENU_MAX_HEIGHT, 4 + itemCount * 30)
+          ),
+          {
+            kind: "item",
+            item: items.item,
+            targets,
+          }
+        );
       }
     }
-  }, [ctx.bookmarkBarMenu]);
+  }, [ctx.bookmarkBarMenu, ctx.bookmarks, ctx.showOverlay]);
 
   // 名称对话框显示时，用浮动窗口
   useEffect(() => {
     if (ctx.nameDialog) {
-      ctx.showOverlay("name-dialog", {
-        x: Math.max(100, (window.innerWidth - 320) / 2),
-        y: 120,
-        width: 320,
-        height: 140,
-      }, {
-        kind: ctx.nameDialog.kind,
-        draft: ctx.nameDialog.draft,
-        itemName: ctx.nameDialog.kind === "rename" ? ctx.nameDialog.item.name : undefined,
-      });
+      ctx.showOverlay(
+        "name-dialog",
+        clampOverlayBounds((window.innerWidth - 320) / 2, 120, 320, 140),
+        {
+          kind: ctx.nameDialog.kind,
+          draft: ctx.nameDialog.draft,
+          itemName: ctx.nameDialog.kind === "rename" ? ctx.nameDialog.item.name : undefined,
+        }
+      );
     }
-  }, [ctx.nameDialog]);
+  }, [ctx.nameDialog, ctx.showOverlay]);
+
+  // 删除非空文件夹时二次确认
+  useEffect(() => {
+    if (!ctx.confirmDialog) return;
+    const item = ctx.confirmDialog.item;
+    const descendantCount = countFolderDescendants(ctx.bookmarks, item.id);
+    ctx.showOverlay(
+      "confirm-dialog",
+      clampOverlayBounds((window.innerWidth - 320) / 2, 120, 320, 150),
+      {
+        kind: "delete",
+        itemId: item.id,
+        title: "删除文件夹",
+        message: `将删除“${item.name}”及其中 ${descendantCount} 个项目。此操作不能撤销。`,
+        confirmText: "删除",
+      }
+    );
+  }, [ctx.confirmDialog, ctx.bookmarks, ctx.showOverlay]);
+
+  const openNewFolderDialog = useCallback(
+    (parentId: string | null): void => {
+      ctx.setFolderDropdown(null);
+      ctx.setBookmarkBarMenu(null);
+      ctx.setNameDialog({ kind: "newFolder", parentId, draft: "新文件夹" });
+    },
+    [ctx]
+  );
 
   return (
     <>
@@ -701,11 +836,23 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
         }
       >
         {rootBarItems.length === 0 ? (
-          <Text type="secondary" style={{ fontSize: 12, paddingLeft: 6, userSelect: "none" }}>
-            {ctx.bookmarks.length === 0
-              ? "点击星标添加书签；空白处右键新建文件夹"
-              : "书签均在文件夹内；空白处右键新建文件夹"}
-          </Text>
+          <>
+            <Button
+              data-bookmark-chip
+              type="text"
+              size="small"
+              icon={<FolderAddOutlined />}
+              onMouseDown={(e) => {
+                if (e.button === 0) e.preventDefault();
+              }}
+              onClick={() => openNewFolderDialog(null)}
+            >
+              新建文件夹
+            </Button>
+            <Text type="secondary" style={{ fontSize: 12, paddingLeft: 2, userSelect: "none" }}>
+              {ctx.bookmarks.length === 0 ? "点击星标添加书签" : "书签均在文件夹内"}
+            </Text>
+          </>
         ) : (
           rootBarItems.map((item) =>
             item.type === "folder" ? (
@@ -728,7 +875,9 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   ctx.setFolderDropdown((prev) =>
-                    prev?.folderId === item.id ? null : { folderId: item.id, x: rect.left, y: rect.bottom }
+                    prev?.folderId === item.id
+                      ? null
+                      : { folderId: item.id, x: rect.left, y: rect.bottom }
                   );
                 }}
                 onContextMenu={(ev) => {
@@ -746,7 +895,10 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
                 data-bookmark-chip
                 type="text"
                 size="small"
-                style={{ maxWidth: 160, ...(dragOverId === item.id ? { borderLeft: "2px solid #1a73e8" } : {}) }}
+                style={{
+                  maxWidth: 160,
+                  ...(dragOverId === item.id ? { borderLeft: "2px solid #1a73e8" } : {}),
+                }}
                 title={`${item.name}\n${item.url ?? ""}`}
                 draggable
                 onDragStart={(e) => handleDragStart(e, item)}
@@ -757,8 +909,9 @@ export function BookmarkChromeBarRow(): React.JSX.Element {
                 onMouseDown={(e) => {
                   if (e.button === 0) e.preventDefault();
                 }}
-                onClick={() => {
-                  if (item.url) ctx.submitAddress("current", item.url);
+                onClick={(e) => {
+                  if (item.url)
+                    ctx.submitAddress(e.metaKey || e.ctrlKey ? "new" : "current", item.url);
                 }}
                 onAuxClick={(e) => {
                   if (e.button === 1 && item.url) {

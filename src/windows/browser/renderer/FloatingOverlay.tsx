@@ -8,6 +8,7 @@ import {
   DeleteOutlined,
   FolderAddOutlined,
   StarFilled,
+  ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import { BrowserOverlayEvent } from "../events";
 import type { BrowserItem, OverlayType } from "@shared/type";
@@ -25,6 +26,9 @@ const OVERLAY_STYLES = `
   .vsgo-overlay-card {
     animation: vsgoOverlayIn 0.16s ease-out;
     cursor: default;
+  }
+  .vsgo-overlay-card-context-menu {
+    animation-duration: 0.06s;
   }
   .vsgo-overlay-card button,
   .vsgo-overlay-card .ant-menu-item:not(.ant-menu-item-disabled),
@@ -116,6 +120,8 @@ const OVERLAY_STYLES = `
   .vsgo-overlay-menu.ant-menu {
     padding: 2px;
     background: transparent;
+    max-height: inherit;
+    overflow-y: auto;
   }
   .vsgo-overlay-menu.ant-menu .ant-menu-item,
   .vsgo-overlay-menu.ant-menu .ant-menu-submenu-title {
@@ -147,6 +153,13 @@ const OVERLAY_STYLES = `
   }
   .vsgo-overlay-menu.ant-menu .ant-menu-item-group-list .ant-menu-item {
     cursor: pointer;
+  }
+  .vsgo-confirm-message {
+    color: #3c4043;
+    font-size: 12px;
+    line-height: 1.5;
+    margin-top: 4px;
+    word-break: break-word;
   }
   .vsgo-folder-label {
     display: inline-flex;
@@ -291,11 +304,12 @@ interface FolderDropdownData {
   overlayY: number;
 }
 
+function openModeFromMouseEvent(e: React.MouseEvent | React.KeyboardEvent): "current" | "new" {
+  return e.metaKey || e.ctrlKey ? "new" : "current";
+}
+
 function FolderDropdownOverlay({ data }: { data: FolderDropdownData }): React.JSX.Element {
-  const handleContextMenu = (
-    e: React.MouseEvent,
-    item: FolderItemData
-  ): void => {
+  const handleContextMenu = (e: React.MouseEvent, item: FolderItemData): void => {
     e.preventDefault();
     e.stopPropagation();
     sendAction({
@@ -308,38 +322,58 @@ function FolderDropdownOverlay({ data }: { data: FolderDropdownData }): React.JS
     });
   };
 
-  const items: MenuProps["items"] = data.items.map((item) => {
-    const indent = item.depth * 12;
-    if (item.type === "folder") {
-      return {
-        key: item.id,
-        label: (
-          <span
-            className="vsgo-folder-label"
-            style={{ paddingLeft: indent }}
-            onContextMenu={(e) => handleContextMenu(e, item)}
-          >
-            <FolderOutlined />
-            {item.name}
-          </span>
-        ),
-        disabled: true,
-      };
-    }
-    return {
-      key: item.id,
-      label: (
-        <span
-          className="vsgo-bookmark-item-label"
-          style={{ paddingLeft: indent }}
-          onContextMenu={(e) => handleContextMenu(e, item)}
-        >
-          {item.name}
-        </span>
-      ),
-      onClick: () => sendAction({ action: "select-folder-item", url: item.url }),
-    };
-  });
+  const items: MenuProps["items"] =
+    data.items.length === 0
+      ? [
+          {
+            key: "empty",
+            label: "空文件夹",
+            disabled: true,
+          },
+        ]
+      : data.items.map((item) => {
+          const indent = item.depth * 12;
+          if (item.type === "folder") {
+            return {
+              key: item.id,
+              label: (
+                <span
+                  className="vsgo-folder-label"
+                  style={{ paddingLeft: indent }}
+                  onContextMenu={(e) => handleContextMenu(e, item)}
+                >
+                  <FolderOutlined />
+                  {item.name}
+                </span>
+              ),
+              disabled: true,
+            };
+          }
+          return {
+            key: item.id,
+            label: (
+              <span
+                className="vsgo-bookmark-item-label"
+                style={{ paddingLeft: indent }}
+                onContextMenu={(e) => handleContextMenu(e, item)}
+                onAuxClick={(e) => {
+                  if (e.button === 1) {
+                    e.preventDefault();
+                    sendAction({ action: "select-folder-item", url: item.url, mode: "new" });
+                  }
+                }}
+              >
+                {item.name}
+              </span>
+            ),
+            onClick: (info) =>
+              sendAction({
+                action: "select-folder-item",
+                url: item.url,
+                mode: openModeFromMouseEvent(info.domEvent),
+              }),
+          };
+        });
 
   return (
     <Menu
@@ -393,14 +427,30 @@ function ContextMenuOverlay({ data }: { data: ContextMenuData }): React.JSX.Elem
     onClick: () => sendAction({ action: "move-item", parentId: t.id }),
   }));
 
-  const items: MenuProps["items"] = [
-    {
-      key: "rename",
-      label: "重命名…",
-      icon: <EditOutlined />,
-      onClick: () => sendAction({ action: "rename-item", itemId: item.id, itemName: item.name }),
-    },
-  ];
+  const items: MenuProps["items"] = [];
+
+  if (item.type === "bookmark" && item.url) {
+    items.push(
+      {
+        key: "open",
+        label: "打开",
+        onClick: () => sendAction({ action: "open-item", itemId: item.id, mode: "current" }),
+      },
+      {
+        key: "open-new",
+        label: "在新标签页打开",
+        onClick: () => sendAction({ action: "open-item", itemId: item.id, mode: "new" }),
+      },
+      { type: "divider" }
+    );
+  }
+
+  items.push({
+    key: "rename",
+    label: "重命名…",
+    icon: <EditOutlined />,
+    onClick: () => sendAction({ action: "rename-item", itemId: item.id, itemName: item.name }),
+  });
 
   if (item.type === "folder") {
     items.push({
@@ -417,7 +467,7 @@ function ContextMenuOverlay({ data }: { data: ContextMenuData }): React.JSX.Elem
     { type: "divider" },
     {
       key: "delete",
-      label: item.type === "folder" ? "删除文件夹…" : "删除",
+      label: item.type === "folder" ? "删除文件夹及内容…" : "删除",
       danger: true,
       icon: <DeleteOutlined />,
       onClick: () => sendAction({ action: "delete-item", itemId: item.id }),
@@ -428,9 +478,56 @@ function ContextMenuOverlay({ data }: { data: ContextMenuData }): React.JSX.Elem
     <Menu
       className="vsgo-overlay-menu"
       selectable={false}
-      style={{ border: "none", minWidth: 180, maxWidth: 260 }}
+      style={{ border: "none", minWidth: 180, maxWidth: 260, maxHeight: 292 }}
       items={items}
     />
+  );
+}
+
+// ============================================================
+// Confirm Dialog
+// ============================================================
+
+interface ConfirmDialogData {
+  kind: "delete";
+  itemId: string;
+  title: string;
+  message: string;
+  confirmText: string;
+}
+
+function ConfirmDialogOverlay({ data }: { data: ConfirmDialogData }): React.JSX.Element {
+  return (
+    <div className="vsgo-overlay-panel" style={{ width: 320 }}>
+      <div className="vsgo-overlay-header">
+        <ExclamationCircleOutlined style={{ color: "#d93025" }} />
+        <span>{data.title}</span>
+      </div>
+      <div className="vsgo-confirm-message">{data.message}</div>
+      <div className="vsgo-overlay-footer">
+        <div className="vsgo-overlay-footer-spacer" />
+        <button
+          type="button"
+          className="vsgo-overlay-btn vsgo-overlay-btn-ghost"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            sendAction({ action: "cancel-confirm" });
+          }}
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          className="vsgo-overlay-btn vsgo-overlay-btn-danger"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            sendAction({ action: "confirm-delete", itemId: data.itemId });
+          }}
+        >
+          {data.confirmText}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -536,9 +633,7 @@ export default function FloatingOverlay(): React.JSX.Element {
   useEffect(() => {
     if (!content) return;
     const onMove = (e: MouseEvent): void => {
-      document.body.style.cursor = isInteractiveOverlayTarget(e.target)
-        ? "pointer"
-        : "default";
+      document.body.style.cursor = isInteractiveOverlayTarget(e.target) ? "pointer" : "default";
     };
     const onLeave = (): void => {
       document.body.style.cursor = "default";
@@ -561,6 +656,18 @@ export default function FloatingOverlay(): React.JSX.Element {
       ipcRenderer.removeListener(BrowserOverlayEvent.BROWSER_OVERLAY_CONTENT, handler);
     };
   }, []);
+
+  useEffect(() => {
+    if (!content) return;
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        sendAction({ action: "dismiss-overlay" });
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [content]);
 
   if (!content) {
     return <div style={{ width: 1, height: 1 }} />;
@@ -594,6 +701,9 @@ export default function FloatingOverlay(): React.JSX.Element {
     case "context-menu":
       body = <ContextMenuOverlay data={content.data as ContextMenuData} />;
       break;
+    case "confirm-dialog":
+      body = <ConfirmDialogOverlay data={content.data as ConfirmDialogData} />;
+      break;
     case "name-dialog":
       body = <NameDialogOverlay data={content.data as NameDialogData} />;
       break;
@@ -615,7 +725,7 @@ export default function FloatingOverlay(): React.JSX.Element {
           padding: `${inset.top}px ${inset.right}px ${inset.bottom}px ${inset.left}px`,
         }}
       >
-        <div className="vsgo-overlay-card" style={wrapStyle}>
+        <div className={`vsgo-overlay-card vsgo-overlay-card-${content.type}`} style={wrapStyle}>
           {body}
         </div>
       </div>
