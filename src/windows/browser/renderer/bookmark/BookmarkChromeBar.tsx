@@ -14,7 +14,7 @@ import {
 } from "@ant-design/icons";
 import { Button, ConfigProvider, Typography, theme } from "antd";
 import { BrowserOverlayEvent, BrowserSettingsEvent } from "../../events";
-import { type BrowserItem, type OverlayBounds } from "@shared/type";
+import { type BrowserItem, type OverlayBounds, type OverlayType } from "@shared/type";
 import { generateId } from "@shared/utils";
 import {
   flattenFolderChildrenPreorder,
@@ -63,7 +63,7 @@ interface BookmarkChromeContextValue {
   moveItemToParent: (item: BrowserItem, parentId: string | null) => Promise<void>;
   deleteBrowserItem: (item: BrowserItem) => Promise<void>;
   commitNameDialog: () => Promise<void>;
-  showOverlay: (type: string, bounds: OverlayBounds, data: unknown) => void;
+  showOverlay: (type: OverlayType, bounds: OverlayBounds, data: unknown) => void;
   hideOverlay: () => void;
 }
 
@@ -106,7 +106,7 @@ export function BookmarkChromeProvider({
   const [bookmarkBarMenu, setBookmarkBarMenu] = useState<BookmarkBarMenuState>(null);
   const [nameDialog, setNameDialog] = useState<NameDialogState>(null);
 
-  const showOverlay = useCallback((type: string, bounds: OverlayBounds, data: unknown): void => {
+  const showOverlay = useCallback((type: OverlayType, bounds: OverlayBounds, data: unknown): void => {
     ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_SHOW, {
       bounds,
       data: { type, data },

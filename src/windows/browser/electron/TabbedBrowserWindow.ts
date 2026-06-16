@@ -468,7 +468,7 @@ export class TabbedBrowserWindow {
   // -------------------- 浮动覆盖层窗口 --------------------
 
   private overlayTypeNeedsKeyboard(type: OverlayType): boolean {
-    return type === "bookmark-star" || type === "name-dialog";
+    return type === "bookmark-star" || type === "context-menu" || type === "name-dialog";
   }
 
   private presentOverlayWindow(needsKeyboard: boolean): void {
