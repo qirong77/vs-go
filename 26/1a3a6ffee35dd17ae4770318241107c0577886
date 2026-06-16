@@ -1,0 +1,27 @@
+src/windows/browser/electron/TabbedBrowserWindow.ts
+  256067f1d43df847 471-476
+src/shared/type.ts
+  256067f1d43df847 16-17,21,83,134
+src/windows/browser/renderer/FloatingOverlay.tsx
+  256067f1d43df847 11,30-32,123-124,157-163,307-310,312,325-376,430-453,470,481,487-533,636,660-671,704-706,728
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "261a3a6ffee35dd17ae4770318241107c0577886",
+  "prompts": {
+    "256067f1d43df847": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed03b-770b-7a12-bf28-5dc5b5075a80",
+        "model": "gpt-5.5"
+      },
+      "human_author": "qirong77",
+      "messages": [],
+      "total_additions": 3435,
+      "total_deletions": 87,
+      "accepted_lines": 3398,
+      "overriden_lines": 3
+    }
+  }
+}
