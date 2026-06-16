@@ -129,6 +129,7 @@ export class TabbedBrowserWindow {
   private overlayType: OverlayType | null = null;
   /** 主窗口 / 标签页点击时关闭浮层（网页区域收不到 chrome 的 document 事件） */
   private overlayOutsideDismissCleanups: Array<() => void> = [];
+  private layoutSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** 外部检测：是否正在销毁中，避免空窗口重复清理 */
   get isDestroyed(): boolean {
@@ -145,6 +146,9 @@ export class TabbedBrowserWindow {
       title: "VsGo Browser",
       titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
       frame: process.platform !== "darwin",
+      fullscreenable: process.platform !== "darwin",
+      minWidth: 760,
+      minHeight: 460,
       webPreferences: {
         preload: path.join(__dirname, "../preload/index.js"),
         sandbox: false,
@@ -160,18 +164,20 @@ export class TabbedBrowserWindow {
       });
     }
 
-    this.hostWindow.on("resize", () => {
-      this.updateActiveViewBounds();
-      this.repositionOverlay();
-    });
+    this.hostWindow.on("resize", () => this.scheduleWindowLayoutSync());
+    this.hostWindow.on("maximize", () => this.handleWindowZoomChanged());
+    this.hostWindow.on("unmaximize", () => this.handleWindowZoomChanged());
+    this.hostWindow.on("restore", () => this.handleWindowZoomChanged());
     this.hostWindow.on("closed", () => this.handleClosed());
     this.hostWindow.on("enter-full-screen", () => {
+      this.hideOverlay();
       this.broadcastFullscreen(true);
-      this.repositionOverlay();
+      this.scheduleWindowLayoutSync();
     });
     this.hostWindow.on("leave-full-screen", () => {
+      this.hideOverlay();
       this.broadcastFullscreen(false);
-      this.repositionOverlay();
+      this.scheduleWindowLayoutSync();
     });
     this.hostWindow.on("move", () => this.repositionOverlay());
     this.hostWindow.on("minimize", () => this.hideOverlay());
@@ -205,6 +211,10 @@ export class TabbedBrowserWindow {
       // ignore
     }
     this.overlayWindow = null;
+    if (this.layoutSyncTimer) {
+      clearTimeout(this.layoutSyncTimer);
+      this.layoutSyncTimer = null;
+    }
   }
 
   // -------------------- Tab 创建与事件绑定 --------------------
@@ -465,6 +475,25 @@ export class TabbedBrowserWindow {
     tab.view.setBounds(bounds);
   }
 
+  private syncWindowLayout(): void {
+    this.updateActiveViewBounds();
+    this.repositionOverlay();
+  }
+
+  private scheduleWindowLayoutSync(): void {
+    this.syncWindowLayout();
+    if (this.layoutSyncTimer) clearTimeout(this.layoutSyncTimer);
+    this.layoutSyncTimer = setTimeout(() => {
+      this.layoutSyncTimer = null;
+      this.syncWindowLayout();
+    }, 80);
+  }
+
+  private handleWindowZoomChanged(): void {
+    this.hideOverlay();
+    this.scheduleWindowLayoutSync();
+  }
+
   // -------------------- 浮动覆盖层窗口 --------------------
 
   private overlayTypeNeedsKeyboard(type: OverlayType): boolean {
@@ -628,6 +657,10 @@ export class TabbedBrowserWindow {
       }
     });
 
+    win.on("blur", () => {
+      setTimeout(() => this.tryDismissOverlayFromOutsidePointer(), 0);
+    });
+
     win.on("closed", () => {
       this.overlayWindow = null;
       this.overlayPendingContent = null;
@@ -789,8 +822,11 @@ export class TabbedBrowserWindow {
 
   present(): void {
     if (this.hostWindow.isDestroyed()) return;
-    prepareWindowForActiveSpace(this.hostWindow);
-    schedulePinWindowToActiveSpace(this.hostWindow);
+    const wasVisible = this.hostWindow.isVisible();
+    if (!wasVisible) {
+      prepareWindowForActiveSpace(this.hostWindow);
+      schedulePinWindowToActiveSpace(this.hostWindow);
+    }
     if (!this.hostWindow.isVisible()) {
       if (process.platform === "darwin") {
         this.hostWindow.showInactive();
@@ -798,7 +834,7 @@ export class TabbedBrowserWindow {
         this.hostWindow.show();
       }
     }
-    this.updateActiveViewBounds();
+    this.scheduleWindowLayoutSync();
     if (process.platform === "darwin") {
       setTimeout(() => {
         if (!this.hostWindow.isDestroyed()) this.hostWindow.focus();
