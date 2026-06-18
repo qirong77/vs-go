@@ -130,6 +130,7 @@ export class TabbedBrowserWindow {
   /** 主窗口 / 标签页点击时关闭浮层（网页区域收不到 chrome 的 document 事件） */
   private overlayOutsideDismissCleanups: Array<() => void> = [];
   private layoutSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private overlayWarmupTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** 外部检测：是否正在销毁中，避免空窗口重复清理 */
   get isDestroyed(): boolean {
@@ -184,6 +185,7 @@ export class TabbedBrowserWindow {
     this.hostWindow.webContents.on("before-input-event", (event, input) =>
       this.handleKeyboard(event, input)
     );
+    this.hostWindow.webContents.once("did-finish-load", () => this.scheduleOverlayWarmup());
   }
 
   // -------------------- 生命周期 --------------------
@@ -214,6 +216,10 @@ export class TabbedBrowserWindow {
     if (this.layoutSyncTimer) {
       clearTimeout(this.layoutSyncTimer);
       this.layoutSyncTimer = null;
+    }
+    if (this.overlayWarmupTimer) {
+      clearTimeout(this.overlayWarmupTimer);
+      this.overlayWarmupTimer = null;
     }
   }
 
@@ -499,10 +505,21 @@ export class TabbedBrowserWindow {
   private overlayTypeNeedsKeyboard(type: OverlayType): boolean {
     return (
       type === "bookmark-star" ||
+      type === "folder-dropdown" ||
       type === "context-menu" ||
       type === "confirm-dialog" ||
       type === "name-dialog"
     );
+  }
+
+  private scheduleOverlayWarmup(): void {
+    if (this.closed || this.hostWindow.isDestroyed()) return;
+    if (this.overlayWarmupTimer) clearTimeout(this.overlayWarmupTimer);
+    this.overlayWarmupTimer = setTimeout(() => {
+      this.overlayWarmupTimer = null;
+      if (this.closed || this.hostWindow.isDestroyed()) return;
+      this.ensureOverlayWindow();
+    }, 300);
   }
 
   private presentOverlayWindow(needsKeyboard: boolean): void {
