@@ -1,4 +1,4 @@
-import { screen, BrowserWindow } from "electron";
+import { screen, BrowserWindow, app } from "electron";
 import { vsgoLog } from "@platform/log/logger";
 import { TABBED_BROWSER_DEFAULT_HOME_URL } from "@shared/type";
 import { TabbedBrowserWindow, type Tab } from "./TabbedBrowserWindow";
@@ -10,6 +10,13 @@ import { TabbedBrowserWindow, type Tab } from "./TabbedBrowserWindow";
 class Manager {
   private windows: TabbedBrowserWindow[] = [];
   private lastFocusedId: number | null = null;
+  private isQuitting = false;
+
+  constructor() {
+    app.on("before-quit", () => {
+      this.isQuitting = true;
+    });
+  }
 
   private register(win: TabbedBrowserWindow): void {
     this.windows.push(win);
@@ -21,6 +28,9 @@ class Manager {
       if (idx > -1) this.windows.splice(idx, 1);
       if (this.lastFocusedId === win.hostWindow.id) {
         this.lastFocusedId = this.windows[this.windows.length - 1]?.hostWindow.id ?? null;
+      }
+      if (!this.isQuitting && this.windows.length === 0) {
+        this.createEmpty(TABBED_BROWSER_DEFAULT_HOME_URL, { show: false });
       }
     });
   }
@@ -59,13 +69,17 @@ class Manager {
   }
 
   /** 新开一个 tabbed 窗口（以 url 作为初始 tab，默认首页） */
-  createEmpty(url = TABBED_BROWSER_DEFAULT_HOME_URL): TabbedBrowserWindow {
+  createEmpty(
+    url = TABBED_BROWSER_DEFAULT_HOME_URL,
+    opts: { show?: boolean } = {}
+  ): TabbedBrowserWindow {
+    const shouldShow = opts.show !== false;
     const win = new TabbedBrowserWindow();
     this.register(win);
     // 等 host 窗口完成 renderer 加载后再挂 tab，避免第一条 STATE_UPDATED 丢失
     win.hostWindow.webContents.once("did-finish-load", () => {
       win.addTab(url);
-      win.present();
+      if (shouldShow) win.present();
     });
     // 兜底：如果 renderer 已经 ready 并主动请求 state（BROWSER_TAB_GET_STATE），
     // 会直接拿到当前 state；这里不做额外处理。
