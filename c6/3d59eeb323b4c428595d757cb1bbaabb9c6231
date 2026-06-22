@@ -1,0 +1,25 @@
+src/windows/browser/store.ts
+  e0317ae6732cd47e 2-4,15-22,34-88
+src/windows/browser/ipc.ts
+  e0317ae6732cd47e 12-15,77-80,88-94,96,98-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c63d59eeb323b4c428595d757cb1bbaabb9c6231",
+  "prompts": {
+    "e0317ae6732cd47e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee518-f054-71b3-a603-5df4ea799841",
+        "model": "gpt-5.5"
+      },
+      "human_author": "qirong77",
+      "messages": [],
+      "total_additions": 302,
+      "total_deletions": 42,
+      "accepted_lines": 329,
+      "overriden_lines": 13
+    }
+  }
+}
