@@ -247,6 +247,7 @@ const OVERLAY_STYLES = `
     padding: 6px 0;
     background: rgba(255,255,255,0.98);
     border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(60,64,67,0.12), 0 0 0 1px rgba(60,64,67,0.06);
     overflow: hidden;
   }
   .vsgo-history-header {
@@ -765,44 +766,241 @@ interface HistoryListData {
   query: string;
 }
 
-function historySearchText(item: BrowserHistoryItem): string {
-  const parts = [item.title, item.url];
+function normalizeSearchValue(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim();
+}
+
+function compactSearchValue(value: string): string {
+  return normalizeSearchValue(value).replace(/[^\da-z\u00c0-\uffff]+/gi, "");
+}
+
+function parseSearchTokens(query: string): string[] {
+  const tokens = normalizeSearchValue(query)
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+  return Array.from(new Set(tokens));
+}
+
+interface HistorySearchFields {
+  title: string;
+  url: string;
+  urlWithoutProtocol: string;
+  urlWithoutWww: string;
+  host: string;
+  hostWithoutWww: string;
+  path: string;
+  decodedUrl: string;
+  combined: string;
+  compactCombined: string;
+}
+
+function stripProtocol(value: string): string {
+  return value.replace(/^[a-z][a-z\d+.-]*:\/\//i, "");
+}
+
+function stripWww(value: string): string {
+  return value.replace(/^www\./i, "");
+}
+
+function safeDecode(value: string): string {
   try {
-    const u = new URL(item.url.includes("://") ? item.url : `https://${item.url}`);
-    parts.push(u.hostname, `${u.hostname}${u.pathname}${u.search}`);
+    return decodeURIComponent(value);
   } catch {
-    // ignore invalid display urls
+    return value;
   }
-  return parts.join(" ").toLowerCase();
+}
+
+function buildHistorySearchFields(item: BrowserHistoryItem): HistorySearchFields {
+  const rawTitle = item.title || "";
+  const rawUrl = item.url || "";
+  const urlWithoutProtocol = stripProtocol(rawUrl);
+  const urlWithoutWww = stripWww(urlWithoutProtocol);
+  let host = "";
+  let path = "";
+
+  try {
+    const u = new URL(rawUrl.includes("://") ? rawUrl : `https://${rawUrl}`);
+    host = u.hostname;
+    path = `${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    const [fallbackHost, ...rest] = urlWithoutProtocol.split("/");
+    host = fallbackHost || "";
+    path = rest.join("/");
+  }
+
+  const hostWithoutWww = stripWww(host);
+  const decodedUrl = safeDecode(rawUrl);
+  const pathAsWords = path.replace(/[\-_.~/%?&=#+]+/g, " ");
+  const combined = [
+    rawTitle,
+    rawUrl,
+    urlWithoutProtocol,
+    urlWithoutWww,
+    decodedUrl,
+    host,
+    hostWithoutWww,
+    path,
+    pathAsWords,
+  ]
+    .map(normalizeSearchValue)
+    .join(" ");
+
+  return {
+    title: normalizeSearchValue(rawTitle),
+    url: normalizeSearchValue(rawUrl),
+    urlWithoutProtocol: normalizeSearchValue(urlWithoutProtocol),
+    urlWithoutWww: normalizeSearchValue(urlWithoutWww),
+    host: normalizeSearchValue(host),
+    hostWithoutWww: normalizeSearchValue(hostWithoutWww),
+    path: normalizeSearchValue(path),
+    decodedUrl: normalizeSearchValue(decodedUrl),
+    combined,
+    compactCombined: compactSearchValue(combined),
+  };
+}
+
+function tokenMatchesFields(token: string, fields: HistorySearchFields): boolean {
+  if (fields.combined.includes(token)) return true;
+  const compactToken = compactSearchValue(token);
+  return !!compactToken && fields.compactCombined.includes(compactToken);
+}
+
+function orderedTokenBonus(tokens: string[], fields: HistorySearchFields): number {
+  if (tokens.length <= 1) return 0;
+  let cursor = 0;
+  for (const token of tokens) {
+    const index = fields.combined.indexOf(token, cursor);
+    if (index === -1) return 0;
+    cursor = index + token.length;
+  }
+  return 35;
+}
+
+function scoreHistoryItem(
+  item: BrowserHistoryItem,
+  tokens: string[],
+  rawQuery: string,
+  fields: HistorySearchFields,
+  strict: boolean
+): number {
+  const query = normalizeSearchValue(rawQuery);
+  let score = strict ? 120 : 20;
+
+  if (query) {
+    if (fields.title === query) score += 180;
+    if (fields.hostWithoutWww === query || fields.host === query) score += 170;
+    if (fields.urlWithoutWww === query || fields.urlWithoutProtocol === query || fields.url === query) {
+      score += 150;
+    }
+    if (fields.title.includes(query)) score += 90;
+    if (fields.hostWithoutWww.includes(query) || fields.host.includes(query)) score += 85;
+    if (fields.urlWithoutWww.includes(query) || fields.urlWithoutProtocol.includes(query)) score += 70;
+    if (fields.path.includes(query)) score += 35;
+  }
+
+  for (const token of tokens) {
+    if (fields.title === token) score += 80;
+    else if (fields.title.startsWith(token)) score += 55;
+    else if (fields.title.includes(token)) score += 42;
+
+    if (fields.hostWithoutWww === token || fields.host === token) score += 75;
+    else if (fields.hostWithoutWww.startsWith(token) || fields.host.startsWith(token)) score += 60;
+    else if (fields.hostWithoutWww.includes(token) || fields.host.includes(token)) score += 48;
+
+    if (fields.urlWithoutWww.startsWith(token) || fields.urlWithoutProtocol.startsWith(token)) score += 42;
+    else if (fields.urlWithoutWww.includes(token) || fields.urlWithoutProtocol.includes(token)) score += 32;
+
+    if (fields.path.includes(token)) score += 20;
+    if (fields.decodedUrl.includes(token)) score += 12;
+
+    const compactToken = compactSearchValue(token);
+    if (compactToken && fields.compactCombined.includes(compactToken)) score += 10;
+  }
+
+  score += orderedTokenBonus(tokens, fields);
+  score += Math.min(item.visitCount || 0, 20);
+  const daysSinceVisit = Math.floor(Math.max(Date.now() - (item.lastVisit || 0), 0) / 86_400_000);
+  score += Math.max(0, 14 - daysSinceVisit);
+  return score;
 }
 
 function filterHistoryItems(items: BrowserHistoryItem[], query: string): BrowserHistoryItem[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return items;
-  return items.filter((item) => historySearchText(item).includes(q));
+  const tokens = parseSearchTokens(query);
+  if (tokens.length === 0) return items;
+
+  const scored = items.map((item) => {
+    const fields = buildHistorySearchFields(item);
+    const matchedCount = tokens.filter((token) => tokenMatchesFields(token, fields)).length;
+    return {
+      item,
+      fields,
+      matchedCount,
+      strict: matchedCount === tokens.length,
+    };
+  });
+
+  const strictMatches = scored.filter((entry) => entry.strict);
+  const candidates = strictMatches.length > 0 ? strictMatches : scored.filter((entry) => entry.matchedCount > 0);
+
+  return candidates
+    .map((entry) => ({
+      item: entry.item,
+      score:
+        scoreHistoryItem(entry.item, tokens, query, entry.fields, entry.strict) + entry.matchedCount * 30,
+    }))
+    .sort((a, b) => b.score - a.score || (b.item.lastVisit || 0) - (a.item.lastVisit || 0))
+    .map((entry) => entry.item);
+}
+
+function highlightRanges(text: string, tokens: string[]): Array<{ start: number; end: number }> {
+  const lowerText = text.toLowerCase();
+  const ranges: Array<{ start: number; end: number }> = [];
+
+  for (const token of tokens.sort((a, b) => b.length - a.length)) {
+    if (!token) continue;
+    let index = lowerText.indexOf(token);
+    while (index !== -1) {
+      ranges.push({ start: index, end: index + token.length });
+      index = lowerText.indexOf(token, index + token.length);
+    }
+  }
+
+  if (ranges.length === 0) return ranges;
+  ranges.sort((a, b) => a.start - b.start || b.end - a.end);
+  const merged: Array<{ start: number; end: number }> = [];
+  for (const range of ranges) {
+    const last = merged[merged.length - 1];
+    if (!last || range.start > last.end) {
+      merged.push({ ...range });
+    } else {
+      last.end = Math.max(last.end, range.end);
+    }
+  }
+  return merged;
 }
 
 function renderHighlightedText(text: string, query: string): React.ReactNode {
-  const q = query.trim();
-  if (!q) return text;
-  const lowerText = text.toLowerCase();
-  const lowerQuery = q.toLowerCase();
+  const tokens = parseSearchTokens(query);
+  if (tokens.length === 0) return text;
+  const ranges = highlightRanges(text, tokens);
+  if (ranges.length === 0) return text;
+
   const parts: React.ReactNode[] = [];
   let cursor = 0;
-  let index = lowerText.indexOf(lowerQuery);
-
-  while (index !== -1) {
-    if (index > cursor) parts.push(text.slice(cursor, index));
-    const end = index + q.length;
+  for (const range of ranges) {
+    if (range.start > cursor) parts.push(text.slice(cursor, range.start));
     parts.push(
-      <mark key={`${index}-${end}`} className="vsgo-history-highlight">
-        {text.slice(index, end)}
+      <mark key={`${range.start}-${range.end}`} className="vsgo-history-highlight">
+        {text.slice(range.start, range.end)}
       </mark>
     );
-    cursor = end;
-    index = lowerText.indexOf(lowerQuery, cursor);
+    cursor = range.end;
   }
-
   if (cursor < text.length) parts.push(text.slice(cursor));
   return parts;
 }
