@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BrowserSettingsEvent, BrowserTabEvent, BrowserWindowEvent } from "../events";
+import {
+  BrowserOverlayEvent,
+  BrowserSettingsEvent,
+  BrowserTabEvent,
+  BrowserWindowEvent,
+} from "../events";
 import {
   BROWSER_CHROME_HEIGHT,
   tabUrlForAddressBarDisplay,
+  type BrowserHistoryItem,
   type BrowserItem,
+  type OverlayBounds,
   type TabState,
   type TabbedBrowserState,
 } from "@shared/type";
@@ -21,6 +28,8 @@ const TAB_BAR_HEIGHT = 32;
 const ADDRESS_ROW_HEIGHT = 40;
 const TAB_MIN_WIDTH = 80;
 const TAB_MAX_WIDTH = 220;
+const HISTORY_OVERLAY_MAX_HEIGHT = 368;
+const OVERLAY_MARGIN = 8;
 
 interface DragState {
   tabId: string;
@@ -33,6 +42,17 @@ interface DragState {
   detaching: boolean;
 }
 
+function clampOverlayBounds(x: number, y: number, width: number, height: number): OverlayBounds {
+  const maxX = Math.max(OVERLAY_MARGIN, window.innerWidth - width - OVERLAY_MARGIN);
+  const maxY = Math.max(OVERLAY_MARGIN, window.innerHeight - height - OVERLAY_MARGIN);
+  return {
+    x: Math.max(OVERLAY_MARGIN, Math.min(x, maxX)),
+    y: Math.max(OVERLAY_MARGIN, Math.min(y, maxY)),
+    width,
+    height,
+  };
+}
+
 function TabbedBrowser(): React.JSX.Element {
   const [state, setState] = useState<TabbedBrowserState>({ tabs: [], activeTabId: null });
   const [address, setAddress] = useState("");
@@ -42,6 +62,11 @@ function TabbedBrowser(): React.JSX.Element {
   const [drag, setDrag] = useState<DragState | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bookmarks, setBookmarks] = useState<BrowserItem[]>([]);
+  const [historyItems, setHistoryItems] = useState<BrowserHistoryItem[]>([]);
+  const [historyOverlayOpen, setHistoryOverlayOpen] = useState(false);
+  const historyOverlayOpenRef = useRef(false);
+  const addressWrapRef = useRef<HTMLDivElement>(null);
+  const suppressNextHistoryFocusRef = useRef(false);
 
   const activeTab = useMemo<TabState | undefined>(
     () => state.tabs.find((t) => t.id === state.activeTabId),
@@ -52,20 +77,74 @@ function TabbedBrowser(): React.JSX.Element {
   const existingBookmark = useMemo(
     () =>
       bookmarks.find(
-        (b) =>
-          b.type === "bookmark" &&
-          !!b.url &&
-          bookmarkUrlsMatch(b.url, bookmarkTargetUrl)
+        (b) => b.type === "bookmark" && !!b.url && bookmarkUrlsMatch(b.url, bookmarkTargetUrl)
       ),
     [bookmarks, bookmarkTargetUrl]
   );
-  const canBookmark =
-    !!bookmarkTargetUrl && bookmarkTargetUrl !== "about:blank";
+  const canBookmark = !!bookmarkTargetUrl && bookmarkTargetUrl !== "about:blank";
+
+  const hideHistoryOverlay = useCallback((refocusHost = true): void => {
+    historyOverlayOpenRef.current = false;
+    setHistoryOverlayOpen(false);
+    ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_HIDE, { refocusHost });
+  }, []);
+
+  const submitAddress = useCallback(
+    (mode: "current" | "new", overrideUrl?: string): void => {
+      const url = (overrideUrl ?? address).trim();
+      if (!url) return;
+      hideHistoryOverlay();
+      ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_NAVIGATE, { url, mode });
+      addressInputRef.current?.blur();
+      setEditing(false);
+    },
+    [address, hideHistoryOverlay]
+  );
 
   const refreshBookmarks = useCallback(async (): Promise<void> => {
-    const list = (await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_LIST)) as BrowserItem[] | null;
+    const list = (await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_LIST)) as
+      | BrowserItem[]
+      | null;
     setBookmarks(Array.isArray(list) ? list : []);
   }, []);
+
+  const refreshHistory = useCallback(async (): Promise<BrowserHistoryItem[]> => {
+    const list = (await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_HISTORY_LIST)) as
+      | BrowserHistoryItem[]
+      | null;
+    const next = Array.isArray(list) ? list : [];
+    setHistoryItems(next);
+    return next;
+  }, []);
+
+  const showHistoryOverlay = useCallback(
+    async (itemsOverride?: BrowserHistoryItem[], queryOverride?: string): Promise<void> => {
+      const el = addressWrapRef.current;
+      if (!el) return;
+      const items = itemsOverride ?? (historyItems.length > 0 ? historyItems : await refreshHistory());
+      const rect = el.getBoundingClientRect();
+      const width = Math.max(360, Math.floor(rect.width));
+      const height = Math.min(
+        HISTORY_OVERLAY_MAX_HEIGHT,
+        Math.max(104, 82 + Math.max(items.length, 1) * 34)
+      );
+      const bounds = clampOverlayBounds(rect.left, rect.top, width, height);
+      historyOverlayOpenRef.current = true;
+      setHistoryOverlayOpen(true);
+      ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_SHOW, {
+        bounds,
+        data: {
+          type: "history-list",
+          data: {
+            items,
+            query: queryOverride ?? address,
+          },
+        },
+      });
+      requestAnimationFrame(() => addressInputRef.current?.blur());
+    },
+    [address, historyItems, refreshHistory]
+  );
 
   // 初始拉取 state + 订阅更新
   useEffect(() => {
@@ -87,6 +166,7 @@ function TabbedBrowser(): React.JSX.Element {
     };
     const onBlurAddress = (): void => {
       setEditing(false);
+      hideHistoryOverlay();
       addressInputRef.current?.blur();
     };
     const onFullscreenChanged = (_e: unknown, fs: boolean): void => {
@@ -100,13 +180,17 @@ function TabbedBrowser(): React.JSX.Element {
       ipcRenderer.removeListener(BrowserTabEvent.BROWSER_TAB_STATE_UPDATED, onUpdate);
       ipcRenderer.removeListener(BrowserTabEvent.BROWSER_TAB_FOCUS_ADDRESS, onFocusAddress);
       ipcRenderer.removeListener(BrowserTabEvent.BROWSER_TAB_BLUR_ADDRESS, onBlurAddress);
-      ipcRenderer.removeListener(BrowserWindowEvent.BROWSER_WINDOW_FULLSCREEN_CHANGED, onFullscreenChanged);
+      ipcRenderer.removeListener(
+        BrowserWindowEvent.BROWSER_WINDOW_FULLSCREEN_CHANGED,
+        onFullscreenChanged
+      );
     };
-  }, []);
+  }, [hideHistoryOverlay]);
 
   useEffect(() => {
     void refreshBookmarks();
-  }, [refreshBookmarks]);
+    void refreshHistory();
+  }, [refreshBookmarks, refreshHistory]);
 
   // 当前 tab 变化 / URL 变化且未编辑时，同步 address bar（默认首页在栏内显示为空）
   useEffect(() => {
@@ -118,15 +202,56 @@ function TabbedBrowser(): React.JSX.Element {
   // 切换标签时重置地址栏编辑态
   useEffect(() => {
     setEditing(false);
-  }, [activeTab?.id]);
+    hideHistoryOverlay();
+  }, [activeTab?.id, hideHistoryOverlay]);
 
-  const submitAddress = useCallback((mode: "current" | "new", overrideUrl?: string): void => {
-    const url = (overrideUrl ?? address).trim();
-    if (!url) return;
-    ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_NAVIGATE, { url, mode });
-    addressInputRef.current?.blur();
-    setEditing(false);
-  }, [address]);
+  useEffect(() => {
+    const handler = (_e: unknown, payload: { action: string; [key: string]: unknown }): void => {
+      switch (payload.action) {
+        case "select-history-item": {
+          const url = payload.url as string;
+          const mode = payload.mode === "new" ? "new" : "current";
+          hideHistoryOverlay();
+          if (url) submitAddress(mode, url);
+          break;
+        }
+        case "submit-history-address": {
+          const url = payload.url as string;
+          const mode = payload.mode === "new" ? "new" : "current";
+          hideHistoryOverlay();
+          if (url) submitAddress(mode, url);
+          break;
+        }
+        case "dismiss-overlay": {
+          suppressNextHistoryFocusRef.current = true;
+          hideHistoryOverlay(payload.refocusHost !== false);
+          setEditing(false);
+          setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
+          window.setTimeout(() => {
+            suppressNextHistoryFocusRef.current = false;
+          }, 150);
+          break;
+        }
+      }
+    };
+    ipcRenderer.on(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, handler);
+    return () => {
+      ipcRenderer.removeListener(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, handler);
+    };
+  }, [activeTab?.url, hideHistoryOverlay, submitAddress]);
+
+  useEffect(() => {
+    const onDocumentMouseDown = (e: MouseEvent): void => {
+      if (!historyOverlayOpen) return;
+      const target = e.target instanceof Node ? e.target : null;
+      if (target && addressWrapRef.current?.contains(target)) return;
+      hideHistoryOverlay();
+      setEditing(false);
+      setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
+    };
+    document.addEventListener("mousedown", onDocumentMouseDown, true);
+    return () => document.removeEventListener("mousedown", onDocumentMouseDown, true);
+  }, [activeTab?.url, hideHistoryOverlay, historyOverlayOpen]);
 
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setAddress(e.target.value);
@@ -139,6 +264,7 @@ function TabbedBrowser(): React.JSX.Element {
       return;
     }
     if (e.key === "Escape") {
+      hideHistoryOverlay();
       setEditing(false);
       setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
       addressInputRef.current?.blur();
@@ -525,9 +651,12 @@ function TabbedBrowser(): React.JSX.Element {
           >
             ›
           </NavButton>
-        <NavButton title="刷新" onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_RELOAD)}>
-          ⟳
-        </NavButton>
+          <NavButton
+            title="刷新"
+            onClick={() => ipcRenderer.send(BrowserTabEvent.BROWSER_TAB_RELOAD)}
+          >
+            ⟳
+          </NavButton>
           <div
             style={{
               flex: 1,
@@ -536,6 +665,7 @@ function TabbedBrowser(): React.JSX.Element {
             }}
           >
             <div
+              ref={addressWrapRef}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -552,12 +682,24 @@ function TabbedBrowser(): React.JSX.Element {
                 ref={addressInputRef}
                 value={address}
                 onChange={handleAddressChange}
-                onFocus={() => setEditing(true)}
+                onMouseDown={() => {
+                  if (document.activeElement === addressInputRef.current) {
+                    void showHistoryOverlay();
+                  }
+                }}
+                onFocus={() => {
+                  setEditing(true);
+                  if (!suppressNextHistoryFocusRef.current) {
+                    void showHistoryOverlay();
+                  }
+                }}
                 onBlur={(e) => {
                   const rt = e.relatedTarget;
                   if (rt instanceof Element && rt.closest("[data-bookmark-star-wrap]")) return;
-                  setEditing(false);
-                  setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
+                  if (!historyOverlayOpenRef.current) {
+                    setEditing(false);
+                    setAddress(tabUrlForAddressBarDisplay(activeTab?.url ?? ""));
+                  }
                 }}
                 onKeyDown={handleAddressKeyDown}
                 placeholder="搜索 Google 或输入网址"
@@ -581,10 +723,12 @@ function TabbedBrowser(): React.JSX.Element {
 
         <BookmarkChromeBarRow />
       </BookmarkChromeProvider>
-      <div style={{
-        height:1,
-        background: "var(--ant-color-border-primary)",
-      }}></div>
+      <div
+        style={{
+          height: 1,
+          background: "var(--ant-color-border-primary)",
+        }}
+      ></div>
     </div>
   );
 }

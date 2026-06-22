@@ -4,6 +4,7 @@ export enum BrowserSettingsEvent {
   BROWSER_REMOVE = "BROWSER_REMOVE",
   BROWSER_UPDATE = "BROWSER_UPDATE",
   BROWSER_REORDER = "BROWSER_REORDER",
+  BROWSER_HISTORY_LIST = "BROWSER_HISTORY_LIST",
 }
 
 export enum BrowserOverlayEvent {

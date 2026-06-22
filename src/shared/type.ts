@@ -36,6 +36,15 @@ export interface BrowserItem {
   order?: number;
 }
 
+export interface BrowserHistoryItem {
+  id: string;
+  title: string;
+  url: string;
+  favicon?: string;
+  lastVisit: number;
+  visitCount: number;
+}
+
 // --- 主窗口文件列表 ---
 
 export interface IMainWindowFile {
@@ -132,7 +141,8 @@ export type OverlayType =
   | "folder-dropdown"
   | "context-menu"
   | "confirm-dialog"
-  | "name-dialog";
+  | "name-dialog"
+  | "history-list";
 
 export interface OverlayBounds {
   x: number;

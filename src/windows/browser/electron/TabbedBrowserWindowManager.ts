@@ -154,9 +154,9 @@ class Manager {
     win?.showOverlay(bounds, content as never);
   }
 
-  hideOverlay(hostId: number): void {
+  hideOverlay(hostId: number, refocusHost = true): void {
     const win = this.findByHostId(hostId);
-    win?.hideOverlay();
+    win?.hideOverlay(refocusHost);
   }
 
   handleOverlayAction(event: Electron.IpcMainEvent, payload: Record<string, unknown>): void {

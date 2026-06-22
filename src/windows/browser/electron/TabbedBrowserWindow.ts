@@ -27,6 +27,7 @@ import {
   schedulePinWindowToActiveSpace,
 } from "@platform/electron/macosWorkspace";
 import { windowScriptStore } from "@windows/script-editor/store";
+import { browserStore } from "../store";
 
 // ============================================================
 // 全局会话设置：一次性去掉 X-Frame-Options / 放宽 CSP，允许嵌入常见页面。
@@ -169,6 +170,7 @@ export class TabbedBrowserWindow {
     this.hostWindow.on("maximize", () => this.handleWindowZoomChanged());
     this.hostWindow.on("unmaximize", () => this.handleWindowZoomChanged());
     this.hostWindow.on("restore", () => this.handleWindowZoomChanged());
+    this.hostWindow.on("blur", () => this.handleHostWindowBlur());
     this.hostWindow.on("closed", () => this.handleClosed());
     this.hostWindow.on("enter-full-screen", () => {
       this.hideOverlay();
@@ -508,8 +510,39 @@ export class TabbedBrowserWindow {
       type === "folder-dropdown" ||
       type === "context-menu" ||
       type === "confirm-dialog" ||
-      type === "name-dialog"
+      type === "name-dialog" ||
+      type === "history-list"
     );
+  }
+
+  private overlayTypeDismissesOnBlur(type: OverlayType | null): boolean {
+    return type === "folder-dropdown" || type === "context-menu" || type === "history-list";
+  }
+
+  private dismissOverlayFromBlur(): void {
+    if (!this.isOverlayVisible()) return;
+    if (!this.overlayTypeDismissesOnBlur(this.overlayType)) return;
+    this.handleOverlayAction({ action: "dismiss-overlay", refocusHost: false });
+  }
+
+  private handleHostWindowBlur(): void {
+    if (this.overlayType !== "history-list") return;
+    setTimeout(() => {
+      if (this.overlayType !== "history-list") return;
+      if (!this.isOverlayVisible()) return;
+
+      const focusedWindow = BrowserWindow.getFocusedWindow();
+      if (
+        focusedWindow &&
+        this.overlayWindow &&
+        !this.overlayWindow.isDestroyed() &&
+        focusedWindow.id === this.overlayWindow.id
+      ) {
+        return;
+      }
+
+      this.dismissOverlayFromBlur();
+    }, 0);
   }
 
   private scheduleOverlayWarmup(): void {
@@ -554,8 +587,15 @@ export class TabbedBrowserWindow {
     this.installOverlayOutsideDismiss();
   }
 
-  hideOverlay(): void {
+  hideOverlay(refocusHost = true): void {
     this.clearOverlayOutsideDismiss();
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    const shouldFocusHost =
+      refocusHost &&
+      (focusedWindow?.id === this.hostWindow.id ||
+        (!!this.overlayWindow &&
+          !this.overlayWindow.isDestroyed() &&
+          focusedWindow?.id === this.overlayWindow.id));
     try {
       if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
         this.overlayWindow.hide();
@@ -565,7 +605,7 @@ export class TabbedBrowserWindow {
     }
     this.overlayBounds = null;
     this.overlayType = null;
-    if (!this.hostWindow.isDestroyed()) {
+    if (shouldFocusHost && !this.hostWindow.isDestroyed()) {
       this.hostWindow.focus();
       this.hostWindow.webContents.focus();
     }
@@ -582,18 +622,16 @@ export class TabbedBrowserWindow {
   private isPointerInsideOverlayWindow(point: Electron.Point): boolean {
     if (!this.overlayWindow || this.overlayWindow.isDestroyed()) return false;
     const b = this.overlayWindow.getBounds();
-    return (
-      point.x >= b.x &&
-      point.x < b.x + b.width &&
-      point.y >= b.y &&
-      point.y < b.y + b.height
-    );
+    return point.x >= b.x && point.x < b.x + b.width && point.y >= b.y && point.y < b.y + b.height;
   }
 
   private tryDismissOverlayFromOutsidePointer(): void {
     if (!this.isOverlayVisible()) return;
     if (this.isPointerInsideOverlayWindow(screen.getCursorScreenPoint())) return;
-    this.handleOverlayAction({ action: "dismiss-overlay" });
+    this.handleOverlayAction({
+      action: "dismiss-overlay",
+      refocusHost: this.overlayType !== "history-list",
+    });
   }
 
   private readonly onOverlayOutsideBeforeInput = (
@@ -675,7 +713,13 @@ export class TabbedBrowserWindow {
     });
 
     win.on("blur", () => {
-      setTimeout(() => this.tryDismissOverlayFromOutsidePointer(), 0);
+      setTimeout(() => {
+        if (this.overlayTypeDismissesOnBlur(this.overlayType)) {
+          this.dismissOverlayFromBlur();
+        } else {
+          this.tryDismissOverlayFromOutsidePointer();
+        }
+      }, 0);
     });
 
     win.on("closed", () => {
@@ -726,17 +770,26 @@ export class TabbedBrowserWindow {
       } catch {
         // ignore
       }
+      this.updateHistoryMetadata(tab);
       sync();
     };
 
     const onFavicon = (_e: Electron.Event, favicons: string[]): void => {
       (tab.view as unknown as { __favicon?: string }).__favicon =
         extractFaviconFromFavicons(favicons);
+      this.updateHistoryMetadata(tab);
+      sync();
+    };
+
+    const onStartLoading = (): void => {
+      this.scheduleOverlayWarmup();
       sync();
     };
 
     const onFinish = (): void => {
       runUserScript(wc);
+      this.recordHistory(tab);
+      this.scheduleOverlayWarmup();
       sync();
     };
 
@@ -745,7 +798,7 @@ export class TabbedBrowserWindow {
       ["did-navigate-in-page", sync],
       ["page-title-updated", onTitle as never],
       ["page-favicon-updated", onFavicon as never],
-      ["did-start-loading", sync],
+      ["did-start-loading", onStartLoading],
       ["did-stop-loading", sync],
       ["did-finish-load", onFinish],
       ["did-fail-load", sync],
@@ -767,6 +820,33 @@ export class TabbedBrowserWindow {
     setupContextMenu(tab.view, {
       onOpenSettings: () => this.addTab("vsgo://settings"),
     });
+  }
+
+  private recordHistory(tab: Tab): void {
+    const wc = tab.view.webContents;
+    if (wc.isDestroyed()) return;
+    const item = this.buildHistoryInput(tab);
+    if (item) browserStore.addHistory(item);
+  }
+
+  private updateHistoryMetadata(tab: Tab): void {
+    const wc = tab.view.webContents;
+    if (wc.isDestroyed()) return;
+    const item = this.buildHistoryInput(tab);
+    if (item) browserStore.updateHistoryMetadata(item);
+  }
+
+  private buildHistoryInput(tab: Tab): { url: string; title: string; favicon: string } | null {
+    const wc = tab.view.webContents;
+    if (wc.isDestroyed()) return null;
+    const displayUrl = toDisplayUrl(wc.getURL()) ?? wc.getURL();
+    const url = displayUrl.trim();
+    if (!url) return null;
+    return {
+      url,
+      title: wc.getTitle() || url,
+      favicon: (tab.view as unknown as { __favicon?: string }).__favicon ?? "",
+    };
   }
 
   private unbindTabEvents(tab: Tab): void {
@@ -886,7 +966,10 @@ export class TabbedBrowserWindow {
 
   private broadcastFullscreen(isFullscreen: boolean): void {
     if (this.closed || this.hostWindow.isDestroyed()) return;
-    this.hostWindow.webContents.send(BrowserWindowEvent.BROWSER_WINDOW_FULLSCREEN_CHANGED, isFullscreen);
+    this.hostWindow.webContents.send(
+      BrowserWindowEvent.BROWSER_WINDOW_FULLSCREEN_CHANGED,
+      isFullscreen
+    );
   }
 }
 

@@ -9,6 +9,10 @@ export function registerBrowserHandlers(): void {
     return browserStore.getList();
   });
 
+  ipcMain.handle(BrowserSettingsEvent.BROWSER_HISTORY_LIST, async () => {
+    return browserStore.getHistory();
+  });
+
   ipcMain.handle(BrowserSettingsEvent.BROWSER_ADD, async (_event, item: BrowserItem) => {
     const list = browserStore.getList();
     const siblings = list.filter((i) => (i.parentId ?? null) === (item.parentId ?? null));
@@ -70,7 +74,10 @@ export function registerBrowserHandlers(): void {
 
   ipcMain.on(
     BrowserOverlayEvent.BROWSER_OVERLAY_SHOW,
-    (e, payload: { bounds: { x: number; y: number; width: number; height: number }; data: unknown }) => {
+    (
+      e,
+      payload: { bounds: { x: number; y: number; width: number; height: number }; data: unknown }
+    ) => {
       const bw = BrowserWindow.fromWebContents(e.sender);
       if (bw) {
         TabbedBrowserWindowManager.showOverlay(bw.id, payload.bounds, payload.data);
@@ -78,14 +85,20 @@ export function registerBrowserHandlers(): void {
     }
   );
 
-  ipcMain.on(BrowserOverlayEvent.BROWSER_OVERLAY_HIDE, (e) => {
-    const bw = BrowserWindow.fromWebContents(e.sender);
-    if (bw) {
-      TabbedBrowserWindowManager.hideOverlay(bw.id);
+  ipcMain.on(
+    BrowserOverlayEvent.BROWSER_OVERLAY_HIDE,
+    (e, payload?: { refocusHost?: boolean }) => {
+      const bw = BrowserWindow.fromWebContents(e.sender);
+      if (bw) {
+        TabbedBrowserWindowManager.hideOverlay(bw.id, payload?.refocusHost !== false);
+      }
     }
-  });
+  );
 
-  ipcMain.on(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, (event, payload: Record<string, unknown>) => {
-    TabbedBrowserWindowManager.handleOverlayAction(event, payload);
-  });
+  ipcMain.on(
+    BrowserOverlayEvent.BROWSER_OVERLAY_ACTION,
+    (event, payload: Record<string, unknown>) => {
+      TabbedBrowserWindowManager.handleOverlayAction(event, payload);
+    }
+  );
 }

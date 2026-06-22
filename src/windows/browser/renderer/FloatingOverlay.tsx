@@ -9,9 +9,11 @@ import {
   FolderAddOutlined,
   StarFilled,
   ExclamationCircleOutlined,
+  HistoryOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import { BrowserOverlayEvent } from "../events";
-import type { BrowserItem, OverlayType } from "@shared/type";
+import type { BrowserHistoryItem, BrowserItem, OverlayType } from "@shared/type";
 import { getOverlayContentInset } from "@shared/type";
 
 const { ipcRenderer } = window.electron;
@@ -191,6 +193,154 @@ const OVERLAY_STYLES = `
   }
   .vsgo-overlay-panel .ant-input-clear-icon {
     cursor: pointer !important;
+  }
+  .vsgo-history-panel {
+    min-width: 0;
+    color: #202124;
+    outline: none;
+  }
+  .vsgo-overlay-card-history-list {
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+  .vsgo-history-panel:focus,
+  .vsgo-history-panel:focus-visible,
+  .vsgo-history-address-input,
+  .vsgo-history-address-input:focus,
+  .vsgo-history-address-input:focus-visible,
+  .vsgo-history-item:focus,
+  .vsgo-history-item:focus-visible {
+    outline: none;
+  }
+  .vsgo-history-address-wrap {
+    height: 28px;
+    padding: 0 12px;
+    border-radius: 18px;
+    background: #fff;
+    border: 1px solid #1a73e8;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 0 0 1px rgba(26,115,232,0.05);
+  }
+  .vsgo-history-address-wrap .anticon {
+    color: #5f6368;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .vsgo-history-address-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: #202124;
+    font-size: 13px;
+    min-width: 0;
+    height: 24px;
+    padding: 0;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .vsgo-history-list-card {
+    margin-top: 6px;
+    padding: 6px 0;
+    background: rgba(255,255,255,0.98);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .vsgo-history-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    padding: 0 18px;
+    color: #5f6368;
+    font-size: 13px;
+    user-select: none;
+  }
+  .vsgo-history-list {
+    max-height: 286px;
+    overflow-y: auto;
+    padding: 2px 0 4px;
+  }
+  .vsgo-history-list::-webkit-scrollbar {
+    width: 8px;
+  }
+  .vsgo-history-list::-webkit-scrollbar-thumb {
+    background: rgba(95,99,104,0.28);
+    border-radius: 8px;
+  }
+  .vsgo-history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 34px;
+    padding: 0 14px;
+    box-sizing: border-box;
+    cursor: pointer;
+    user-select: none;
+  }
+  .vsgo-history-item:hover {
+    background: #f1f3f4;
+  }
+  .vsgo-history-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: #5f6368;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .vsgo-history-icon img {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+  }
+  .vsgo-history-text {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    overflow: hidden;
+  }
+  .vsgo-history-title {
+    min-width: 0;
+    flex: 0 1 auto;
+    max-width: 45%;
+    font-size: 13px;
+    color: #202124;
+    line-height: 16px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .vsgo-history-url {
+    min-width: 0;
+    flex: 1 1 auto;
+    font-size: 11px;
+    color: #5f6368;
+    line-height: 14px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .vsgo-history-highlight {
+    color: #1a73e8;
+    font-weight: 600;
+    background: transparent;
+  }
+  .vsgo-history-empty {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 10px;
+    color: #80868b;
+    font-size: 12px;
+    user-select: none;
   }
 `;
 
@@ -607,13 +757,176 @@ function NameDialogOverlay({ data }: { data: NameDialogData }): React.JSX.Elemen
 }
 
 // ============================================================
+// History List
+// ============================================================
+
+interface HistoryListData {
+  items: BrowserHistoryItem[];
+  query: string;
+}
+
+function historySearchText(item: BrowserHistoryItem): string {
+  const parts = [item.title, item.url];
+  try {
+    const u = new URL(item.url.includes("://") ? item.url : `https://${item.url}`);
+    parts.push(u.hostname, `${u.hostname}${u.pathname}${u.search}`);
+  } catch {
+    // ignore invalid display urls
+  }
+  return parts.join(" ").toLowerCase();
+}
+
+function filterHistoryItems(items: BrowserHistoryItem[], query: string): BrowserHistoryItem[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter((item) => historySearchText(item).includes(q));
+}
+
+function renderHighlightedText(text: string, query: string): React.ReactNode {
+  const q = query.trim();
+  if (!q) return text;
+  const lowerText = text.toLowerCase();
+  const lowerQuery = q.toLowerCase();
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  let index = lowerText.indexOf(lowerQuery);
+
+  while (index !== -1) {
+    if (index > cursor) parts.push(text.slice(cursor, index));
+    const end = index + q.length;
+    parts.push(
+      <mark key={`${index}-${end}`} className="vsgo-history-highlight">
+        {text.slice(index, end)}
+      </mark>
+    );
+    cursor = end;
+    index = lowerText.indexOf(lowerQuery, cursor);
+  }
+
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts;
+}
+
+function HistoryListOverlay({ data }: { data: HistoryListData }): React.JSX.Element {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState(data.query);
+  const items = filterHistoryItems(data.items, query);
+
+  useEffect(() => {
+    setQuery(data.query);
+  }, [data.query]);
+
+  useEffect(() => {
+    inputRef.current?.focus({ preventScroll: true });
+    inputRef.current?.select();
+  }, []);
+
+  const openItem = (item: BrowserHistoryItem, mode: "current" | "new"): void => {
+    sendAction({ action: "select-history-item", url: item.url, mode });
+  };
+
+  const submitQuery = (mode: "current" | "new"): void => {
+    const url = query.trim();
+    if (!url) return;
+    sendAction({ action: "submit-history-address", url, mode });
+  };
+
+  return (
+    <div className="vsgo-history-panel">
+      <div className="vsgo-history-address-wrap">
+        <SearchOutlined />
+        <input
+          ref={inputRef}
+          className="vsgo-history-address-input"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submitQuery(e.shiftKey ? "new" : "current");
+              return;
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              sendAction({ action: "dismiss-overlay", refocusHost: false });
+            }
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          placeholder="搜索 Google 或输入网址"
+          spellCheck={false}
+        />
+      </div>
+      <div
+        className="vsgo-history-list-card"
+        onMouseDown={(e) => {
+          if ((e.target as Element).closest(".vsgo-history-item")) return;
+          sendAction({ action: "dismiss-overlay", refocusHost: false });
+        }}
+      >
+        <div className="vsgo-history-header">
+          <SearchOutlined />
+          <span>{query.trim() ? "历史记录匹配项" : "历史记录"}</span>
+        </div>
+        {items.length === 0 ? (
+          <div className="vsgo-history-empty">
+            <HistoryOutlined />
+            <span>{query.trim() ? "没有匹配的历史记录" : "暂无历史记录"}</span>
+          </div>
+        ) : (
+          <div className="vsgo-history-list">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="vsgo-history-item"
+                title={`${item.title}\n${item.url}`}
+                onMouseDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  openItem(item, e.metaKey || e.ctrlKey ? "new" : "current");
+                }}
+                onAuxClick={(e) => {
+                  if (e.button === 1) {
+                    e.preventDefault();
+                    openItem(item, "new");
+                  }
+                }}
+              >
+                <span className="vsgo-history-icon">
+                  {item.favicon ? (
+                    <img
+                      src={item.favicon}
+                      alt=""
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <HistoryOutlined />
+                  )}
+                </span>
+                <div className="vsgo-history-text">
+                  <div className="vsgo-history-title">
+                    {renderHighlightedText(item.title || item.url, query)}
+                  </div>
+                  <div className="vsgo-history-url">{renderHighlightedText(item.url, query)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Main Overlay
 // ============================================================
 
 function isInteractiveOverlayTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   return !!target.closest(
-    "button, .ant-menu-item:not(.ant-menu-item-disabled), .ant-input-clear-icon, [role='menuitem']"
+    "button, .vsgo-history-item, .ant-menu-item:not(.ant-menu-item-disabled), .ant-input-clear-icon, [role='menuitem']"
   );
 }
 
@@ -686,7 +999,7 @@ export default function FloatingOverlay(): React.JSX.Element {
   const handleRootPointerDownCapture = (e: React.PointerEvent<HTMLDivElement>): void => {
     const card = e.currentTarget.querySelector(".vsgo-overlay-card");
     if (card?.contains(e.target as Node)) return;
-    sendAction({ action: "dismiss-overlay" });
+    sendAction({ action: "dismiss-overlay", refocusHost: content.type !== "history-list" });
   };
 
   let body: React.JSX.Element;
@@ -706,6 +1019,9 @@ export default function FloatingOverlay(): React.JSX.Element {
       break;
     case "name-dialog":
       body = <NameDialogOverlay data={content.data as NameDialogData} />;
+      break;
+    case "history-list":
+      body = <HistoryListOverlay data={content.data as HistoryListData} />;
       break;
     default:
       body = <div />;
