@@ -64,6 +64,206 @@ function countFolderDescendants(items: BrowserItem[], folderId: string): number 
   return count;
 }
 
+function getDefaultBookmarkName(
+  existingBookmark: BrowserItem | undefined,
+  activeTabTitle: string,
+  bookmarkTargetUrl: string
+): string {
+  const title = existingBookmark?.name?.trim() || activeTabTitle?.trim();
+  if (title) return title;
+
+  try {
+    return new URL(bookmarkTargetUrl).hostname || "书签";
+  } catch {
+    return bookmarkTargetUrl || "书签";
+  }
+}
+
+type OverlayActionPayload = { action: string; [key: string]: unknown };
+
+interface OverlayActionContext {
+  handleBookmarkSave: (overlayName?: string) => Promise<void>;
+  handleBookmarkRemove: () => Promise<void>;
+  moveItemToParent: (item: BrowserItem, parentId: string | null) => Promise<void>;
+  deleteBrowserItem: (item: BrowserItem) => Promise<void>;
+  submitAddress: (mode: "current" | "new", url?: string) => void;
+  showOverlay: (type: OverlayType, bounds: OverlayBounds, data: unknown) => void;
+  hideOverlay: () => void;
+  bookmarks: BrowserItem[];
+  bookmarkBarMenu: BookmarkBarMenuState;
+  onBookmarksUpdated: () => Promise<void>;
+  setBookmarkDraftName: (v: string) => void;
+  setBookmarkPopoverOpen: (v: boolean) => void;
+  setBookmarkBarMenu: React.Dispatch<React.SetStateAction<BookmarkBarMenuState>>;
+  setFolderDropdown: React.Dispatch<
+    React.SetStateAction<{ folderId: string; x: number; y: number } | null>
+  >;
+  setNameDialog: React.Dispatch<React.SetStateAction<NameDialogState>>;
+  setConfirmDialog: React.Dispatch<React.SetStateAction<ConfirmDialogState>>;
+}
+
+function closeAllBookmarkOverlays(ctx: OverlayActionContext): void {
+  ctx.setBookmarkPopoverOpen(false);
+  ctx.setBookmarkBarMenu(null);
+  ctx.setFolderDropdown(null);
+  ctx.setNameDialog(null);
+  ctx.setConfirmDialog(null);
+  ctx.hideOverlay();
+}
+
+async function saveNameDialog(
+  dialog: Exclude<NameDialogState, null>,
+  name: string,
+  onBookmarksUpdated: () => Promise<void>
+): Promise<void> {
+  if (dialog.kind === "rename") {
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
+      ...dialog.item,
+      name,
+    } satisfies BrowserItem);
+  } else {
+    await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
+      id: generateId(),
+      name,
+      type: "folder",
+      parentId: dialog.parentId,
+    } satisfies BrowserItem);
+  }
+  await onBookmarksUpdated();
+}
+
+function handleOverlayAction(payload: OverlayActionPayload, ctx: OverlayActionContext): void {
+  switch (payload.action) {
+    case "save-bookmark": {
+      const name = (payload.name as string) || "";
+      if (name) {
+        ctx.setBookmarkDraftName(name);
+        void ctx.handleBookmarkSave(name);
+        ctx.hideOverlay();
+      }
+      break;
+    }
+    case "remove-bookmark": {
+      void ctx.handleBookmarkRemove();
+      ctx.hideOverlay();
+      break;
+    }
+    case "select-folder-item": {
+      const url = payload.url as string;
+      const mode = payload.mode === "new" ? "new" : "current";
+      if (url) ctx.submitAddress(mode, url);
+      ctx.setFolderDropdown(null);
+      ctx.hideOverlay();
+      break;
+    }
+    case "open-item": {
+      const itemId = payload.itemId as string;
+      const mode = payload.mode === "new" ? "new" : "current";
+      const item = ctx.bookmarks.find((b) => b.id === itemId);
+      ctx.setBookmarkBarMenu(null);
+      ctx.hideOverlay();
+      if (item?.url) ctx.submitAddress(mode, item.url);
+      break;
+    }
+    case "rename-item": {
+      const itemId = payload.itemId as string;
+      const itemName = payload.itemName as string;
+      const item = ctx.bookmarks.find((b) => b.id === itemId);
+      if (item) {
+        ctx.setBookmarkBarMenu(null);
+        ctx.setConfirmDialog(null);
+        ctx.setNameDialog({ kind: "rename", item, draft: itemName });
+        ctx.hideOverlay();
+      }
+      break;
+    }
+    case "new-folder": {
+      const parentId = (payload.parentId ?? null) as string | null;
+      ctx.setBookmarkBarMenu(null);
+      ctx.setFolderDropdown(null);
+      ctx.setConfirmDialog(null);
+      ctx.setNameDialog({ kind: "newFolder", parentId, draft: "新文件夹" });
+      ctx.hideOverlay();
+      break;
+    }
+    case "move-item": {
+      const parentId = (payload.parentId ?? null) as string | null;
+      if (ctx.bookmarkBarMenu?.kind === "item") {
+        const item = ctx.bookmarkBarMenu.item;
+        ctx.setBookmarkBarMenu(null);
+        ctx.hideOverlay();
+        void ctx.moveItemToParent(item, parentId).then(() => {
+          ctx.hideOverlay();
+        });
+      }
+      break;
+    }
+    case "delete-item": {
+      if (ctx.bookmarkBarMenu?.kind === "item") {
+        const item = ctx.bookmarkBarMenu.item;
+        ctx.setBookmarkBarMenu(null);
+        ctx.hideOverlay();
+        if (item.type === "folder" && countFolderDescendants(ctx.bookmarks, item.id) > 0) {
+          ctx.setConfirmDialog({ kind: "delete", item });
+        } else {
+          void ctx.deleteBrowserItem(item).then(() => {
+            ctx.hideOverlay();
+          });
+        }
+      }
+      break;
+    }
+    case "confirm-delete": {
+      const itemId = payload.itemId as string;
+      const item = ctx.bookmarks.find((b) => b.id === itemId);
+      ctx.setConfirmDialog(null);
+      ctx.hideOverlay();
+      if (item) {
+        void ctx.deleteBrowserItem(item).then(() => {
+          ctx.hideOverlay();
+        });
+      }
+      break;
+    }
+    case "cancel-confirm": {
+      ctx.setConfirmDialog(null);
+      ctx.hideOverlay();
+      break;
+    }
+    case "commit-name": {
+      const name = (payload.name as string) || "";
+      if (!name) return;
+      ctx.setNameDialog((prev) => {
+        if (!prev) return prev;
+        void saveNameDialog(prev, name, ctx.onBookmarksUpdated);
+        return null;
+      });
+      ctx.hideOverlay();
+      break;
+    }
+    case "close-name-dialog": {
+      ctx.setNameDialog(null);
+      ctx.hideOverlay();
+      break;
+    }
+    case "dismiss-overlay": {
+      closeAllBookmarkOverlays(ctx);
+      break;
+    }
+    case "show-item-context-menu": {
+      const itemId = payload.itemId as string;
+      const found = ctx.bookmarks.find((b) => b.id === itemId);
+      if (found) {
+        const cx = (payload.x as number) + (payload.overlayX as number);
+        const cy = (payload.y as number) + (payload.overlayY as number);
+        ctx.setFolderDropdown(null);
+        ctx.setBookmarkBarMenu({ kind: "item", x: cx, y: cy, item: found });
+      }
+      break;
+    }
+  }
+}
+
 interface BookmarkChromeContextValue {
   bookmarks: BrowserItem[];
   onBookmarksUpdated: () => Promise<void>;
@@ -259,179 +459,18 @@ export function BookmarkChromeProvider({
 
   // 监听来自浮动窗口的用户操作（空依赖数组，只注册一次，通过 ref 读取最新上下文）
   useEffect(() => {
-    const handler = (_e: unknown, payload: { action: string; [key: string]: unknown }): void => {
-      const ctx = overlayActionCtxRef.current;
-      switch (payload.action) {
-        case "save-bookmark": {
-          const name = (payload.name as string) || "";
-          if (name) {
-            ctx.setBookmarkDraftName(name);
-            void ctx.handleBookmarkSave(name);
-            ctx.hideOverlay();
-          }
-          break;
-        }
-        case "remove-bookmark": {
-          void ctx.handleBookmarkRemove();
-          ctx.hideOverlay();
-          break;
-        }
-        case "select-folder-item": {
-          const url = payload.url as string;
-          const mode = payload.mode === "new" ? "new" : "current";
-          if (url) ctx.submitAddress(mode, url);
-          ctx.setFolderDropdown(null);
-          ctx.hideOverlay();
-          break;
-        }
-        case "open-item": {
-          const itemId = payload.itemId as string;
-          const mode = payload.mode === "new" ? "new" : "current";
-          const item = ctx.bookmarks.find((b) => b.id === itemId);
-          ctx.setBookmarkBarMenu(null);
-          ctx.hideOverlay();
-          if (item?.url) ctx.submitAddress(mode, item.url);
-          break;
-        }
-        case "rename-item": {
-          const itemId = payload.itemId as string;
-          const itemName = payload.itemName as string;
-          const item = ctx.bookmarks.find((b) => b.id === itemId);
-          if (item) {
-            ctx.setBookmarkBarMenu(null);
-            ctx.setConfirmDialog(null);
-            ctx.setNameDialog({ kind: "rename", item, draft: itemName });
-            ctx.hideOverlay();
-          }
-          break;
-        }
-        case "new-folder": {
-          const parentId = (payload.parentId ?? null) as string | null;
-          ctx.setBookmarkBarMenu(null);
-          ctx.setFolderDropdown(null);
-          ctx.setConfirmDialog(null);
-          ctx.setNameDialog({ kind: "newFolder", parentId, draft: "新文件夹" });
-          ctx.hideOverlay();
-          break;
-        }
-        case "move-item": {
-          const parentId = (payload.parentId ?? null) as string | null;
-          if (ctx.bookmarkBarMenu?.kind === "item") {
-            const item = ctx.bookmarkBarMenu.item;
-            ctx.setBookmarkBarMenu(null);
-            ctx.hideOverlay();
-            void ctx.moveItemToParent(item, parentId).then(() => {
-              ctx.hideOverlay();
-            });
-          }
-          break;
-        }
-        case "delete-item": {
-          if (ctx.bookmarkBarMenu?.kind === "item") {
-            const item = ctx.bookmarkBarMenu.item;
-            ctx.setBookmarkBarMenu(null);
-            ctx.hideOverlay();
-            if (item.type === "folder" && countFolderDescendants(ctx.bookmarks, item.id) > 0) {
-              ctx.setConfirmDialog({ kind: "delete", item });
-            } else {
-              void ctx.deleteBrowserItem(item).then(() => {
-                ctx.hideOverlay();
-              });
-            }
-          }
-          break;
-        }
-        case "confirm-delete": {
-          const itemId = payload.itemId as string;
-          const item = ctx.bookmarks.find((b) => b.id === itemId);
-          ctx.setConfirmDialog(null);
-          ctx.hideOverlay();
-          if (item) {
-            void ctx.deleteBrowserItem(item).then(() => {
-              ctx.hideOverlay();
-            });
-          }
-          break;
-        }
-        case "cancel-confirm": {
-          ctx.setConfirmDialog(null);
-          ctx.hideOverlay();
-          break;
-        }
-        case "commit-name": {
-          const name = (payload.name as string) || "";
-          if (!name) return;
-          ctx.setNameDialog((prev) => {
-            if (!prev) return prev;
-            if (prev.kind === "rename") {
-              ipcRenderer
-                .invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
-                  ...prev.item,
-                  name,
-                } satisfies BrowserItem)
-                .then(() => {
-                  void ctx.onBookmarksUpdated();
-                });
-              return null;
-            } else {
-              ipcRenderer
-                .invoke(BrowserSettingsEvent.BROWSER_ADD, {
-                  id: generateId(),
-                  name,
-                  type: "folder",
-                  parentId: prev.parentId,
-                } satisfies BrowserItem)
-                .then(() => {
-                  void ctx.onBookmarksUpdated();
-                });
-              return null;
-            }
-          });
-          ctx.hideOverlay();
-          break;
-        }
-        case "close-name-dialog": {
-          ctx.setNameDialog(null);
-          ctx.hideOverlay();
-          break;
-        }
-        case "dismiss-overlay": {
-          ctx.setBookmarkPopoverOpen(false);
-          ctx.setBookmarkBarMenu(null);
-          ctx.setFolderDropdown(null);
-          ctx.setNameDialog(null);
-          ctx.setConfirmDialog(null);
-          ctx.hideOverlay();
-          break;
-        }
-        case "show-item-context-menu": {
-          const itemId = payload.itemId as string;
-          const found = ctx.bookmarks.find((b) => b.id === itemId);
-          if (found) {
-            const cx = (payload.x as number) + (payload.overlayX as number);
-            const cy = (payload.y as number) + (payload.overlayY as number);
-            ctx.setFolderDropdown(null);
-            ctx.setBookmarkBarMenu({ kind: "item", x: cx, y: cy, item: found });
-          }
-          break;
-        }
-      }
+    const handler = (_e: unknown, payload: OverlayActionPayload): void => {
+      handleOverlayAction(payload, overlayActionCtxRef.current);
     };
     ipcRenderer.on(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, handler);
     return () => {
       ipcRenderer.removeListener(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, handler);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    setBookmarkPopoverOpen(false);
-    setFolderDropdown(null);
-    setBookmarkBarMenu(null);
-    setNameDialog(null);
-    setConfirmDialog(null);
-    hideOverlay();
-  }, [activeTabId, hideOverlay]);
+    closeAllBookmarkOverlays(overlayActionCtxRef.current);
+  }, [activeTabId]);
 
   useEffect(() => {
     const onDocMouseDown = (e: MouseEvent): void => {
@@ -450,12 +489,7 @@ export function BookmarkChromeProvider({
         confirmDialog !== null;
       if (!hasOverlay) return;
 
-      if (bookmarkPopoverOpen) setBookmarkPopoverOpen(false);
-      setBookmarkBarMenu(null);
-      setFolderDropdown(null);
-      setNameDialog(null);
-      setConfirmDialog(null);
-      hideOverlay();
+      closeAllBookmarkOverlays(overlayActionCtxRef.current);
     };
     document.addEventListener("mousedown", onDocMouseDown, true);
     return () => document.removeEventListener("mousedown", onDocMouseDown, true);
@@ -469,39 +503,16 @@ export function BookmarkChromeProvider({
   ]);
 
   const initStarDraft = useCallback((): void => {
-    const defaultName =
-      existingBookmark?.name?.trim() ||
-      activeTabTitle?.trim() ||
-      (() => {
-        try {
-          return new URL(bookmarkTargetUrl).hostname;
-        } catch {
-          return bookmarkTargetUrl;
-        }
-      })();
-    setBookmarkDraftName(defaultName || "书签");
+    setBookmarkDraftName(
+      getDefaultBookmarkName(existingBookmark, activeTabTitle, bookmarkTargetUrl)
+    );
   }, [existingBookmark, activeTabTitle, bookmarkTargetUrl]);
 
   const commitNameDialog = useCallback(async (): Promise<void> => {
     if (!nameDialog) return;
-    if (nameDialog.kind === "rename") {
-      const name = nameDialog.draft.trim();
-      if (!name) return;
-      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_UPDATE, {
-        ...nameDialog.item,
-        name,
-      } satisfies BrowserItem);
-    } else {
-      const name = nameDialog.draft.trim();
-      if (!name) return;
-      await ipcRenderer.invoke(BrowserSettingsEvent.BROWSER_ADD, {
-        id: generateId(),
-        name,
-        type: "folder",
-        parentId: nameDialog.parentId,
-      } satisfies BrowserItem);
-    }
-    await onBookmarksUpdated();
+    const name = nameDialog.draft.trim();
+    if (!name) return;
+    await saveNameDialog(nameDialog, name, onBookmarksUpdated);
     setNameDialog(null);
   }, [nameDialog, onBookmarksUpdated]);
 
@@ -600,17 +611,11 @@ export function BookmarkChromeStar(): React.JSX.Element {
       {
         existingBookmark: ctx.existingBookmark,
         bookmarkTargetUrl: ctx.bookmarkTargetUrl,
-        draftName:
-          ctx.existingBookmark?.name?.trim() ||
-          ctx.activeTabTitle?.trim() ||
-          (() => {
-            try {
-              return new URL(ctx.bookmarkTargetUrl).hostname;
-            } catch {
-              return ctx.bookmarkTargetUrl;
-            }
-          })() ||
-          "书签",
+        draftName: getDefaultBookmarkName(
+          ctx.existingBookmark,
+          ctx.activeTabTitle,
+          ctx.bookmarkTargetUrl
+        ),
       }
     );
   }, [ctx]);

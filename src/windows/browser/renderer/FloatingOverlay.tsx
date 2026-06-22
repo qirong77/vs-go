@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { MouseEventHandler } from "react";
 import { ConfigProvider, Input, Menu, theme } from "antd";
 import type { InputRef, MenuProps } from "antd";
 import {
@@ -9,341 +10,15 @@ import {
   FolderAddOutlined,
   StarFilled,
   ExclamationCircleOutlined,
-  HistoryOutlined,
-  SearchOutlined,
 } from "@ant-design/icons";
 import { BrowserOverlayEvent } from "../events";
-import type { BrowserHistoryItem, BrowserItem, OverlayType } from "@shared/type";
+import type { BrowserItem, OverlayType } from "@shared/type";
 import { getOverlayContentInset } from "@shared/type";
+import { OVERLAY_STYLES } from "./FloatingOverlay.styles";
+import HistoryListOverlay from "./HistoryListOverlay";
+import type { HistoryListData } from "./HistoryListOverlay";
 
 const { ipcRenderer } = window.electron;
-
-const OVERLAY_STYLES = `
-  html, body, #root {
-    cursor: default;
-  }
-  .vsgo-overlay-root {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  }
-  .vsgo-overlay-card {
-    animation: vsgoOverlayIn 0.16s ease-out;
-    cursor: default;
-  }
-  .vsgo-overlay-card-context-menu {
-    animation-duration: 0.06s;
-  }
-  .vsgo-overlay-card button,
-  .vsgo-overlay-card .ant-menu-item:not(.ant-menu-item-disabled),
-  .vsgo-overlay-card .ant-menu-item:not(.ant-menu-item-disabled) .ant-menu-title-content,
-  .vsgo-overlay-card .ant-menu-item:not(.ant-menu-item-disabled) .anticon {
-    cursor: pointer !important;
-  }
-  @keyframes vsgoOverlayIn {
-    from { opacity: 0; transform: translateY(-3px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .vsgo-overlay-panel {
-    padding: 10px 12px 8px;
-    min-width: 0;
-  }
-  .vsgo-overlay-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #202124;
-    margin-bottom: 8px;
-    user-select: none;
-  }
-  .vsgo-overlay-header-icon {
-    color: #f5b400;
-    font-size: 14px;
-  }
-  .vsgo-bookmark-name-input.ant-input {
-    border-radius: 6px;
-    font-size: 12px;
-  }
-  .vsgo-bookmark-url {
-    margin-top: 6px;
-    padding: 4px 6px;
-    font-size: 10px;
-    line-height: 1.4;
-    color: #5f6368;
-    background: #f1f3f4;
-    border-radius: 6px;
-    word-break: break-all;
-    user-select: text;
-  }
-  .vsgo-overlay-footer {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 10px;
-  }
-  .vsgo-overlay-footer-spacer {
-    flex: 1;
-  }
-  .vsgo-overlay-btn {
-    border: none;
-    background: transparent;
-    font-size: 12px;
-    line-height: 1;
-    padding: 4px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background 0.12s ease, color 0.12s ease;
-    user-select: none;
-  }
-  .vsgo-overlay-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
-  }
-  .vsgo-overlay-btn-danger {
-    color: #d93025;
-  }
-  .vsgo-overlay-btn-danger:hover:not(:disabled) {
-    background: #fce8e6;
-  }
-  .vsgo-overlay-btn-ghost {
-    color: #5f6368;
-  }
-  .vsgo-overlay-btn-ghost:hover:not(:disabled) {
-    background: #f1f3f4;
-  }
-  .vsgo-overlay-btn-primary {
-    color: #fff;
-    background: #1a73e8;
-    font-weight: 500;
-  }
-  .vsgo-overlay-btn-primary:hover:not(:disabled) {
-    background: #1765cc;
-  }
-  .vsgo-overlay-menu.ant-menu {
-    padding: 2px;
-    background: transparent;
-    max-height: inherit;
-    overflow-y: auto;
-  }
-  .vsgo-overlay-menu.ant-menu .ant-menu-item,
-  .vsgo-overlay-menu.ant-menu .ant-menu-submenu-title {
-    cursor: pointer;
-    border-radius: 4px;
-    margin: 0;
-    width: 100%;
-    min-height: 28px;
-    height: 28px;
-    line-height: 28px;
-    padding-inline: 8px !important;
-    font-size: 12px;
-    transition: background 0.12s ease;
-  }
-  .vsgo-overlay-menu.ant-menu .ant-menu-item-disabled {
-    cursor: default;
-  }
-  .vsgo-overlay-menu.ant-menu .ant-menu-item-disabled:hover {
-    background: transparent !important;
-  }
-  .vsgo-overlay-menu.ant-menu .ant-menu-item-group-title {
-    font-size: 10px;
-    color: #80868b;
-    padding: 4px 8px 2px;
-    line-height: 1.2;
-  }
-  .vsgo-overlay-menu.ant-menu .ant-menu-item-group-list {
-    padding: 0;
-  }
-  .vsgo-overlay-menu.ant-menu .ant-menu-item-group-list .ant-menu-item {
-    cursor: pointer;
-  }
-  .vsgo-confirm-message {
-    color: #3c4043;
-    font-size: 12px;
-    line-height: 1.5;
-    margin-top: 4px;
-    word-break: break-word;
-  }
-  .vsgo-folder-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: #80868b;
-    font-size: 12px;
-    user-select: none;
-  }
-  .vsgo-bookmark-item-label {
-    display: block;
-    font-size: 12px;
-    color: #202124;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 220px;
-  }
-  .vsgo-name-dialog-title {
-    font-weight: 600;
-    font-size: 13px;
-    margin-bottom: 8px;
-    color: #202124;
-    user-select: none;
-  }
-  .vsgo-overlay-panel .ant-input,
-  .vsgo-overlay-panel .ant-input-affix-wrapper {
-    cursor: text !important;
-  }
-  .vsgo-overlay-panel .ant-input-clear-icon {
-    cursor: pointer !important;
-  }
-  .vsgo-history-panel {
-    min-width: 0;
-    color: #202124;
-    outline: none;
-  }
-  .vsgo-overlay-card-history-list {
-    background: transparent !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-  }
-  .vsgo-history-panel:focus,
-  .vsgo-history-panel:focus-visible,
-  .vsgo-history-address-input,
-  .vsgo-history-address-input:focus,
-  .vsgo-history-address-input:focus-visible,
-  .vsgo-history-item:focus,
-  .vsgo-history-item:focus-visible {
-    outline: none;
-  }
-  .vsgo-history-address-wrap {
-    height: 28px;
-    padding: 0 12px;
-    border-radius: 18px;
-    background: #fff;
-    border: 1px solid #1a73e8;
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 0 0 1px rgba(26,115,232,0.05);
-  }
-  .vsgo-history-address-wrap .anticon {
-    color: #5f6368;
-    font-size: 13px;
-    flex-shrink: 0;
-  }
-  .vsgo-history-address-input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    color: #202124;
-    font-size: 13px;
-    min-width: 0;
-    height: 24px;
-    padding: 0;
-    user-select: text;
-    -webkit-user-select: text;
-  }
-  .vsgo-history-list-card {
-    margin-top: 6px;
-    padding: 6px 0;
-    background: rgba(255,255,255,0.98);
-    border-radius: 10px;
-    box-shadow: 0 3px 10px rgba(60,64,67,0.12), 0 0 0 1px rgba(60,64,67,0.06);
-    overflow: hidden;
-  }
-  .vsgo-history-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 30px;
-    padding: 0 18px;
-    color: #5f6368;
-    font-size: 13px;
-    user-select: none;
-  }
-  .vsgo-history-list {
-    max-height: 286px;
-    overflow-y: auto;
-    padding: 2px 0 4px;
-  }
-  .vsgo-history-list::-webkit-scrollbar {
-    width: 8px;
-  }
-  .vsgo-history-list::-webkit-scrollbar-thumb {
-    background: rgba(95,99,104,0.28);
-    border-radius: 8px;
-  }
-  .vsgo-history-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: 34px;
-    padding: 0 14px;
-    box-sizing: border-box;
-    cursor: pointer;
-    user-select: none;
-  }
-  .vsgo-history-item:hover {
-    background: #f1f3f4;
-  }
-  .vsgo-history-icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    color: #5f6368;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .vsgo-history-icon img {
-    width: 16px;
-    height: 16px;
-    border-radius: 2px;
-  }
-  .vsgo-history-text {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1;
-    overflow: hidden;
-  }
-  .vsgo-history-title {
-    min-width: 0;
-    flex: 0 1 auto;
-    max-width: 45%;
-    font-size: 13px;
-    color: #202124;
-    line-height: 16px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  .vsgo-history-url {
-    min-width: 0;
-    flex: 1 1 auto;
-    font-size: 11px;
-    color: #5f6368;
-    line-height: 14px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  .vsgo-history-highlight {
-    color: #1a73e8;
-    font-weight: 600;
-    background: transparent;
-  }
-  .vsgo-history-empty {
-    height: 40px;
-    display: flex;
-    align-items: center;
-    padding: 0 14px;
-    gap: 10px;
-    color: #80868b;
-    font-size: 12px;
-    user-select: none;
-  }
-`;
 
 interface OverlayContentPayload {
   type: OverlayType;
@@ -352,6 +27,35 @@ interface OverlayContentPayload {
 
 function sendAction(action: Record<string, unknown>): void {
   ipcRenderer.send(BrowserOverlayEvent.BROWSER_OVERLAY_ACTION, action);
+}
+
+function useSyncedDraft(
+  initialValue: string
+): [string, React.Dispatch<React.SetStateAction<string>>] {
+  const [value, setValue] = useState(initialValue);
+
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+
+  return [value, setValue];
+}
+
+function useAutoSelectInput(inputRef: React.RefObject<InputRef | null>): void {
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.input?.select();
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [inputRef]);
+}
+
+function preventDefaultThen(action: () => void): MouseEventHandler<HTMLButtonElement> {
+  return (event) => {
+    event.preventDefault();
+    action();
+  };
 }
 
 // ============================================================
@@ -365,20 +69,9 @@ interface BookmarkStarData {
 }
 
 function BookmarkStarOverlay({ data }: { data: BookmarkStarData }): React.JSX.Element {
-  const [name, setName] = useState(data.draftName);
+  const [name, setName] = useSyncedDraft(data.draftName);
   const inputRef = useRef<InputRef>(null);
-
-  useEffect(() => {
-    setName(data.draftName);
-  }, [data.draftName]);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      inputRef.current?.focus();
-      inputRef.current?.input?.select();
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, []);
+  useAutoSelectInput(inputRef);
 
   const hasExisting = !!data.existingBookmark;
   const trimmed = name.trim();
@@ -412,10 +105,7 @@ function BookmarkStarOverlay({ data }: { data: BookmarkStarData }): React.JSX.El
           <button
             type="button"
             className="vsgo-overlay-btn vsgo-overlay-btn-danger"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              sendAction({ action: "remove-bookmark" });
-            }}
+            onMouseDown={preventDefaultThen(() => sendAction({ action: "remove-bookmark" }))}
           >
             删除
           </button>
@@ -425,10 +115,7 @@ function BookmarkStarOverlay({ data }: { data: BookmarkStarData }): React.JSX.El
           type="button"
           className="vsgo-overlay-btn vsgo-overlay-btn-primary"
           disabled={!trimmed}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            save();
-          }}
+          onMouseDown={preventDefaultThen(save)}
         >
           完成
         </button>
@@ -660,20 +347,16 @@ function ConfirmDialogOverlay({ data }: { data: ConfirmDialogData }): React.JSX.
         <button
           type="button"
           className="vsgo-overlay-btn vsgo-overlay-btn-ghost"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            sendAction({ action: "cancel-confirm" });
-          }}
+          onMouseDown={preventDefaultThen(() => sendAction({ action: "cancel-confirm" }))}
         >
           取消
         </button>
         <button
           type="button"
           className="vsgo-overlay-btn vsgo-overlay-btn-danger"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            sendAction({ action: "confirm-delete", itemId: data.itemId });
-          }}
+          onMouseDown={preventDefaultThen(() =>
+            sendAction({ action: "confirm-delete", itemId: data.itemId })
+          )}
         >
           {data.confirmText}
         </button>
@@ -693,21 +376,10 @@ interface NameDialogData {
 }
 
 function NameDialogOverlay({ data }: { data: NameDialogData }): React.JSX.Element {
-  const [name, setName] = useState(data.draft);
+  const [name, setName] = useSyncedDraft(data.draft);
   const inputRef = useRef<InputRef>(null);
   const title = data.kind === "rename" ? "重命名" : "新建文件夹";
-
-  useEffect(() => {
-    setName(data.draft);
-  }, [data.draft]);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      inputRef.current?.focus();
-      inputRef.current?.input?.select();
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, []);
+  useAutoSelectInput(inputRef);
 
   const trimmed = name.trim();
   const commit = (): void => {
@@ -734,10 +406,7 @@ function NameDialogOverlay({ data }: { data: NameDialogData }): React.JSX.Elemen
         <button
           type="button"
           className="vsgo-overlay-btn vsgo-overlay-btn-ghost"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            sendAction({ action: "close-name-dialog" });
-          }}
+          onMouseDown={preventDefaultThen(() => sendAction({ action: "close-name-dialog" }))}
         >
           取消
         </button>
@@ -745,373 +414,10 @@ function NameDialogOverlay({ data }: { data: NameDialogData }): React.JSX.Elemen
           type="button"
           className="vsgo-overlay-btn vsgo-overlay-btn-primary"
           disabled={!trimmed}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            commit();
-          }}
+          onMouseDown={preventDefaultThen(commit)}
         >
           确定
         </button>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// History List
-// ============================================================
-
-interface HistoryListData {
-  items: BrowserHistoryItem[];
-  query: string;
-}
-
-function normalizeSearchValue(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFKC")
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .trim();
-}
-
-function compactSearchValue(value: string): string {
-  return normalizeSearchValue(value).replace(/[^\da-z\u00c0-\uffff]+/gi, "");
-}
-
-function parseSearchTokens(query: string): string[] {
-  const tokens = normalizeSearchValue(query)
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter(Boolean);
-  return Array.from(new Set(tokens));
-}
-
-interface HistorySearchFields {
-  title: string;
-  url: string;
-  urlWithoutProtocol: string;
-  urlWithoutWww: string;
-  host: string;
-  hostWithoutWww: string;
-  path: string;
-  decodedUrl: string;
-  combined: string;
-  compactCombined: string;
-}
-
-function stripProtocol(value: string): string {
-  return value.replace(/^[a-z][a-z\d+.-]*:\/\//i, "");
-}
-
-function stripWww(value: string): string {
-  return value.replace(/^www\./i, "");
-}
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-function buildHistorySearchFields(item: BrowserHistoryItem): HistorySearchFields {
-  const rawTitle = item.title || "";
-  const rawUrl = item.url || "";
-  const urlWithoutProtocol = stripProtocol(rawUrl);
-  const urlWithoutWww = stripWww(urlWithoutProtocol);
-  let host = "";
-  let path = "";
-
-  try {
-    const u = new URL(rawUrl.includes("://") ? rawUrl : `https://${rawUrl}`);
-    host = u.hostname;
-    path = `${u.pathname}${u.search}${u.hash}`;
-  } catch {
-    const [fallbackHost, ...rest] = urlWithoutProtocol.split("/");
-    host = fallbackHost || "";
-    path = rest.join("/");
-  }
-
-  const hostWithoutWww = stripWww(host);
-  const decodedUrl = safeDecode(rawUrl);
-  const pathAsWords = path.replace(/[\-_.~/%?&=#+]+/g, " ");
-  const combined = [
-    rawTitle,
-    rawUrl,
-    urlWithoutProtocol,
-    urlWithoutWww,
-    decodedUrl,
-    host,
-    hostWithoutWww,
-    path,
-    pathAsWords,
-  ]
-    .map(normalizeSearchValue)
-    .join(" ");
-
-  return {
-    title: normalizeSearchValue(rawTitle),
-    url: normalizeSearchValue(rawUrl),
-    urlWithoutProtocol: normalizeSearchValue(urlWithoutProtocol),
-    urlWithoutWww: normalizeSearchValue(urlWithoutWww),
-    host: normalizeSearchValue(host),
-    hostWithoutWww: normalizeSearchValue(hostWithoutWww),
-    path: normalizeSearchValue(path),
-    decodedUrl: normalizeSearchValue(decodedUrl),
-    combined,
-    compactCombined: compactSearchValue(combined),
-  };
-}
-
-function tokenMatchesFields(token: string, fields: HistorySearchFields): boolean {
-  if (fields.combined.includes(token)) return true;
-  const compactToken = compactSearchValue(token);
-  return !!compactToken && fields.compactCombined.includes(compactToken);
-}
-
-function orderedTokenBonus(tokens: string[], fields: HistorySearchFields): number {
-  if (tokens.length <= 1) return 0;
-  let cursor = 0;
-  for (const token of tokens) {
-    const index = fields.combined.indexOf(token, cursor);
-    if (index === -1) return 0;
-    cursor = index + token.length;
-  }
-  return 35;
-}
-
-function scoreHistoryItem(
-  item: BrowserHistoryItem,
-  tokens: string[],
-  rawQuery: string,
-  fields: HistorySearchFields,
-  strict: boolean
-): number {
-  const query = normalizeSearchValue(rawQuery);
-  let score = strict ? 120 : 20;
-
-  if (query) {
-    if (fields.title === query) score += 180;
-    if (fields.hostWithoutWww === query || fields.host === query) score += 170;
-    if (fields.urlWithoutWww === query || fields.urlWithoutProtocol === query || fields.url === query) {
-      score += 150;
-    }
-    if (fields.title.includes(query)) score += 90;
-    if (fields.hostWithoutWww.includes(query) || fields.host.includes(query)) score += 85;
-    if (fields.urlWithoutWww.includes(query) || fields.urlWithoutProtocol.includes(query)) score += 70;
-    if (fields.path.includes(query)) score += 35;
-  }
-
-  for (const token of tokens) {
-    if (fields.title === token) score += 80;
-    else if (fields.title.startsWith(token)) score += 55;
-    else if (fields.title.includes(token)) score += 42;
-
-    if (fields.hostWithoutWww === token || fields.host === token) score += 75;
-    else if (fields.hostWithoutWww.startsWith(token) || fields.host.startsWith(token)) score += 60;
-    else if (fields.hostWithoutWww.includes(token) || fields.host.includes(token)) score += 48;
-
-    if (fields.urlWithoutWww.startsWith(token) || fields.urlWithoutProtocol.startsWith(token)) score += 42;
-    else if (fields.urlWithoutWww.includes(token) || fields.urlWithoutProtocol.includes(token)) score += 32;
-
-    if (fields.path.includes(token)) score += 20;
-    if (fields.decodedUrl.includes(token)) score += 12;
-
-    const compactToken = compactSearchValue(token);
-    if (compactToken && fields.compactCombined.includes(compactToken)) score += 10;
-  }
-
-  score += orderedTokenBonus(tokens, fields);
-  score += Math.min(item.visitCount || 0, 20);
-  const daysSinceVisit = Math.floor(Math.max(Date.now() - (item.lastVisit || 0), 0) / 86_400_000);
-  score += Math.max(0, 14 - daysSinceVisit);
-  return score;
-}
-
-function filterHistoryItems(items: BrowserHistoryItem[], query: string): BrowserHistoryItem[] {
-  const tokens = parseSearchTokens(query);
-  if (tokens.length === 0) return items;
-
-  const scored = items.map((item) => {
-    const fields = buildHistorySearchFields(item);
-    const matchedCount = tokens.filter((token) => tokenMatchesFields(token, fields)).length;
-    return {
-      item,
-      fields,
-      matchedCount,
-      strict: matchedCount === tokens.length,
-    };
-  });
-
-  const strictMatches = scored.filter((entry) => entry.strict);
-  const candidates = strictMatches.length > 0 ? strictMatches : scored.filter((entry) => entry.matchedCount > 0);
-
-  return candidates
-    .map((entry) => ({
-      item: entry.item,
-      score:
-        scoreHistoryItem(entry.item, tokens, query, entry.fields, entry.strict) + entry.matchedCount * 30,
-    }))
-    .sort((a, b) => b.score - a.score || (b.item.lastVisit || 0) - (a.item.lastVisit || 0))
-    .map((entry) => entry.item);
-}
-
-function highlightRanges(text: string, tokens: string[]): Array<{ start: number; end: number }> {
-  const lowerText = text.toLowerCase();
-  const ranges: Array<{ start: number; end: number }> = [];
-
-  for (const token of tokens.sort((a, b) => b.length - a.length)) {
-    if (!token) continue;
-    let index = lowerText.indexOf(token);
-    while (index !== -1) {
-      ranges.push({ start: index, end: index + token.length });
-      index = lowerText.indexOf(token, index + token.length);
-    }
-  }
-
-  if (ranges.length === 0) return ranges;
-  ranges.sort((a, b) => a.start - b.start || b.end - a.end);
-  const merged: Array<{ start: number; end: number }> = [];
-  for (const range of ranges) {
-    const last = merged[merged.length - 1];
-    if (!last || range.start > last.end) {
-      merged.push({ ...range });
-    } else {
-      last.end = Math.max(last.end, range.end);
-    }
-  }
-  return merged;
-}
-
-function renderHighlightedText(text: string, query: string): React.ReactNode {
-  const tokens = parseSearchTokens(query);
-  if (tokens.length === 0) return text;
-  const ranges = highlightRanges(text, tokens);
-  if (ranges.length === 0) return text;
-
-  const parts: React.ReactNode[] = [];
-  let cursor = 0;
-  for (const range of ranges) {
-    if (range.start > cursor) parts.push(text.slice(cursor, range.start));
-    parts.push(
-      <mark key={`${range.start}-${range.end}`} className="vsgo-history-highlight">
-        {text.slice(range.start, range.end)}
-      </mark>
-    );
-    cursor = range.end;
-  }
-  if (cursor < text.length) parts.push(text.slice(cursor));
-  return parts;
-}
-
-function HistoryListOverlay({ data }: { data: HistoryListData }): React.JSX.Element {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [query, setQuery] = useState(data.query);
-  const items = filterHistoryItems(data.items, query);
-
-  useEffect(() => {
-    setQuery(data.query);
-  }, [data.query]);
-
-  useEffect(() => {
-    inputRef.current?.focus({ preventScroll: true });
-    inputRef.current?.select();
-  }, []);
-
-  const openItem = (item: BrowserHistoryItem, mode: "current" | "new"): void => {
-    sendAction({ action: "select-history-item", url: item.url, mode });
-  };
-
-  const submitQuery = (mode: "current" | "new"): void => {
-    const url = query.trim();
-    if (!url) return;
-    sendAction({ action: "submit-history-address", url, mode });
-  };
-
-  return (
-    <div className="vsgo-history-panel">
-      <div className="vsgo-history-address-wrap">
-        <SearchOutlined />
-        <input
-          ref={inputRef}
-          className="vsgo-history-address-input"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              submitQuery(e.shiftKey ? "new" : "current");
-              return;
-            }
-            if (e.key === "Escape") {
-              e.preventDefault();
-              sendAction({ action: "dismiss-overlay", refocusHost: false });
-            }
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          placeholder="搜索 Google 或输入网址"
-          spellCheck={false}
-        />
-      </div>
-      <div
-        className="vsgo-history-list-card"
-        onMouseDown={(e) => {
-          if ((e.target as Element).closest(".vsgo-history-item")) return;
-          sendAction({ action: "dismiss-overlay", refocusHost: false });
-        }}
-      >
-        <div className="vsgo-history-header">
-          <SearchOutlined />
-          <span>{query.trim() ? "历史记录匹配项" : "历史记录"}</span>
-        </div>
-        {items.length === 0 ? (
-          <div className="vsgo-history-empty">
-            <HistoryOutlined />
-            <span>{query.trim() ? "没有匹配的历史记录" : "暂无历史记录"}</span>
-          </div>
-        ) : (
-          <div className="vsgo-history-list">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="vsgo-history-item"
-                title={`${item.title}\n${item.url}`}
-                onMouseDown={(e) => {
-                  if (e.button !== 0) return;
-                  e.preventDefault();
-                  openItem(item, e.metaKey || e.ctrlKey ? "new" : "current");
-                }}
-                onAuxClick={(e) => {
-                  if (e.button === 1) {
-                    e.preventDefault();
-                    openItem(item, "new");
-                  }
-                }}
-              >
-                <span className="vsgo-history-icon">
-                  {item.favicon ? (
-                    <img
-                      src={item.favicon}
-                      alt=""
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <HistoryOutlined />
-                  )}
-                </span>
-                <div className="vsgo-history-text">
-                  <div className="vsgo-history-title">
-                    {renderHighlightedText(item.title || item.url, query)}
-                  </div>
-                  <div className="vsgo-history-url">{renderHighlightedText(item.url, query)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1219,7 +525,7 @@ export default function FloatingOverlay(): React.JSX.Element {
       body = <NameDialogOverlay data={content.data as NameDialogData} />;
       break;
     case "history-list":
-      body = <HistoryListOverlay data={content.data as HistoryListData} />;
+      body = <HistoryListOverlay data={content.data as HistoryListData} onAction={sendAction} />;
       break;
     default:
       body = <div />;
