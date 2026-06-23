@@ -2,6 +2,7 @@ import contextMenu from "electron-context-menu";
 import { BrowserWindow, WebContentsView } from "electron";
 import { createCookieManagerWindow } from "@windows/cookie-manager/electron";
 import { createUserNotesWindow } from "@windows/user-notes/electron";
+import { TabbedBrowserWindowManager } from "@windows/browser/electron/TabbedBrowserWindowManager";
 
 export interface ContextMenuOptions {
   /** 若提供，则在右键菜单中追加"设置"项 */
@@ -32,11 +33,7 @@ export function setupContextMenu(
       {
         label: "查看保存的 Cookie",
         click: () => {
-          let currentUrl = "";
-          if ("webContents" in browserWindow) {
-            currentUrl = (browserWindow as BrowserWindow).webContents.getURL();
-          }
-          createCookieManagerWindow(currentUrl);
+          createCookieManagerWindow(TabbedBrowserWindowManager.getLastFocusedActiveUrl());
         },
       },
       {

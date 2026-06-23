@@ -46,6 +46,11 @@ class Manager {
     return this.windows.find((w) => !w.isDestroyed);
   }
 
+  /** 取最近聚焦窗口当前激活标签页 URL；若没有返回空字符串 */
+  getLastFocusedActiveUrl(): string {
+    return this.getLastFocusedWindow()?.getActiveUrl() ?? "";
+  }
+
   /** 根据 host BrowserWindow.id 查找对应 TabbedBrowserWindow */
   findByHostId(hostId: number): TabbedBrowserWindow | undefined {
     return this.windows.find((w) => !w.isDestroyed && w.hostWindow.id === hostId);

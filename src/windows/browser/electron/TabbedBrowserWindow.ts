@@ -419,6 +419,12 @@ export class TabbedBrowserWindow {
     return this.tabs.find((t) => t.id === this.activeTabId);
   }
 
+  getActiveUrl(): string {
+    const wc = this.getActiveTab()?.view.webContents;
+    if (!wc || wc.isDestroyed()) return "";
+    return toDisplayUrl(wc.getURL()) ?? wc.getURL();
+  }
+
   hasTab(tabId: string): boolean {
     return this.tabs.some((t) => t.id === tabId);
   }
