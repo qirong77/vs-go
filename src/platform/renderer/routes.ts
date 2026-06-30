@@ -4,6 +4,7 @@ import CookieManager from "@windows/cookie-manager/renderer/CookieManager";
 import TabbedBrowser from "@windows/browser/renderer/TabbedBrowser";
 import Settings from "@windows/settings/renderer/Settings";
 import LogViewer from "@windows/log-viewer/renderer/LogViewer";
+import Terminal from "@windows/terminal/renderer/Terminal";
 import FloatingOverlay from "@windows/browser/renderer/FloatingOverlay";
 
 /** hash 路由 → 根组件（与各窗口 createSubWindow 的 hash 一致） */
@@ -13,6 +14,7 @@ export const RENDERER_ROUTES: Record<string, FC> = {
   "tabbed-browser": TabbedBrowser,
   settings: Settings,
   "log-viewer": LogViewer,
+  terminal: Terminal,
   "floating-overlay": FloatingOverlay,
 };
 

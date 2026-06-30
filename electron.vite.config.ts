@@ -65,7 +65,10 @@ export default defineConfig(({ mode }) => {
       root: resolve(__dirname, "src/platform/renderer"),
       build: {
         rollupOptions: {
-          input: resolve(__dirname, "src/platform/renderer/index.html"),
+          input: {
+            index: resolve(__dirname, "src/platform/renderer/index.html"),
+            terminal: resolve(__dirname, "src/platform/renderer/terminal.html"),
+          },
         },
       },
       resolve: {

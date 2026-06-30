@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { is } from "@electron-toolkit/utils";
 import { createSettingsWindow } from "@windows/settings/electron";
 import { createLogWindow } from "@windows/log-viewer/electron";
+import { createTerminalWindow } from "@windows/terminal/electron";
 
 const thisFile = fileURLToPath(import.meta.url);
 const outDir = path.resolve(path.dirname(thisFile), "..");
@@ -28,6 +29,10 @@ export function initTray(): void {
     {
       label: "日志",
       click: () => createLogWindow(),
+    },
+    {
+      label: "终端",
+      click: () => createTerminalWindow(),
     },
     { type: "separator" },
     {
