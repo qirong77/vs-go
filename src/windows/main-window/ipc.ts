@@ -29,7 +29,7 @@ export function registerFileHandlers(): void {
 
     fileAccessStore.updateAccessTime(filePath);
 
-    if (filePath.includes("Applications")) {
+    if (filePath.includes("Applications") || filePath.endsWith(".app")) {
       exec(`open "${filePath}"`, (error) => {
         if (error) dialog.showErrorBox("打开应用失败", error.message);
       });

@@ -12,6 +12,10 @@ import { fileAccessStore } from "../store";
 let filesCache: IMainWindowFiles | null = null;
 let refreshPromise: Promise<IMainWindowFiles> | null = null;
 
+/** 访问被系统拒绝的路径冷却，避免每次唤起搜索窗都再次触发权限弹窗 */
+const ACCESS_DENIED_COOLDOWN_MS = 10 * 60 * 1000;
+const accessDeniedUntil = new Map<string, number>();
+
 export function getMainWindowFilesCache(): IMainWindowFiles | null {
   return filesCache;
 }
@@ -58,23 +62,77 @@ async function buildMainWindowFiles(): Promise<IMainWindowFiles> {
   }));
 }
 
-function getWorkSpaceFiles(): IMainWindowFiles {
-  return vsGoConfig.workSpaceDirectories.flatMap((dir) => {
-    if (!existsSync(dir)) return [];
-    return getSubDirectory(dir).flatMap((subDir) => [
+function isAccessDenied(dir: string): boolean {
+  const until = accessDeniedUntil.get(dir);
+  return until != null && Date.now() < until;
+}
+
+function markAccessDenied(dir: string): void {
+  accessDeniedUntil.set(dir, Date.now() + ACCESS_DENIED_COOLDOWN_MS);
+}
+
+function clearAccessDenied(dir: string): void {
+  accessDeniedUntil.delete(dir);
+}
+
+function isPermissionError(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error.code === "EPERM" || error.code === "EACCES")
+  );
+}
+
+function entriesForWorkspaceItem(subDir: string): IMainWindowFiles {
+  const fileName = basename(subDir);
+
+  // 桌面/目录下的 .app：只提供启动入口，不生成编辑器入口
+  if (fileName.endsWith(".app")) {
+    return [
       {
-        fileName: basename(subDir),
-        filePath: subDir,
-        iconBase64: finderBase64,
-        useAppBase64: vscodeBase64,
-      },
-      {
-        fileName: basename(subDir),
+        fileName,
         filePath: subDir,
         iconBase64: finderBase64,
         useAppBase64: "",
       },
-    ]);
+    ];
+  }
+
+  return [
+    {
+      fileName,
+      filePath: subDir,
+      iconBase64: finderBase64,
+      useAppBase64: vscodeBase64,
+    },
+    {
+      fileName,
+      filePath: subDir,
+      iconBase64: finderBase64,
+      useAppBase64: "",
+    },
+  ];
+}
+
+function getWorkSpaceFiles(): IMainWindowFiles {
+  return vsGoConfig.workSpaceDirectories.flatMap((dir) => {
+    if (isAccessDenied(dir)) return [];
+
+    try {
+      if (!existsSync(dir)) return [];
+      const subDirs = getSubDirectory(dir);
+      clearAccessDenied(dir);
+      return subDirs.flatMap(entriesForWorkspaceItem);
+    } catch (error) {
+      if (isPermissionError(error)) {
+        markAccessDenied(dir);
+        console.warn(`Workspace directory access denied (cooldown): ${dir}`);
+      } else {
+        console.error(`Failed to list workspace directory: ${dir}`, error);
+      }
+      return [];
+    }
   });
 }
 
