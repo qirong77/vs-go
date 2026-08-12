@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "VsGo Cookie & Storage Sync",
+  "version": "1.0.0",
+  "description": "自动同步 Chrome 的 Cookie 与 localStorage 到 VsGo tabbed browser，让 VsGo 浏览器直接复用 Chrome 的登录态与缓存数据。",
+  "permissions": ["cookies", "storage", "tabs", "scripting", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "VsGo 同步"
+  }
+}

@@ -11,6 +11,7 @@ import { registerSettingsHandlers } from "@windows/app-setting/ipc";
 import { registerWindowScriptHandlers } from "@windows/script-editor/ipc";
 import { registerLogHandlers } from "@platform/log/ipc";
 import { startWorkspaceAppChecker } from "@windows/app-setting/workspace-app";
+import { startChromeSyncServer, loadSnapshotAndApply } from "@windows/browser/electron/chrome-sync-server";
 
 configureMacOsLauncherApp();
 
@@ -24,6 +25,9 @@ app.whenReady().then(async () => {
   registerSettingsHandlers();
   registerWindowScriptHandlers();
   registerLogHandlers();
+
+  startChromeSyncServer();
+  void loadSnapshotAndApply();
 
   registerGlobalShortcuts();
   initTray();

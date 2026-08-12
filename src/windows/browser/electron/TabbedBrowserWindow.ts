@@ -28,6 +28,7 @@ import {
 } from "@platform/electron/macosWorkspace";
 import { windowScriptStore } from "@windows/script-editor/store";
 import { browserStore } from "../store";
+import { injectLocalStorageForWebContents } from "./chrome-sync-server";
 
 // ============================================================
 // 全局会话设置：一次性去掉 X-Frame-Options / 放宽 CSP，允许嵌入常见页面。
@@ -794,6 +795,7 @@ export class TabbedBrowserWindow {
 
     const onFinish = (): void => {
       runUserScript(wc);
+      injectLocalStorageForWebContents(wc);
       this.recordHistory(tab);
       this.scheduleOverlayWarmup();
       sync();

@@ -135,5 +135,8 @@ dist
 # 
 .DS_Store
 
+# Chrome 同步快照（含敏感 cookie / localStorage 数据，不应提交）
+chrome-sync/
+
 autoLogin.ts
 src/preload/PreloadComponent/autoLogin.ts

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>VsGo 同步</title>
+    <style>
+      body {
+        width: 320px;
+        margin: 0;
+        padding: 16px;
+        font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+        font-size: 13px;
+        color: #1f2329;
+        background: #fff;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 0 0 4px;
+      }
+      .desc {
+        color: #86909c;
+        margin: 0 0 12px;
+      }
+      .status {
+        background: #f7f8fa;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        line-height: 1.8;
+        word-break: break-all;
+      }
+      .status .ok {
+        color: #00b42a;
+        font-weight: 600;
+      }
+      .status .fail {
+        color: #f53f3f;
+        font-weight: 600;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      button {
+        width: 100%;
+        padding: 8px 0;
+        border: none;
+        border-radius: 6px;
+        background: #165dff;
+        color: #fff;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #4080ff;
+      }
+      button:disabled {
+        background: #c9cdd4;
+        cursor: not-allowed;
+      }
+      label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+      }
+      input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 6px 8px;
+        border: 1px solid #e5e6eb;
+        border-radius: 6px;
+        font-size: 12px;
+        margin-top: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>VsGo 同步</h1>
+    <p class="desc">将 Chrome 的 Cookie 与 localStorage 同步到 VsGo</p>
+
+    <div class="status" id="status">正在获取状态…</div>
+
+    <div class="row">
+      <label>
+        <input type="checkbox" id="enabled" />
+        自动同步
+      </label>
+      <button id="syncBtn" style="width: auto; padding: 6px 14px">立即同步</button>
+    </div>
+
+    <label style="margin-top: 8px">
+      同步服务地址
+      <input type="text" id="syncUrl" placeholder="http://127.0.0.1:18765/sync" />
+    </label>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
