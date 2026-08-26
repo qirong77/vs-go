@@ -51,6 +51,42 @@ class Manager {
     return this.getLastFocusedWindow()?.getActiveUrl() ?? "";
   }
 
+  /** 所有未销毁的 tabbed 浏览器窗口 */
+  getAllWindows(): TabbedBrowserWindow[] {
+    return this.windows.filter((w) => !w.isDestroyed);
+  }
+
+  /**
+   * 定位远程操作目标（remote-browser-server 使用）：
+   * 1. tabId 精确匹配
+   * 2. url 匹配（忽略 hash 与尾部斜杠，保留 query）
+   * 3. 均缺省时回退到第一个窗口的 active / 第一个 tab
+   */
+  resolveRemoteTarget(
+    opts: { tabId?: string; url?: string }
+  ): { window: TabbedBrowserWindow; tab: Tab } | null {
+    const wins = this.getAllWindows();
+    if (wins.length === 0) return null;
+
+    if (opts?.tabId) {
+      for (const w of wins) {
+        const tab = w.getTabById(opts.tabId);
+        if (tab) return { window: w, tab };
+      }
+    }
+
+    if (opts?.url) {
+      for (const w of wins) {
+        const tab = w.findTabByUrl(opts.url);
+        if (tab) return { window: w, tab };
+      }
+    }
+
+    const first = wins[0];
+    const tab = first.getActiveTab() ?? first.getTabs()[0];
+    return tab ? { window: first, tab } : null;
+  }
+
   /** 根据 host BrowserWindow.id 查找对应 TabbedBrowserWindow */
   findByHostId(hostId: number): TabbedBrowserWindow | undefined {
     return this.windows.find((w) => !w.isDestroyed && w.hostWindow.id === hostId);

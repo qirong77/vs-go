@@ -234,6 +234,9 @@ export class TabbedBrowserWindow {
         preload: path.join(__dirname, "../preload/index.js"),
         sandbox: false,
         contextIsolation: false,
+        // 保证页面在窗口隐藏/最小化时仍持续绘制与运行 JS，
+        // 供 remote-browser-server 在后台截图与执行脚本，不依赖窗口可见。
+        backgroundThrottling: false,
       },
     });
 
@@ -439,6 +442,86 @@ export class TabbedBrowserWindow {
       tabs: this.tabs.map((t) => this.buildTabState(t)),
       activeTabId: this.activeTabId,
     };
+  }
+
+  // -------------------- Remote / HTTP 桥接操作 --------------------
+  // 这些方法专供 remote-browser-server 使用：通过编程式注入输入事件与 JS，
+  // 无需系统级真实鼠标，不抢夺其它应用 focus。
+
+  getTabById(tabId: string): Tab | undefined {
+    return this.tabs.find((t) => t.id === tabId);
+  }
+
+  /** 按 URL 匹配 tab（忽略 hash 与尾部斜杠，保留 query）。找不到返回 null */
+  findTabByUrl(match: string): Tab | null {
+    const normalized = normalizeUrlForApiMatch(match);
+    if (!normalized) return null;
+    for (const t of this.tabs) {
+      const wc = t.view.webContents;
+      if (!wc || wc.isDestroyed()) continue;
+      if (normalizeUrlForApiMatch(wc.getURL()) === normalized) return t;
+    }
+    return null;
+  }
+
+  /** 返回指定 tab 的 webContents；不存在或已销毁返回 null */
+  getTabWebContents(tabId: string): WebContents | null {
+    const wc = this.getTabById(tabId)?.view.webContents;
+    return wc && !wc.isDestroyed() ? wc : null;
+  }
+
+  /** 在指定 tab 执行 JS */
+  async evaluateOnTab(
+    tabId: string,
+    script: string,
+    opts?: { userGesture?: boolean }
+  ): Promise<unknown> {
+    const wc = this.getTabWebContents(tabId);
+    if (!wc) throw new Error("tab not found or destroyed");
+    return wc.executeJavaScript(script, opts?.userGesture ?? false);
+  }
+
+  /**
+   * 截取指定 tab 的页面，返回 PNG(base64) 与尺寸。
+   * 传递 stayHidden 以支持窗口隐藏/最小化时仍能捕获内容
+   * （页面视为可见的判定依赖 capturer count，配合 backgroundThrottling:false）。
+   */
+  async captureTab(
+    tabId: string,
+    opts?: { stayHidden?: boolean }
+  ): Promise<{ width: number; height: number; dataUrl: string; base64: string }> {
+    const wc = this.getTabWebContents(tabId);
+    if (!wc) throw new Error("tab not found or destroyed");
+    const image = await wc.capturePage(undefined, { stayHidden: opts?.stayHidden !== false });
+    const { width, height } = image.getSize();
+    const base64 = image.toPNG().toString("base64");
+    const dataUrl = `data:image/png;base64,${base64}`;
+    return { width, height, dataUrl, base64 };
+  }
+
+  /** 向指定 tab 注入合成输入事件（虚拟鼠标/键盘）。focus 时仅聚焦 VsGo 自身窗口。 */
+  sendInputToTab(
+    tabId: string,
+    event: Electron.MouseInputEvent | Electron.MouseWheelInputEvent | Electron.KeyboardInputEvent,
+    opts?: { focus?: boolean }
+  ): void {
+    const wc = this.getTabWebContents(tabId);
+    if (!wc) throw new Error("tab not found or destroyed");
+    if (opts?.focus) this.focusTab(tabId);
+    wc.sendInputEvent(event);
+  }
+
+  /** 让指定 tab 获得焦点以接收键盘输入。只聚焦 VsGo 自己的窗口，不动系统其它 focus。 */
+  focusTab(tabId: string): void {
+    const wc = this.getTabWebContents(tabId);
+    if (!wc) throw new Error("tab not found or destroyed");
+    const active = this.getActiveTab();
+    if (active?.id !== tabId) this.switchTab(tabId);
+    if (!this.hostWindow.isDestroyed()) {
+      if (!this.hostWindow.isVisible()) this.hostWindow.show();
+      this.hostWindow.focus();
+    }
+    wc.focus();
   }
 
   // -------------------- 内部工具 --------------------
@@ -951,6 +1034,18 @@ export class TabbedBrowserWindow {
     if (!this.hostWindow.isDestroyed()) this.hostWindow.hide();
   }
 
+  /** 供 remote-browser-server 在窗口隐藏时恢复可见并聚焦。 */
+  showAndFocus(): void {
+    if (this.hostWindow.isDestroyed()) return;
+    if (!this.hostWindow.isVisible()) this.hostWindow.show();
+    this.hostWindow.focus();
+  }
+
+  /** 供 remote-browser-server 检查窗口当前可见性。 */
+  isWindowVisible(): boolean {
+    return !this.hostWindow.isDestroyed() && this.hostWindow.isVisible();
+  }
+
   isFullScreen(): boolean {
     return !this.hostWindow.isDestroyed() && this.hostWindow.isFullScreen();
   }
@@ -1008,6 +1103,22 @@ export function normalizeUrlOrSearch(input: string): string {
   }
 
   return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`;
+}
+
+/**
+ * URL 规整用于 tab 匹配（remote-browser-server 定位 tab 的依据）：
+ * 忽略 hash 与尾部斜杠，host 转小写，保留 query 与 protocol。
+ */
+export function normalizeUrlForApiMatch(input: string): string {
+  const trimmed = (input || "").trim();
+  if (!trimmed) return "";
+  try {
+    const u = new URL(trimmed);
+    const path = u.pathname.replace(/\/+$/, "") || "/";
+    return `${u.protocol}//${u.host.toLowerCase()}${path}${u.search}`;
+  } catch {
+    return trimmed.replace(/\/+$/, "");
+  }
 }
 
 /** 用 try/catch 包裹用户脚本，避免 DOM 未命中等运行时错误以 Uncaught 形式污染页面控制台 */
