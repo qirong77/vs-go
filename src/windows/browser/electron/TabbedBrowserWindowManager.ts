@@ -3,6 +3,32 @@ import { vsgoLog } from "@platform/log/logger";
 import { TABBED_BROWSER_DEFAULT_HOME_URL } from "@shared/type";
 import { TabbedBrowserWindow, type Tab } from "./TabbedBrowserWindow";
 
+export interface RemoteTargetSelector {
+  tabId?: string;
+  url?: string;
+  windowId?: number;
+}
+
+export interface RemoteTarget {
+  window: TabbedBrowserWindow;
+  tab: Tab;
+}
+
+export type RemoteTargetResolution =
+  | { ok: true; target: RemoteTarget }
+  | {
+      ok: false;
+      reason: "NO_TARGET" | "NOT_FOUND" | "AMBIGUOUS";
+      candidates: RemoteTarget[];
+    };
+
+export interface OpenUrlTargetOptions {
+  /** 强制创建新窗口，而不是复用最近聚焦窗口。 */
+  newWindow?: boolean;
+  /** 新窗口是否显示；复用现有窗口时 false 表示不主动 present。 */
+  show?: boolean;
+}
+
 // ============================================================
 // TabbedBrowserWindowManager：管理所有 tabbed 浏览器窗口
 // ============================================================
@@ -56,32 +82,80 @@ class Manager {
     return this.windows.filter((w) => !w.isDestroyed);
   }
 
+  /** 枚举所有 URL 匹配候选，可用 windowId 将候选限定在单个窗口。 */
+  findRemoteTargetsByUrl(url: string, opts: { windowId?: number } = {}): RemoteTarget[] {
+    const wins = this.getAllWindows();
+    const scopedWins =
+      opts.windowId === undefined ? wins : wins.filter((w) => w.hostWindow.id === opts.windowId);
+    return scopedWins.flatMap((window) =>
+      window.findTabsByUrl(url).map((tab) => ({ window, tab }))
+    );
+  }
+
   /**
-   * 定位远程操作目标（remote-browser-server 使用）：
-   * 1. tabId 精确匹配
-   * 2. url 匹配（忽略 hash 与尾部斜杠，保留 query）
-   * 3. 均缺省时回退到第一个窗口的 active / 第一个 tab
+   * 严格定位远程操作目标。所有显式提供的条件必须命中同一个 tab：
+   * - 没有提供条件时返回 NO_TARGET，由调用方决定是否使用默认目标；
+   * - URL 命中多个 tab 时返回 AMBIGUOUS，并附上全部候选；
+   * - windowId 单独使用时定位该窗口当前 active tab。
    */
-  resolveRemoteTarget(
-    opts: { tabId?: string; url?: string }
-  ): { window: TabbedBrowserWindow; tab: Tab } | null {
+  resolveRemoteTargetStrict(opts: RemoteTargetSelector = {}): RemoteTargetResolution {
+    const hasTabId = opts.tabId !== undefined;
+    const hasUrl = opts.url !== undefined;
+    const hasWindowId = opts.windowId !== undefined;
+    if (!hasTabId && !hasUrl && !hasWindowId) {
+      return { ok: false, reason: "NO_TARGET", candidates: [] };
+    }
+
+    const wins = this.getAllWindows();
+    const scopedWins = hasWindowId
+      ? wins.filter((w) => w.hostWindow.id === opts.windowId)
+      : wins;
+
+    if (hasWindowId && !hasTabId && !hasUrl) {
+      const window = scopedWins[0];
+      const tab = window?.getActiveTab() ?? window?.getTabs()[0];
+      return window && tab
+        ? { ok: true, target: { window, tab } }
+        : { ok: false, reason: "NOT_FOUND", candidates: [] };
+    }
+
+    let candidates: RemoteTarget[] = scopedWins.flatMap((window) =>
+      window.getTabs().map((tab) => ({ window, tab }))
+    );
+
+    if (hasTabId) {
+      candidates = candidates.filter(({ tab }) => tab.id === opts.tabId);
+    }
+
+    if (hasUrl) {
+      const urlMatches = new Set(
+        this.findRemoteTargetsByUrl(opts.url ?? "", {
+          windowId: hasWindowId ? opts.windowId : undefined,
+        }).map(({ tab }) => tab)
+      );
+      candidates = candidates.filter(({ tab }) => urlMatches.has(tab));
+    }
+
+    if (candidates.length === 0) {
+      return { ok: false, reason: "NOT_FOUND", candidates: [] };
+    }
+    if (candidates.length > 1) {
+      return { ok: false, reason: "AMBIGUOUS", candidates };
+    }
+    return { ok: true, target: candidates[0] };
+  }
+
+  /**
+   * 兼容旧调用：仅当完全未传目标时回退到首个窗口的 active / 首个 tab。
+   * 任意显式条件 NOT_FOUND 或 AMBIGUOUS 时都不会回退。
+   */
+  resolveRemoteTarget(opts: RemoteTargetSelector = {}): RemoteTarget | null {
+    const resolved = this.resolveRemoteTargetStrict(opts);
+    if (resolved.ok) return resolved.target;
+    if (resolved.reason !== "NO_TARGET") return null;
+
     const wins = this.getAllWindows();
     if (wins.length === 0) return null;
-
-    if (opts?.tabId) {
-      for (const w of wins) {
-        const tab = w.getTabById(opts.tabId);
-        if (tab) return { window: w, tab };
-      }
-    }
-
-    if (opts?.url) {
-      for (const w of wins) {
-        const tab = w.findTabByUrl(opts.url);
-        if (tab) return { window: w, tab };
-      }
-    }
-
     const first = wins[0];
     const tab = first.getActiveTab() ?? first.getTabs()[0];
     return tab ? { window: first, tab } : null;
@@ -109,19 +183,108 @@ class Manager {
     return win;
   }
 
+  /**
+   * 打开 URL 并返回实际创建的 tab/window。新窗口会等待 host renderer ready 后再完成，
+   * 因而返回时 tab 已存在，可立即用于精确远程操作。
+   */
+  async openUrlWithTarget(
+    url: string,
+    opts: OpenUrlTargetOptions = {}
+  ): Promise<RemoteTarget> {
+    const existing = opts.newWindow ? undefined : this.getLastFocusedWindow();
+    if (existing) {
+      const tab = existing.addTab(url);
+      if (opts.show !== false) existing.present();
+      return { window: existing, tab };
+    }
+    return this.createEmptyWithTarget(url, { show: opts.show });
+  }
+
+  /** 新建窗口并在 host renderer ready 后返回初始 tab。 */
+  createEmptyWithTarget(
+    url = TABBED_BROWSER_DEFAULT_HOME_URL,
+    opts: { show?: boolean } = {}
+  ): Promise<RemoteTarget> {
+    return new Promise((resolve, reject) => {
+      this.createWindowWithInitialTab(url, opts, resolve, reject);
+    });
+  }
+
   /** 新开一个 tabbed 窗口（以 url 作为初始 tab，默认首页） */
   createEmpty(
     url = TABBED_BROWSER_DEFAULT_HOME_URL,
     opts: { show?: boolean } = {}
   ): TabbedBrowserWindow {
+    return this.createWindowWithInitialTab(url, opts);
+  }
+
+  private createWindowWithInitialTab(
+    url: string,
+    opts: { show?: boolean },
+    onCreated?: (target: RemoteTarget) => void,
+    onFailed?: (error: Error) => void
+  ): TabbedBrowserWindow {
     const shouldShow = opts.show !== false;
     const win = new TabbedBrowserWindow();
     this.register(win);
+
+    const hostContents = win.hostWindow.webContents;
+    let settled = false;
+    const cleanup = (): void => {
+      hostContents.removeListener("did-finish-load", handleReady);
+      hostContents.removeListener("did-fail-load", handleLoadFailed);
+      hostContents.removeListener("render-process-gone", handleRendererGone);
+      win.hostWindow.removeListener("closed", handleClosedBeforeReady);
+    };
+    const failBeforeReady = (error: Error): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      onFailed?.(error);
+    };
+    const handleReady = (): void => {
+      if (settled) return;
+      try {
+        const tab = win.addTab(url);
+        if (shouldShow) win.present();
+        settled = true;
+        cleanup();
+        onCreated?.({ window: win, tab });
+      } catch (error) {
+        failBeforeReady(error instanceof Error ? error : new Error(String(error)));
+      }
+    };
+    const handleLoadFailed = (
+      _event: Electron.Event,
+      errorCode: number,
+      errorDescription: string,
+      validatedURL: string,
+      isMainFrame: boolean
+    ): void => {
+      if (!isMainFrame) return;
+      failBeforeReady(
+        new Error(
+          `browser host renderer failed to load (${errorCode} ${errorDescription}): ${validatedURL}`
+        )
+      );
+    };
+    const handleRendererGone = (
+      _event: Electron.Event,
+      details: { reason: string }
+    ): void => {
+      failBeforeReady(new Error(`browser host renderer exited before ready: ${details.reason}`));
+    };
+    const handleClosedBeforeReady = (): void => {
+      failBeforeReady(new Error("browser window closed before initial tab was created"));
+    };
+
     // 等 host 窗口完成 renderer 加载后再挂 tab，避免第一条 STATE_UPDATED 丢失
-    win.hostWindow.webContents.once("did-finish-load", () => {
-      win.addTab(url);
-      if (shouldShow) win.present();
-    });
+    hostContents.once("did-finish-load", handleReady);
+    if (onFailed) {
+      hostContents.on("did-fail-load", handleLoadFailed);
+      hostContents.once("render-process-gone", handleRendererGone);
+      win.hostWindow.once("closed", handleClosedBeforeReady);
+    }
     // 兜底：如果 renderer 已经 ready 并主动请求 state（BROWSER_TAB_GET_STATE），
     // 会直接拿到当前 state；这里不做额外处理。
     return win;

@@ -127,6 +127,8 @@ export interface TabState {
   loading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  /** 该 tab 最近正被远程（LLM）调试/操作，用于在标签栏显示指示 */
+  remoteActive?: boolean;
 }
 
 export interface TabbedBrowserState {

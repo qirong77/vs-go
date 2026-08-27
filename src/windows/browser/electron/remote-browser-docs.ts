@@ -5,8 +5,8 @@ import { vsgoLog } from "@platform/log/logger";
 // ============================================================
 // Remote Browser Docs
 // 为「远程浏览器控制」功能提供一个文档查看窗口。
-// 内容实时抓取 remote-browser-server 的 GET /api 自述文档并格式化展示，
-// 因此始终与当前服务的真实接口保持一致。
+// 内容实时抓取 remote-browser-server 的 GET /api/llm 紧凑文档并格式化展示，
+// 因此始终与当前服务的真实接口保持一致（与 LLM 用的同一份数据源）。
 // ============================================================
 
 const API_HOST = "127.0.0.1";
@@ -25,22 +25,27 @@ interface Envelope {
   meta: Record<string, unknown>;
 }
 
-interface ApiDocData {
+interface LlmOperation {
+  id?: string;
+  method?: string;
+  path?: string;
+  summary?: string;
+  readOnly?: boolean;
+  params?: {
+    query?: string[];
+    requiredQuery?: string[];
+    body?: string[];
+    requiredBody?: string[];
+  };
+}
+
+interface LlmDocData {
   name?: string;
   version?: string;
-  description?: string;
   host?: string;
   target_convention?: string;
-  response_schema?: unknown;
-  endpoints?: Array<{
-    method: string;
-    path: string;
-    description?: string;
-    body?: unknown;
-    query?: unknown;
-    example_request?: unknown;
-    example_response?: unknown;
-  }>;
+  usage_notes?: string;
+  operations?: LlmOperation[];
 }
 
 let docWindow: BrowserWindow | null = null;
@@ -48,7 +53,7 @@ let docWindow: BrowserWindow | null = null;
 function fetchApiDoc(timeoutMs = 3000): Promise<Envelope> {
   return new Promise((resolve, reject) => {
     const req = http.get(
-      { host: API_HOST, port: API_PORT, path: "/api", timeout: timeoutMs },
+      { host: API_HOST, port: API_PORT, path: "/api/llm", timeout: timeoutMs },
       (res) => {
         let raw = "";
         res.on("data", (chunk) => (raw += chunk.toString("utf-8")));
@@ -77,43 +82,33 @@ function esc(input: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-function jsonPretty(input: unknown): string {
-  return esc(JSON.stringify(input, null, 2));
+function paramsText(op: LlmOperation): string {
+  const p = op.params;
+  if (!p) return "";
+  const parts: string[] = [];
+  if (p.query?.length) parts.push("query: " + p.query.join(", "));
+  if (p.body?.length) parts.push("body: " + p.body.join(", "));
+  return parts.join(" · ");
 }
 
 function renderPage(doc: Envelope, isOnline: boolean): string {
-  const d = (doc.data ?? {}) as ApiDocData;
-  const endpoints = Array.isArray(d.endpoints) ? d.endpoints : [];
+  const d = (doc.data ?? {}) as LlmDocData;
+  const operations = Array.isArray(d.operations) ? d.operations : [];
 
-  const endpointRows = endpoints
-    .map((ep) => {
+  const operationRows = operations
+    .map((op) => {
       const methodColor =
-        ep.method === "GET" ? "#2f6feb" : ep.method === "POST" ? "#d5432f" : "#7d4fbf";
-      const bodyBlock = ep.body ? `<pre class="code">${jsonPretty(ep.body)}</pre>` : "";
-      const queryBlock = ep.query ? `<pre class="code">${jsonPretty(ep.query)}</pre>` : "";
-      const reqBlock =
-        ep.example_request !== undefined
-          ? `<div class="block"><div class="lbl">请求示例</div><pre class="code">${jsonPretty(
-              ep.example_request
-            )}</pre></div>`
-          : "";
-      const respBlock =
-        ep.example_response !== undefined
-          ? `<div class="block"><div class="lbl">响应示例</div><pre class="code">${jsonPretty(
-              ep.example_response
-            )}</pre></div>`
-          : "";
+        op.method === "GET" ? "#2f6feb" : op.method === "POST" ? "#d5432f" : "#7d4fbf";
+      const required = op.readOnly ? " · read-only" : "";
+      const params = paramsText(op);
       return `
-        <div class="endpoint" id="ep-${esc(ep.path)}">
+        <div class="endpoint">
           <div class="ep-head">
-            <span class="method" style="background:${methodColor}">${esc(ep.method)}</span>
-            <code class="path">${esc(ep.path)}</code>
+            <span class="method" style="background:${methodColor}">${esc(op.method)}</span>
+            <code class="path">${esc(op.path)}</code>
           </div>
-          <div class="ep-desc">${esc(ep.description ?? "")}</div>
-          ${bodyBlock}
-          ${queryBlock}
-          ${reqBlock}
-          ${respBlock}
+          <div class="ep-desc">${esc(op.summary ?? "")}${esc(required)}</div>
+          ${params ? `<div class="lbl">${esc(params)}</div>` : ""}
         </div>`;
     })
     .join("");
@@ -144,20 +139,15 @@ function renderPage(doc: Envelope, isOnline: boolean): string {
   .host { font-family: ui-monospace, "SF Mono", Menlo, monospace; color: #0b5cab; }
   main { padding: 24px 28px 60px; max-width: 980px; margin: 0 auto; }
   h2 { font-size: 15px; margin: 28px 0 12px; color: #111827; }
-  .schema { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; }
   .endpoint { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
-              margin-bottom: 16px; padding: 16px 18px; }
+              margin-bottom: 14px; padding: 14px 18px; }
   .ep-head { display: flex; align-items: center; gap: 10px; }
   .method { color: #fff; font-size: 12px; font-weight: 700; padding: 3px 9px;
             border-radius: 5px; letter-spacing: .3px; }
-  .ep-path code, code.path { font-family: ui-monospace, "SF Mono", Menlo, monospace;
-                             font-size: 14px; color: #0b5cab; }
-  .ep-desc { margin-top: 8px; color: #4b5563; font-size: 13px; line-height: 1.6; }
-  .block { margin-top: 10px; }
-  .lbl { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px;
-         margin-bottom: 4px; }
-  pre.code { background: #0d1117; color: #e6edf3; border-radius: 6px; padding: 12px 14px;
-             font-size: 12px; overflow-x: auto; line-height: 1.5; margin: 0; }
+  code.path { font-family: ui-monospace, "SF Mono", Menlo, monospace;
+              font-size: 14px; color: #0b5cab; }
+  .ep-desc { margin-top: 7px; color: #4b5563; font-size: 13px; line-height: 1.6; }
+  .lbl { font-size: 12px; color: #6b7280; margin-top: 7px; }
   .empty { color: #9ca3af; font-size: 13px; padding: 24px 0; text-align: center; }
   a.reload { color: #0b5cab; font-size: 12.5px; text-decoration: none; margin-right: 16px; }
   a.reload:hover { text-decoration: underline; }
@@ -171,17 +161,14 @@ function renderPage(doc: Envelope, isOnline: boolean): string {
     ${onlineBadge}
     <span style="flex:1"></span>
     <a class="reload" href="#" onclick="location.reload();return false;">刷新</a>
-    <a class="reload" href="http://${esc(API_HOST)}:${API_PORT}/api" target="_blank">原始 JSON</a>
+    <a class="reload" href="http://${esc(API_HOST)}:${API_PORT}/api/llm" target="_blank">原始 JSON</a>
   </div>
-  <div class="target">${esc(d.target_convention ?? "通过 body 传 tabId 或 url 定位目标 tab；缺省时操作第一个窗口。")}<br>
-    服务地址：<span class="host">http://${esc(API_HOST)}:${API_PORT}</span>${d.host ? ` · 文档：<span class="host">${esc(d.host)}/api</span>` : ""}</div>
+  <div class="target">${esc(d.target_convention ?? "通过 target.tabId/windowId/url 定位目标 tab；显式目标找不到时不会回退。")}<br>
+    服务地址：<span class="host">http://${esc(API_HOST)}:${API_PORT}</span>${d.host ? ` · 文档：<span class="host">${esc(d.host)}/api/llm</span>` : ""}</div>
 </header>
 <main>
-  <h2>响应格式（Envelope）</h2>
-  <div class="schema"><pre class="code">${jsonPretty(d.response_schema ?? {})}</pre></div>
-
-  <h2>接口列表（${endpoints.length} 个）</h2>
-  ${endpointRows || `<div class="empty">暂无接口数据</div>`}
+  <h2>接口列表（${operations.length} 个）</h2>
+  ${operationRows || `<div class="empty">暂无接口数据</div>`}
 </main>
 </body>
 </html>`;
@@ -209,7 +196,7 @@ export function openRemoteBrowserDocs(): void {
     docWindow = null;
   });
 
-  // 先展示加载态，再异步填充真实 /api 数据
+  // 先展示加载态，再异步填充真实 /api/llm 数据
   const load = (): Promise<void> =>
     fetchApiDoc()
       .then((doc) => {
@@ -218,7 +205,7 @@ export function openRemoteBrowserDocs(): void {
         }
       })
       .catch((err) => {
-        vsgoLog("RemoteBrowserDocs", "fetch /api failed", { detail: { error: String(err) } });
+        vsgoLog("RemoteBrowserDocs", "fetch /api/llm failed", { detail: { error: String(err) } });
         const offlineDoc: Envelope = {
           ok: false,
           error: { code: "OFFLINE", message: `无法连接远程浏览器服务 (http://${API_HOST}:${API_PORT})`, details: String(err) },

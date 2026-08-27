@@ -1,8 +1,6 @@
 import {
   BrowserWindow,
   WebContentsView,
-  app,
-  session,
   screen,
   type Rectangle,
   type WebContents,
@@ -29,30 +27,7 @@ import {
 import { windowScriptStore } from "@windows/script-editor/store";
 import { browserStore } from "../store";
 import { injectLocalStorageForWebContents } from "./chrome-sync-server";
-
-// ============================================================
-// 全局会话设置：一次性去掉 X-Frame-Options / 放宽 CSP，允许嵌入常见页面。
-// 复用原 FloatingWindow 行为。
-// ============================================================
-
-let sessionInterceptorInstalled = false;
-function ensureSessionInterceptor(): void {
-  if (sessionInterceptorInstalled) return;
-  sessionInterceptorInstalled = true;
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const responseHeaders = { ...details.responseHeaders };
-    delete responseHeaders["x-frame-options"];
-    delete responseHeaders["X-Frame-Options"];
-    if (responseHeaders["content-security-policy"] || responseHeaders["Content-Security-Policy"]) {
-      responseHeaders["content-security-policy"] = [
-        "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;",
-      ];
-    }
-    callback({ cancel: false, responseHeaders });
-  });
-}
-
-app.whenReady().then(ensureSessionInterceptor);
+import { remoteBrowserDebugger } from "./remote-browser-debugger";
 
 // ============================================================
 // Tab 定义
@@ -61,6 +36,7 @@ app.whenReady().then(ensureSessionInterceptor);
 export interface Tab {
   id: string;
   view: WebContentsView;
+  kind: "internal" | "external";
 }
 
 function extractFaviconFromFavicons(favicons: string[]): string {
@@ -94,6 +70,35 @@ export function resolveInternalUrl(input: string): string | null {
       .join("/")
       .replace(/%3A/g, ":");
   return `${fileUrl}#/${route}`;
+}
+
+function isTrustedInternalUrl(input: string): boolean {
+  if (resolveInternalUrl(input)) return true;
+  try {
+    const candidate = new URL(input).href;
+    return Array.from(INTERNAL_ROUTES).some((route) => {
+      const resolved = resolveInternalUrl(`vsgo://${route}`);
+      return resolved !== null && new URL(resolved).href === candidate;
+    });
+  } catch {
+    return false;
+  }
+}
+
+/** 远程（LLM）操作命中后，标签栏指示点保持点亮的时间窗（毫秒） */
+const REMOTE_ACTIVITY_WINDOW_MS = 8_000;
+
+function isSafeExternalPageUrl(input: string): boolean {
+  try {
+    const parsed = new URL(input);
+    return (
+      parsed.protocol === "http:" ||
+      parsed.protocol === "https:" ||
+      (parsed.protocol === "about:" && parsed.href === "about:blank")
+    );
+  } catch {
+    return false;
+  }
 }
 
 /** 判断一个真实 URL 是否对应某个内部路由；返回 "vsgo://xxx" 展示串，或 null */
@@ -133,6 +138,10 @@ export class TabbedBrowserWindow {
   private overlayOutsideDismissCleanups: Array<() => void> = [];
   private layoutSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private overlayWarmupTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 各 tab 最近一次被远程（LLM）操作的毫秒时间戳 */
+  private tabRemoteActivityAt = new Map<string, number>();
+  /** 指示点熄灭用的定时器，按 tabId 保存 */
+  private tabRemoteActivityTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   /** 外部检测：是否正在销毁中，避免空窗口重复清理 */
   get isDestroyed(): boolean {
@@ -140,8 +149,6 @@ export class TabbedBrowserWindow {
   }
 
   constructor() {
-    ensureSessionInterceptor();
-
     this.hostWindow = new BrowserWindow({
       width: 1200,
       height: 800,
@@ -224,23 +231,68 @@ export class TabbedBrowserWindow {
       clearTimeout(this.overlayWarmupTimer);
       this.overlayWarmupTimer = null;
     }
+    this.clearAllRemoteActivityTimers();
   }
 
   // -------------------- Tab 创建与事件绑定 --------------------
 
-  addTab(url: string, opts?: { activate?: boolean }): Tab {
-    const view = new WebContentsView({
-      webPreferences: {
-        preload: path.join(__dirname, "../preload/index.js"),
-        sandbox: false,
-        contextIsolation: false,
-        // 保证页面在窗口隐藏/最小化时仍持续绘制与运行 JS，
-        // 供 remote-browser-server 在后台截图与执行脚本，不依赖窗口可见。
-        backgroundThrottling: false,
-      },
+  private createTabView(kind: Tab["kind"]): WebContentsView {
+    return new WebContentsView({
+      webPreferences:
+        kind === "internal"
+          ? {
+              preload: path.join(__dirname, "../preload/index.js"),
+              sandbox: false,
+              contextIsolation: false,
+              backgroundThrottling: false,
+            }
+          : {
+              // 外部页面不能获得 VsGo 的 preload/ipcRenderer。主进程仍可通过
+              // WebContents/CDP 完成远程调试，不需要把 Electron API 暴露给页面。
+              sandbox: true,
+              contextIsolation: true,
+              nodeIntegration: false,
+              backgroundThrottling: false,
+            },
     });
+  }
 
-    const tab: Tab = { id: generateId("tab"), view };
+  private async replaceTabView(
+    tab: Tab,
+    kind: Tab["kind"],
+    targetUrl: string
+  ): Promise<void> {
+    const wasActive = this.activeTabId === tab.id;
+    const previousView = tab.view;
+    this.unbindTabEvents(tab);
+    try {
+      this.hostWindow.contentView.removeChildView(previousView);
+    } catch {
+      // The view may be a background tab and therefore not attached.
+    }
+
+    const nextView = this.createTabView(kind);
+    tab.view = nextView;
+    tab.kind = kind;
+    this.bindTabEvents(tab);
+    if (this.overlayOutsideDismissCleanups.length > 0) {
+      this.overlayOutsideDismissCleanups.push(
+        this.attachOverlayOutsideDismissToWebContents(nextView.webContents)
+      );
+    }
+    if (wasActive) {
+      this.hostWindow.contentView.addChildView(nextView);
+      this.updateActiveViewBounds();
+    }
+    if (!previousView.webContents.isDestroyed()) previousView.webContents.close();
+    await nextView.webContents.loadURL(targetUrl);
+    this.broadcastState();
+  }
+
+  addTab(url: string, opts?: { activate?: boolean }): Tab {
+    const kind = isTrustedInternalUrl(url) ? "internal" : "external";
+    const view = this.createTabView(kind);
+    const tab: Tab = { id: generateId("tab"), view, kind };
     this.tabs.push(tab);
 
     this.bindTabEvents(tab);
@@ -251,7 +303,11 @@ export class TabbedBrowserWindow {
     }
 
     const resolvedInternal = resolveInternalUrl(url);
-    const target = resolvedInternal ?? normalizeUrlOrSearch(url);
+    const normalizedExternal = resolvedInternal ? null : normalizeUrlOrSearch(url);
+    const target = resolvedInternal ??
+      (normalizedExternal && isSafeExternalPageUrl(normalizedExternal)
+        ? normalizedExternal
+        : "about:blank");
     if (resolvedInternal) {
       view.webContents.loadURL(target).catch((err) => {
         console.error("[TabbedBrowserWindow] 内部页面 loadURL 失败:", err);
@@ -320,6 +376,7 @@ export class TabbedBrowserWindow {
     if (index === -1) return;
     const tab = this.tabs[index];
 
+    this.clearRemoteActivityTimer(tabId);
     try {
       this.hostWindow.contentView.removeChildView(tab.view);
     } catch {
@@ -370,10 +427,28 @@ export class TabbedBrowserWindow {
       this.addTab(url);
       return;
     }
-    const target = resolveInternalUrl(url) ?? normalizeUrlOrSearch(url);
-    tab.view.webContents.loadURL(target).catch((err) => {
+    this.navigateTab(tab.id, url).catch((err) => {
       console.error("[TabbedBrowserWindow] 导航失败:", err);
     });
+  }
+
+  /** 直接导航指定 tab；不会切换 active tab。 */
+  async navigateTab(tabId: string, url: string): Promise<void> {
+    const tab = this.getTabById(tabId);
+    if (!tab) throw new Error("tab not found or destroyed");
+    const resolvedInternal = resolveInternalUrl(url);
+    const nextKind = isTrustedInternalUrl(url) ? "internal" : "external";
+    const target = resolvedInternal ?? normalizeUrlOrSearch(url);
+    if (nextKind === "external" && !isSafeExternalPageUrl(target)) {
+      throw new Error(`navigation protocol is not allowed: ${target}`);
+    }
+    if (tab.kind !== nextKind) {
+      await this.replaceTabView(tab, nextKind, target);
+      return;
+    }
+    const wc = this.getTabWebContents(tabId);
+    if (!wc) throw new Error("tab not found or destroyed");
+    await wc.loadURL(target);
   }
 
   reorderTab(tabId: string, toIndex: number): void {
@@ -386,17 +461,43 @@ export class TabbedBrowserWindow {
   }
 
   goBack(): void {
-    const wc = this.getActiveTab()?.view.webContents;
-    if (wc?.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+    const tab = this.getActiveTab();
+    if (tab && this.getTabWebContents(tab.id)) this.goBackTab(tab.id);
   }
 
   goForward(): void {
-    const wc = this.getActiveTab()?.view.webContents;
-    if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
+    const tab = this.getActiveTab();
+    if (tab && this.getTabWebContents(tab.id)) this.goForwardTab(tab.id);
   }
 
   reload(): void {
-    this.getActiveTab()?.view.webContents.reload();
+    const tab = this.getActiveTab();
+    if (tab && this.getTabWebContents(tab.id)) this.reloadTab(tab.id);
+  }
+
+  /** 后退指定 tab；不会切换 active tab。返回是否实际发起了后退。 */
+  goBackTab(tabId: string): boolean {
+    const wc = this.getTabWebContents(tabId);
+    if (!wc) throw new Error("tab not found or destroyed");
+    if (!wc.navigationHistory.canGoBack()) return false;
+    wc.navigationHistory.goBack();
+    return true;
+  }
+
+  /** 前进指定 tab；不会切换 active tab。返回是否实际发起了前进。 */
+  goForwardTab(tabId: string): boolean {
+    const wc = this.getTabWebContents(tabId);
+    if (!wc) throw new Error("tab not found or destroyed");
+    if (!wc.navigationHistory.canGoForward()) return false;
+    wc.navigationHistory.goForward();
+    return true;
+  }
+
+  /** 刷新指定 tab；不会切换 active tab。 */
+  reloadTab(tabId: string): void {
+    const wc = this.getTabWebContents(tabId);
+    if (!wc) throw new Error("tab not found or destroyed");
+    wc.reload();
   }
 
   toggleDevTools(): void {
@@ -452,16 +553,29 @@ export class TabbedBrowserWindow {
     return this.tabs.find((t) => t.id === tabId);
   }
 
-  /** 按 URL 匹配 tab（忽略 hash 与尾部斜杠，保留 query）。找不到返回 null */
-  findTabByUrl(match: string): Tab | null {
+  /** 按 URL 枚举 tab（忽略 hash 与尾部斜杠，保留 query）。 */
+  findTabsByUrl(match: string): Tab[] {
     const normalized = normalizeUrlForApiMatch(match);
-    if (!normalized) return null;
+    if (!normalized) return [];
+    const matches: Tab[] = [];
     for (const t of this.tabs) {
       const wc = t.view.webContents;
       if (!wc || wc.isDestroyed()) continue;
-      if (normalizeUrlForApiMatch(wc.getURL()) === normalized) return t;
+      const realUrl = wc.getURL();
+      const displayUrl = toDisplayUrl(realUrl);
+      if (
+        normalizeUrlForApiMatch(realUrl) === normalized ||
+        (displayUrl !== null && normalizeUrlForApiMatch(displayUrl) === normalized)
+      ) {
+        matches.push(t);
+      }
     }
-    return null;
+    return matches;
+  }
+
+  /** 按 URL 匹配第一个 tab；保留给现有调用方。 */
+  findTabByUrl(match: string): Tab | null {
+    return this.findTabsByUrl(match)[0] ?? null;
   }
 
   /** 返回指定 tab 的 webContents；不存在或已销毁返回 null */
@@ -526,6 +640,48 @@ export class TabbedBrowserWindow {
 
   // -------------------- 内部工具 --------------------
 
+  /**
+   * 标记某个 tab 正在被远程（LLM）操作，并点亮标签栏指示点。
+   * 在 `REMOTE_ACTIVITY_WINDOW_MS` 之后自动熄灭（在此期间再次操作会重新计时）。
+   */
+  notifyRemoteActivity(tabId: string): void {
+    if (this.closed || this.hostWindow.isDestroyed()) return;
+    if (!this.tabs.some((t) => t.id === tabId)) return;
+    const now = Date.now();
+    this.tabRemoteActivityAt.set(tabId, now);
+    const existing = this.tabRemoteActivityTimers.get(tabId);
+    if (existing) clearTimeout(existing);
+    this.tabRemoteActivityTimers.set(
+      tabId,
+      setTimeout(() => {
+        this.tabRemoteActivityTimers.delete(tabId);
+        const startedAt = this.tabRemoteActivityAt.get(tabId);
+        if (startedAt !== undefined && startedAt + REMOTE_ACTIVITY_WINDOW_MS <= Date.now()) {
+          this.tabRemoteActivityAt.delete(tabId);
+        }
+        this.broadcastState();
+      }, REMOTE_ACTIVITY_WINDOW_MS + 50),
+    );
+    this.broadcastState();
+  }
+
+  /** 清除单个 tab 的远程活动指示（关 tab / 销毁前调用） */
+  private clearRemoteActivityTimer(tabId: string): void {
+    const timer = this.tabRemoteActivityTimers.get(tabId);
+    if (timer) {
+      clearTimeout(timer);
+      this.tabRemoteActivityTimers.delete(tabId);
+    }
+    this.tabRemoteActivityAt.delete(tabId);
+  }
+
+  /** 清除全部远程活动指示（窗口销毁前调用） */
+  private clearAllRemoteActivityTimers(): void {
+    for (const timer of this.tabRemoteActivityTimers.values()) clearTimeout(timer);
+    this.tabRemoteActivityTimers.clear();
+    this.tabRemoteActivityAt.clear();
+  }
+
   private buildTabState(tab: Tab): TabState {
     const wc = tab.view.webContents;
     const destroyed = wc.isDestroyed();
@@ -550,6 +706,7 @@ export class TabbedBrowserWindow {
       loading: destroyed ? false : wc.isLoading(),
       canGoBack: destroyed ? false : wc.navigationHistory.canGoBack(),
       canGoForward: destroyed ? false : wc.navigationHistory.canGoForward(),
+      remoteActive: (this.tabRemoteActivityAt.get(tab.id) ?? 0) + REMOTE_ACTIVITY_WINDOW_MS > Date.now(),
     };
   }
 
@@ -841,6 +998,7 @@ export class TabbedBrowserWindow {
 
   private bindTabEvents(tab: Tab): void {
     const wc = tab.view.webContents;
+    remoteBrowserDebugger.observeTab(tab.id, wc);
     const sync = (): void => this.broadcastState();
 
     const onTitle = (_e: Electron.Event, title: string): void => {
@@ -876,6 +1034,29 @@ export class TabbedBrowserWindow {
       sync();
     };
 
+    const onWillNavigate = (
+      details: Electron.Event & { url?: string; isMainFrame?: boolean },
+      legacyUrl?: string,
+      _legacyIsInPlace?: boolean,
+      legacyIsMainFrame?: boolean
+    ): void => {
+      const destination = details.url ?? legacyUrl ?? "";
+      const isMainFrame = details.isMainFrame ?? legacyIsMainFrame ?? true;
+      if (!destination || !isMainFrame) return;
+      if (tab.kind === "external" && !isSafeExternalPageUrl(destination)) {
+        details.preventDefault();
+        return;
+      }
+      const destinationKind: Tab["kind"] = isTrustedInternalUrl(destination)
+        ? "internal"
+        : "external";
+      if (destinationKind === tab.kind) return;
+      details.preventDefault();
+      void this.navigateTab(tab.id, destination).catch((error) => {
+        console.error("[TabbedBrowserWindow] 安全上下文切换失败:", error);
+      });
+    };
+
     const onFinish = (): void => {
       runUserScript(wc);
       injectLocalStorageForWebContents(wc);
@@ -887,6 +1068,8 @@ export class TabbedBrowserWindow {
     const handlers: Array<[string, (...args: unknown[]) => void]> = [
       ["did-navigate", sync],
       ["did-navigate-in-page", sync],
+      ["will-navigate", onWillNavigate as never],
+      ["will-redirect", onWillNavigate as never],
       ["page-title-updated", onTitle as never],
       ["page-favicon-updated", onFavicon as never],
       ["did-start-loading", onStartLoading],
@@ -901,7 +1084,7 @@ export class TabbedBrowserWindow {
 
     // window.open → 本窗口新 tab
     wc.setWindowOpenHandler(({ url }) => {
-      this.addTab(url);
+      if (isSafeExternalPageUrl(url)) this.addTab(url);
       return { action: "deny" };
     });
 

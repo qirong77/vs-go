@@ -12,7 +12,10 @@ import { registerWindowScriptHandlers } from "@windows/script-editor/ipc";
 import { registerLogHandlers } from "@platform/log/ipc";
 import { startWorkspaceAppChecker } from "@windows/app-setting/workspace-app";
 import { startChromeSyncServer, loadSnapshotAndApply } from "@windows/browser/electron/chrome-sync-server";
-import { startRemoteBrowserServer } from "@windows/browser/electron/remote-browser-server";
+import {
+  startRemoteBrowserServer,
+  stopRemoteBrowserServer,
+} from "@windows/browser/electron/remote-browser-server";
 
 configureMacOsLauncherApp();
 
@@ -40,4 +43,8 @@ app.whenReady().then(async () => {
 
 process.on("uncaughtException", (error) => {
   dialog.showErrorBox("Error", error.message);
+});
+
+app.once("before-quit", () => {
+  void stopRemoteBrowserServer();
 });

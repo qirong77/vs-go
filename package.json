@@ -14,6 +14,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test:remote-browser": "node --experimental-strip-types --test src/test/remote-browser-core.test.ts",
     "preview": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
@@ -27,6 +28,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@jridgewell/trace-mapping": "^0.3.31",
     "antd": "^6.1.0",
     "electron-context-menu": "^4.1.1",
     "electron-store": "^10.1.0",

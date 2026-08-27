@@ -548,6 +548,21 @@ function TabbedBrowser(): React.JSX.Element {
                     }}
                   />
                 )}
+                {tab.remoteActive && (
+                  <span
+                    title="正在被远程 AI 操作"
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "#1a73e8",
+                      boxShadow: "0 0 0 2px rgba(26,115,232,0.22)",
+                      marginRight: 6,
+                      flexShrink: 0,
+                      alignSelf: "center",
+                    }}
+                  />
+                )}
                 <span
                   style={{
                     flex: 1,
