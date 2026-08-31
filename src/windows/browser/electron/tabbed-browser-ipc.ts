@@ -93,6 +93,10 @@ export function registerTabbedBrowserHandlers(): void {
     getSenderWindow(event)?.exitFullscreen();
   });
 
+  ipcMain.on(BrowserWindowEvent.BROWSER_WINDOW_TOGGLE_FULLSCREEN, (event) => {
+    getSenderWindow(event)?.toggleFullscreen();
+  });
+
   ipcMain.on(BrowserWindowEvent.BROWSER_WINDOW_MINIMIZE, (event) => {
     getSenderWindow(event)?.minimizeWindow();
   });

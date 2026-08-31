@@ -2,6 +2,7 @@ import { screen, BrowserWindow, app } from "electron";
 import { vsgoLog } from "@platform/log/logger";
 import { TABBED_BROWSER_DEFAULT_HOME_URL } from "@shared/type";
 import { TabbedBrowserWindow, type Tab } from "./TabbedBrowserWindow";
+import { RemoteBrowserControlWindow } from "./RemoteBrowserControlWindow";
 
 export interface RemoteTargetSelector {
   tabId?: string;
@@ -55,21 +56,23 @@ class Manager {
       if (this.lastFocusedId === win.hostWindow.id) {
         this.lastFocusedId = this.windows[this.windows.length - 1]?.hostWindow.id ?? null;
       }
-      if (!this.isQuitting && this.windows.length === 0) {
+      // 远程浏览器控制窗口关闭时不应自动补一个空浏览器窗口
+      if (!this.isQuitting && !win.isRemoteControl && this.windows.length === 0) {
         this.createEmpty(TABBED_BROWSER_DEFAULT_HOME_URL, { show: false });
       }
     });
   }
 
-  /** 取最近聚焦的可用窗口；若没有返回 undefined */
-  private getLastFocusedWindow(): TabbedBrowserWindow | undefined {
+  /** 取最近聚焦的可用窗口；若没有返回 undefined
+   *  `excludeRemote` 为 true 时跳过「远程浏览器控制」专属窗口（普通浏览不应复用它）。 */
+  private getLastFocusedWindow(excludeRemote = false): TabbedBrowserWindow | undefined {
     if (this.lastFocusedId) {
       const found = this.windows.find(
-        (w) => !w.isDestroyed && w.hostWindow.id === this.lastFocusedId
+        (w) => !w.isDestroyed && (!excludeRemote || !w.isRemoteControl) && w.hostWindow.id === this.lastFocusedId
       );
       if (found) return found;
     }
-    return this.windows.find((w) => !w.isDestroyed);
+    return this.windows.find((w) => !w.isDestroyed && (!excludeRemote || !w.isRemoteControl));
   }
 
   /** 取最近聚焦窗口当前激活标签页 URL；若没有返回空字符串 */
@@ -173,7 +176,7 @@ class Manager {
 
   /** 打开一个 URL：在最近聚焦窗口中新开 tab；若没有窗口则新开窗口 */
   openUrl(url: string): TabbedBrowserWindow {
-    const existing = this.getLastFocusedWindow();
+    const existing = this.getLastFocusedWindow(true);
     if (existing) {
       existing.addTab(url);
       existing.present();
@@ -200,6 +203,25 @@ class Manager {
     return this.createEmptyWithTarget(url, { show: opts.show });
   }
 
+  /**
+   * 打开一个「远程浏览器控制」专属窗口，并在 host renderer ready 后挂载初始 tab。
+   * 该窗口与普通多标签浏览器窗口完全隔离：始终新建独立窗口，不参与普通浏览的窗口复用。
+   */
+  async openRemoteControlWindow(
+    url: string,
+    opts: { show?: boolean } = {}
+  ): Promise<RemoteTarget> {
+    return new Promise((resolve, reject) => {
+      this.createWindowWithInitialTab(
+        url,
+        opts,
+        resolve,
+        reject,
+        () => new RemoteBrowserControlWindow()
+      );
+    });
+  }
+
   /** 新建窗口并在 host renderer ready 后返回初始 tab。 */
   createEmptyWithTarget(
     url = TABBED_BROWSER_DEFAULT_HOME_URL,
@@ -222,10 +244,11 @@ class Manager {
     url: string,
     opts: { show?: boolean },
     onCreated?: (target: RemoteTarget) => void,
-    onFailed?: (error: Error) => void
+    onFailed?: (error: Error) => void,
+    createWindow: () => TabbedBrowserWindow = () => new TabbedBrowserWindow()
   ): TabbedBrowserWindow {
     const shouldShow = opts.show !== false;
-    const win = new TabbedBrowserWindow();
+    const win = createWindow();
     this.register(win);
 
     const hostContents = win.hostWindow.webContents;

@@ -596,14 +596,14 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     operationId: "openBrowserUrl",
     method: "POST",
     path: "/browser/open",
-    description: "Open a safe absolute URL in a new tab or browser window.",
+    description:
+      "Open a safe absolute URL in a dedicated remote-browser-control window (always a new standalone window, never a tab shared with the normal tabbed browser).",
     readOnly: false,
     body: objectSchema(
       {
         url: stringSchema("Destination URL. Only http, https and about:blank are accepted.", {
           format: "uri",
         }),
-        newWindow: booleanSchema("Force creation of a new browser window.", false),
         focus: booleanSchema("Show and focus the resulting window.", false),
         timeout: integerSchema("Open/load timeout in milliseconds.", 100, 120000, 30000),
       },
@@ -617,7 +617,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
       )
     ),
     example: {
-      request: { url: "https://example.com/", newWindow: false, focus: false },
+      request: { url: "https://example.com/", focus: false },
       response: successExample({ windowId: 3, tabId: "tab_01", url: "https://example.com/" }),
     },
   }),

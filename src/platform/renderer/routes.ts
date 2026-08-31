@@ -2,6 +2,7 @@ import type { FC } from "react";
 import MainWindow from "@windows/main-window/renderer/MainWindow";
 import CookieManager from "@windows/cookie-manager/renderer/CookieManager";
 import TabbedBrowser from "@windows/browser/renderer/TabbedBrowser";
+import RemoteBrowserControl from "@windows/browser/renderer/RemoteBrowserControl";
 import Settings from "@windows/settings/renderer/Settings";
 import LogViewer from "@windows/log-viewer/renderer/LogViewer";
 import Terminal from "@windows/terminal/renderer/Terminal";
@@ -12,6 +13,7 @@ export const RENDERER_ROUTES: Record<string, FC> = {
   "main-window": MainWindow,
   "cookie-manager": CookieManager,
   "tabbed-browser": TabbedBrowser,
+  "remote-browser-control": RemoteBrowserControl,
   settings: Settings,
   "log-viewer": LogViewer,
   terminal: Terminal,

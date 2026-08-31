@@ -88,6 +88,9 @@ export interface SavedCookie {
 /** Chrome 外壳 UI 总高度（标签栏 + 地址栏 + 书签栏 + 书签栏底边距），main 与 renderer 共享 */
 export const BROWSER_CHROME_HEIGHT = 106;
 
+/** 远程浏览器控制窗口的紧凑头部横幅高度（仅显示“远程控制中”状态条） */
+export const REMOTE_BROWSER_CHROME_HEIGHT = 36;
+
 /** 笔记窗口 / 浏览器默认首页：语雀文档 */
 export const USER_NOTES_YUQUE_URL = "https://www.yuque.com/qirong-work/fhc6ot/pdqwm8c5gwvi117d";
 
@@ -134,6 +137,8 @@ export interface TabState {
 export interface TabbedBrowserState {
   tabs: TabState[];
   activeTabId: string | null;
+  /** 该窗口是否为「远程浏览器控制」专属窗口（渲染层据此隐藏完整 chrome、显示横幅） */
+  remoteControl?: boolean;
 }
 
 // --- 浮动覆盖层窗口 ---

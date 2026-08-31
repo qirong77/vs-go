@@ -10,6 +10,7 @@ import path from "node:path";
 import { BrowserOverlayEvent, BrowserTabEvent, BrowserWindowEvent } from "../events";
 import {
   BROWSER_CHROME_HEIGHT,
+  REMOTE_BROWSER_CHROME_HEIGHT,
   TABBED_BROWSER_DEFAULT_HOME_URL,
   type TabState,
   type TabbedBrowserState,
@@ -142,21 +143,39 @@ export class TabbedBrowserWindow {
   private tabRemoteActivityAt = new Map<string, number>();
   /** 指示点熄灭用的定时器，按 tabId 保存 */
   private tabRemoteActivityTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** 是否为「远程浏览器控制」专属窗口 */
+  private readonly remoteControlMode: boolean = false;
+
+  /** 该窗口是否为「远程浏览器控制」专属窗口（供管理器/渲染层区分） */
+  get isRemoteControl(): boolean {
+    return this.remoteControlMode;
+  }
+
+  /** 页面视图顶部的 Chrome 外壳高度：普通窗口为完整外壳，远程窗口为紧凑横幅 */
+  get chromeHeight(): number {
+    return this.remoteControlMode ? REMOTE_BROWSER_CHROME_HEIGHT : BROWSER_CHROME_HEIGHT;
+  }
 
   /** 外部检测：是否正在销毁中，避免空窗口重复清理 */
   get isDestroyed(): boolean {
     return this.closed || this.hostWindow.isDestroyed();
   }
 
-  constructor() {
+  constructor(options: { remoteControl?: boolean } = {}) {
+    this.remoteControlMode = options.remoteControl === true;
     this.hostWindow = new BrowserWindow({
       width: 1200,
       height: 800,
       show: false,
-      title: "VsGo Browser",
-      titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
-      frame: process.platform !== "darwin",
-      fullscreenable: process.platform !== "darwin",
+      title: this.remoteControlMode ? "远程浏览器控制" : "VsGo Browser",
+      backgroundColor: this.remoteControlMode ? "#10141f" : undefined,
+      titleBarStyle: this.remoteControlMode
+        ? undefined
+        : process.platform === "darwin"
+          ? "hiddenInset"
+          : "default",
+      frame: this.remoteControlMode ? false : process.platform !== "darwin",
+      fullscreenable: this.remoteControlMode ? true : process.platform !== "darwin",
       minWidth: 760,
       minHeight: 460,
       webPreferences: {
@@ -166,11 +185,12 @@ export class TabbedBrowserWindow {
       },
     });
 
+    const route = this.remoteControlMode ? "remote-browser-control" : "tabbed-browser";
     if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-      this.hostWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#/tabbed-browser`);
+      this.hostWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#/${route}`);
     } else {
       this.hostWindow.loadFile(path.join(__dirname, "../renderer/index.html"), {
-        hash: "/tabbed-browser",
+        hash: `/${route}`,
       });
     }
 
@@ -542,6 +562,7 @@ export class TabbedBrowserWindow {
     return {
       tabs: this.tabs.map((t) => this.buildTabState(t)),
       activeTabId: this.activeTabId,
+      remoteControl: this.remoteControlMode,
     };
   }
 
@@ -720,7 +741,7 @@ export class TabbedBrowserWindow {
     const tab = this.getActiveTab();
     if (!tab || this.hostWindow.isDestroyed()) return;
     const [width, height] = this.hostWindow.getContentSize();
-    const topY = BROWSER_CHROME_HEIGHT;
+    const topY = this.chromeHeight;
     const bounds: Rectangle = {
       x: 0,
       y: topY,
@@ -1013,7 +1034,8 @@ export class TabbedBrowserWindow {
           }
         })();
         if (this.activeTabId === tab.id && !this.hostWindow.isDestroyed()) {
-          this.hostWindow.setTitle(domain ? `${title} - ${domain}` : title);
+          const base = domain ? `${title} - ${domain}` : title;
+          this.hostWindow.setTitle(this.remoteControlMode ? `远程浏览器控制 · ${base}` : base);
         }
       } catch {
         // ignore
@@ -1236,6 +1258,12 @@ export class TabbedBrowserWindow {
   exitFullscreen(): void {
     if (!this.hostWindow.isDestroyed() && this.hostWindow.isFullScreen()) {
       this.hostWindow.setFullScreen(false);
+    }
+  }
+
+  toggleFullscreen(): void {
+    if (!this.hostWindow.isDestroyed()) {
+      this.hostWindow.setFullScreen(!this.hostWindow.isFullScreen());
     }
   }
 

@@ -767,7 +767,6 @@ export class RemoteBrowserService {
     signal?: AbortSignal,
   ): Promise<RemoteBrowserServiceResult> {
     const url = this.strictNavigationUrl(body.url);
-    const newWindow = readBooleanParameter(body, "newWindow", { defaultValue: false });
     const focus = readBooleanParameter(body, "focus", { defaultValue: false });
     const timeout = readIntegerParameter(body, "timeout", {
       defaultValue: 30_000,
@@ -775,7 +774,7 @@ export class RemoteBrowserService {
       maximum: 120_000,
     });
     const target = await withDeadline(
-      TabbedBrowserWindowManager.openUrlWithTarget(url, { newWindow, show: focus }),
+      TabbedBrowserWindowManager.openRemoteControlWindow(url, { show: true }),
       timeout,
       signal,
       "Opening browser tab",
@@ -783,6 +782,7 @@ export class RemoteBrowserService {
     const wc = target.window.getTabWebContents(target.tab.id);
     if (!wc) throw new ApiFault("TARGET_CLOSED", "The newly opened tab was closed before it became ready");
     remoteBrowserDebugger.observeTab(target.tab.id, wc);
+    target.window.notifyRemoteActivity(target.tab.id);
     await withDeadline(waitForMainFrameLoad(wc, signal), timeout, signal, "Opening page");
     if (focus) target.window.focusTab(target.tab.id);
     const resolved: ResolvedTarget = { ...target, wc, implicit: false };
