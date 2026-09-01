@@ -6,6 +6,7 @@ import { createSettingsWindow } from "@windows/settings/electron";
 import { createLogWindow } from "@windows/log-viewer/electron";
 import { createTerminalWindow } from "@windows/terminal/electron";
 import { openRemoteBrowserDocs } from "@windows/browser/electron/remote-browser-docs";
+import { TabbedBrowserWindowManager } from "@windows/browser/electron/TabbedBrowserWindowManager";
 
 const thisFile = fileURLToPath(import.meta.url);
 const outDir = path.resolve(path.dirname(thisFile), "..");
@@ -37,7 +38,21 @@ export function initTray(): void {
     },
     {
       label: "远程浏览器控制",
-      click: () => openRemoteBrowserDocs(),
+      submenu: [
+        {
+          label: "显示窗口",
+          click: () => TabbedBrowserWindowManager.showRemoteControlWindow(),
+        },
+        {
+          label: "隐藏窗口",
+          click: () => TabbedBrowserWindowManager.hideRemoteControlWindow(),
+        },
+        { type: "separator" },
+        {
+          label: "打开文档",
+          click: () => openRemoteBrowserDocs(),
+        },
+      ],
     },
     { type: "separator" },
     {

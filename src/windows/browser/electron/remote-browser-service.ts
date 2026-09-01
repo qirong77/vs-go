@@ -774,7 +774,8 @@ export class RemoteBrowserService {
       maximum: 120_000,
     });
     const target = await withDeadline(
-      TabbedBrowserWindowManager.openRemoteControlWindow(url, { show: true }),
+      // 默认在后台打开（窗口保持隐藏），只有在 open 显式传 focus:true 时才显示到前台。
+      TabbedBrowserWindowManager.openRemoteControlWindow(url, { show: false }),
       timeout,
       signal,
       "Opening browser tab",

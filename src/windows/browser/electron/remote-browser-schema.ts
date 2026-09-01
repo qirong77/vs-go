@@ -597,14 +597,14 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     method: "POST",
     path: "/browser/open",
     description:
-      "Open a safe absolute URL in a dedicated remote-browser-control window (always a new standalone window, never a tab shared with the normal tabbed browser).",
+      "Open a safe absolute URL in the dedicated remote-browser-control window. There is at most one such window: an existing one is reused (its single tab navigates to the URL) instead of creating another. The window stays hidden in the background unless focus is true — it is never a tab shared with the normal tabbed browser.",
     readOnly: false,
     body: objectSchema(
       {
         url: stringSchema("Destination URL. Only http, https and about:blank are accepted.", {
           format: "uri",
         }),
-        focus: booleanSchema("Show and focus the resulting window.", false),
+        focus: booleanSchema("Show and focus the resulting window. Defaults to false, so the window opens hidden in the background.", false),
         timeout: integerSchema("Open/load timeout in milliseconds.", 100, 120000, 30000),
       },
       ["url"]
@@ -1637,7 +1637,7 @@ export function buildRemoteBrowserLlmDocument(
     target_convention:
       "Send target.{tabId,windowId,url} or top-level tabId/windowId to select a tab; prefer tabId. Conflicts fail validation, there is no silent fallback, ambiguous matches return AMBIGUOUS_TARGET, and every browser response echoes meta.target with the resolved tab.",
     usage_notes: [
-      "Open a tab with POST /browser/open, then reuse the returned tabId.",
+      "Open (or reuse) the single dedicated remote-browser-control window with POST /browser/open; it stays hidden in the background unless focus is true, and you get back the tabId to act on.",
       "Every browser response includes meta.target (tabId/url/title/windowId/documentId) so you know which tab was acted on.",
       "Use GET /browser/session/events and POST /browser/diagnostics to inspect console/network/runtime errors before editing code.",
       "Use POST /browser/source/resolve to map a generated stack location back to the original source file via source maps.",

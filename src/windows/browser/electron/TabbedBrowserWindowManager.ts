@@ -169,6 +169,21 @@ class Manager {
     return this.windows.find((w) => !w.isDestroyed && w.hostWindow.id === hostId);
   }
 
+  /** 当前「远程浏览器控制」专属窗口（不存在则返回 undefined）。 */
+  getRemoteControlWindow(): TabbedBrowserWindow | undefined {
+    return this.windows.find((w) => !w.isDestroyed && w.isRemoteControl);
+  }
+
+  /** 托盘菜单「显示窗口」：把远程控制窗口显示到前台并聚焦（无窗口则忽略）。 */
+  showRemoteControlWindow(): void {
+    this.getRemoteControlWindow()?.present();
+  }
+
+  /** 托盘菜单「隐藏窗口」：把远程控制窗口隐藏到后台（无窗口则忽略）。 */
+  hideRemoteControlWindow(): void {
+    this.getRemoteControlWindow()?.hide();
+  }
+
   /** 根据 tabId 查找持有该 tab 的窗口 */
   findWindowByTabId(tabId: string): TabbedBrowserWindow | undefined {
     return this.windows.find((w) => !w.isDestroyed && w.hasTab(tabId));
@@ -205,12 +220,26 @@ class Manager {
 
   /**
    * 打开一个「远程浏览器控制」专属窗口，并在 host renderer ready 后挂载初始 tab。
-   * 该窗口与普通多标签浏览器窗口完全隔离：始终新建独立窗口，不参与普通浏览的窗口复用。
+   * 该窗口与普通多标签浏览器窗口完全隔离，且「一次最多只有一个」远程控制窗口：
+   * 若已存在远程窗口，则复用其当前 tab 并导航到新 URL（远程窗口是单页控制台，不新增 tab）；
+   * 否则才新建。复用/新建都由 opts.show 控制是否显示到前台（默认隐藏，后台工作）。
    */
   async openRemoteControlWindow(
     url: string,
     opts: { show?: boolean } = {}
   ): Promise<RemoteTarget> {
+    // 一次最多一个远程控制窗口：复用已有窗口，避免重复弹出/堆积不可见标签页。
+    const existing = this.windows.find((w) => !w.isDestroyed && w.isRemoteControl);
+    if (existing) {
+      let tab = existing.getActiveTab() ?? existing.getTabs()[0];
+      if (tab) {
+        await existing.navigateTab(tab.id, url);
+      } else {
+        tab = existing.addTab(url);
+      }
+      if (opts.show !== false) existing.present();
+      return { window: existing, tab };
+    }
     return new Promise((resolve, reject) => {
       this.createWindowWithInitialTab(
         url,
