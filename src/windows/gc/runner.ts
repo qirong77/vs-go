@@ -1,7 +1,13 @@
 import type { WebContents } from "electron";
 import { formatError } from "@shared/utils";
 import { GcEvent } from "./events";
-import { cleanGarbage, getMemoryInfo, listProcesses, resetGcObservations } from "./gc-core";
+import {
+  cleanGarbage,
+  getCpuInfo,
+  getMemoryInfo,
+  listProcesses,
+  resetGcObservations,
+} from "./gc-core";
 import { appendGcLog, getGcLog } from "./gc-log";
 import { GcScheduler } from "./scheduler";
 import { getGcSettings } from "./store";
@@ -53,6 +59,7 @@ export function runCleanNow(
   }
   const promise = (async (): Promise<GcCleanResult> => {
     let result: GcCleanResult;
+    const memBefore = (await getMemoryInfo()).usedMB;
     try {
       result = await cleanGarbage(source, mode, shouldContinue);
     } catch (error) {
@@ -67,17 +74,32 @@ export function runCleanNow(
         error: formatError(error),
       };
     }
+    const memAfter = (await getMemoryInfo()).usedMB;
+    const freedPercent =
+      memBefore > 0 && memAfter < memBefore
+        ? Math.min(100, Math.round(((memBefore - memAfter) / memBefore) * 100))
+        : 0;
     lastCleanAt = result.at;
     lastCleanResult = result;
+    const killedText = result.killed.length
+      ? `，终止 ${result.killed.length} 个进程，释放 ${result.freedMB} MB`
+      : "，未发现可终止的候选";
+    const freedText =
+      result.freedMB > 0
+        ? `，系统内存占用下降 ${freedPercent}%`
+        : "";
     appendGcLog({
       time: result.at,
       source,
       action: "clean",
-      message: `${source === "auto" ? "自动" : "手动"}${mode === "deep" ? "深度" : ""}清理${result.error ? "失败" : result.pendingCount ? "：候选观察中" : "完成"}`,
+      message: `${source === "auto" ? "自动" : "手动"}${mode === "deep" ? "深度" : ""}清理${result.error ? "失败" : "完成"}${killedText}${freedText}`,
       killed: result.killed.map((p) => ({ pid: p.pid, name: p.name, rssMB: p.rssMB })),
       freedMB: result.freedMB,
       skipped: result.skipped,
       detail: result.error,
+      memBeforeMB: memBefore,
+      memAfterMB: memAfter,
+      freedPercent,
     });
     return result;
   })().finally(() => {
@@ -117,10 +139,11 @@ export function stopGcRunner(): void {
 }
 
 export async function buildSnapshot(): Promise<GcSnapshot> {
-  const processes = await listProcesses();
+  const [processes, cpu] = await Promise.all([listProcesses(), getCpuInfo()]);
   return {
     bootAt: BOOT_AT,
-    memory: getMemoryInfo(),
+    memory: await getMemoryInfo(),
+    cpu,
     settings: getGcSettings(),
     processes,
     lastCleanAt,

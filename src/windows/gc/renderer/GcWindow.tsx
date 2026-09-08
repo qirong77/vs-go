@@ -11,22 +11,29 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
 } from "antd";
 import type { TableProps } from "antd";
 import { GcEvent } from "@windows/gc/events";
 import { normalizeGcSettings } from "@windows/gc/settings";
-import type { GcProcessInfo, GcProcessTag, GcSettings, GcSnapshot } from "@windows/gc/types";
+import type {
+  GcCpuInfo,
+  GcProcessInfo,
+  GcProcessTag,
+  GcSettings,
+  GcSnapshot,
+} from "@windows/gc/types";
 
 const { ipcRenderer } = window.electron;
 
-const TAG_META: Record<GcProcessTag, { label: string; color: string }> = {
-  "orphan-helper": { label: "孤儿 helper", color: "magenta" },
-  "orphan-descendant": { label: "深层残留", color: "purple" },
-  zombie: { label: "僵尸进程", color: "default" },
-  "high-cpu": { label: "高CPU", color: "volcano" },
-  "high-mem": { label: "高内存", color: "orange" },
-  protected: { label: "保护", color: "blue" },
-  system: { label: "系统", color: "default" },
+const TAG_META: Record<GcProcessTag, { label: string; color: string; hex: string }> = {
+  "orphan-helper": { label: "孤儿 helper", color: "magenta", hex: "#eb2f96" },
+  "orphan-descendant": { label: "深层残留", color: "purple", hex: "#722ed1" },
+  zombie: { label: "僵尸进程", color: "default", hex: "#8c8c8c" },
+  "high-cpu": { label: "高CPU", color: "volcano", hex: "#fa541c" },
+  "high-mem": { label: "高内存", color: "orange", hex: "#fa8c16" },
+  protected: { label: "保护", color: "blue", hex: "#1677ff" },
+  system: { label: "系统", color: "default", hex: "#6b7280" },
 };
 
 function formatTime(ts: number): string {
@@ -91,19 +98,30 @@ function SettingNumber({
 }
 
 function MemoryBar({ memory }: { memory: GcSnapshot["memory"] }): React.JSX.Element {
+  // 压力等级 → 展示颜色；无压力等级时按占用率兜底。
+  const pressureColor =
+    memory.pressure === 2
+      ? "#f5222d"
+      : memory.pressure === 1
+        ? "#fa8c16"
+        : memory.usedPercent > 85
+          ? "#f5222d"
+          : memory.usedPercent > 70
+            ? "#fa8c16"
+            : "#1a73e8";
   return (
     <div style={{ minWidth: 260 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
         <span style={{ color: "#6b7280", fontSize: 12 }}>
-          内存 {memory.usedMB} / {memory.totalMB} MB · 空闲 {memory.freeMB} MB
+          内存 {memory.usedMB} / {memory.totalMB} MB · 可用 {memory.availableMB} MB
         </span>
-        <span style={{ color: "#1a73e8", fontSize: 12, fontWeight: 600 }}>
+        <span style={{ color: pressureColor, fontSize: 12, fontWeight: 600 }}>
           {memory.usedPercent}%
         </span>
       </div>
       <Progress
         percent={memory.usedPercent}
-        strokeColor={memory.usedPercent > 85 ? "#f5222d" : "#1a73e8"}
+        strokeColor={pressureColor}
         size="small"
       />
     </div>
@@ -119,6 +137,176 @@ function tagCells(tags: GcProcessTag[]): React.JSX.Element[] {
       </Tag>
     );
   });
+}
+
+function CpuBar({ cpu }: { cpu: GcCpuInfo }): React.JSX.Element {
+  const color = cpu.usedPercent > 85 ? "#f5222d" : "#1a73e8";
+  return (
+    <div style={{ minWidth: 240 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+        <span style={{ color: "#6b7280", fontSize: 12 }}>CPU 占用</span>
+        <span style={{ color: "#1a73e8", fontSize: 12, fontWeight: 600 }}>{cpu.usedPercent}%</span>
+      </div>
+      <Progress percent={cpu.usedPercent} strokeColor={color} size="small" />
+      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+        {cpu.userPercent.toFixed(1)}% user · {cpu.sysPercent.toFixed(1)}% sys ·{" "}
+        {cpu.idlePercent.toFixed(1)}% idle · {cpu.coreCount} 核
+      </div>
+    </div>
+  );
+}
+
+const SYSTEM_PROCESS_DESC: Record<string, string> = {
+  launchd: "系统启动守护进程，管理所有系统与登录项进程",
+  logd: "系统日志守护进程，统一存储与转发系统日志",
+  smd: "系统管理守护进程（System Management Daemon）",
+  UserEventAgent: "用户事件代理，处理登录项与用户级事件",
+  fseventsd: "文件系统事件守护进程，为索引与备份提供变更通知",
+  mediaremoted: "媒体远程守护进程，处理 AirPlay 等远程控制",
+  systemstats: "系统统计守护进程，采集硬件与系统状态",
+  configd: "网络与系统配置守护进程，管理网络/DNS 等",
+  powerd: "电源管理守护进程，负责电量与睡眠策略",
+  IOMFB_bics_daemon: "显示引擎守护进程，处理色彩与显示管线",
+  corespeechd_system: "系统语音识别守护进程（Core Speech）",
+  watchdogd: "看门狗守护进程，监控系统组件响应",
+  mds: "Spotlight 索引守护进程，维护文件元数据索引",
+  mdworker: "Spotlight 索引进程，更新文件内容索引",
+  kernelmanagerd: "内核扩展管理守护进程",
+  WindowServer: "窗口服务器，负责所有图形界面绘制",
+  syslogd: "系统日志记录进程",
+  securityd: "安全与钥匙串守护进程",
+  notifyd: "系统通知分发进程",
+  cfprefsd: "偏好设置守护进程，管理应用配置缓存",
+  opendirectoryd: "目录服务数据守护进程",
+  coreaudiod: "音频服务守护进程",
+  bluetoothd: "蓝牙设备服务守护进程",
+  nsurlsessiond: "网络请求会话守护进程（URLSession）",
+  tccd: "隐私权限（TCC）守护进程",
+  diskarbitrationd: "磁盘挂载/仲裁守护进程",
+  thermalmonitord: "温度与散热监控守护进程",
+  cloudd: "iCloud 云服务守护进程",
+  hangtracerd: "系统卡顿轨迹采集进程",
+  ReportCrash: "崩溃报告采集进程",
+  syspolicyd: "系统安全策略守护进程",
+  storeassetd: "App Store 资产守护进程",
+};
+
+function describeProcess(p: GcProcessInfo): string {
+  const name = p.name;
+  const desc = SYSTEM_PROCESS_DESC[name];
+  if (desc) return desc;
+  const pathLower = p.path.toLowerCase();
+  const bundle = /\/[^/]+\.app\//.exec(p.path)?.[0];
+  if (bundle) {
+    const app = bundle.replace(/^\//, "").replace(/\.app\/$/, "").replace(/^.*\//, "");
+    return `${app} 应用`;
+  }
+  if (/helper/i.test(name) || /helper/i.test(pathLower)) return "应用辅助进程（Helper）";
+  if (pathLower.includes("/opt/didi/")) return "滴滴内部组件";
+  if (
+    pathLower.startsWith("/system/") ||
+    pathLower.startsWith("/usr/libexec") ||
+    pathLower.startsWith("/usr/sbin") ||
+    pathLower.startsWith("/sbin")
+  )
+    return "系统守护进程";
+  if (/^node(\.exe)?$/.test(name)) return "Node.js 运行时进程";
+  if (/^python/.test(name)) return "Python 脚本进程";
+  if (/^java\b/.test(name)) return "Java 虚拟机进程";
+  if (/^ruby/.test(name)) return "Ruby 脚本进程";
+  return "";
+}
+
+// macOS/Linux ps 进程状态码含义。首字母为运行状态，小写后缀为附加属性。
+const STATE_CODE_META: Record<string, { label: string; color: string }> = {
+  R: { label: "运行中", color: "#52c41a" },
+  S: { label: "休眠中", color: "#faad14" },
+  I: { label: "空闲", color: "#8c8c8c" },
+  D: { label: "不可中断等待", color: "#f5222d" },
+  U: { label: "不可中断等待", color: "#f5222d" },
+  T: { label: "已暂停", color: "#fa541c" },
+  Z: { label: "僵尸进程", color: "#8c8c8c" },
+  W: { label: "换出中", color: "#722ed1" },
+  X: { label: "内存增长中", color: "#722ed1" },
+  E: { label: "退出中", color: "#fa541c" },
+  "?": { label: "状态不可用", color: "#8c8c8c" },
+};
+
+const STATE_FLAG_META: Record<string, string> = {
+  s: "会话领导者",
+  "+": "前台进程组",
+  l: "多线程",
+  "<": "高优先级",
+  N: "低优先级",
+};
+
+function parseState(state: string): {
+  letter: string;
+  base?: { label: string; color: string };
+  flags: string[];
+} {
+  const trimmed = state.trim();
+  const letter = trimmed.charAt(0).toUpperCase();
+  const flags = trimmed
+    .slice(1)
+    .split("")
+    .filter((ch) => STATE_FLAG_META[ch]);
+  return { letter, base: STATE_CODE_META[letter], flags };
+}
+
+function stateCell(state: string): React.JSX.Element {
+  const { letter, base, flags } = parseState(state);
+  if (!base) {
+    return (
+      <span style={{ color: "#202124", fontFamily: "monospace", fontSize: 12 }}>{state}</span>
+    );
+  }
+  const flagLabels = flags.map((f) => STATE_FLAG_META[f]);
+  const hint = [base.label, ...flagLabels].join(" · ");
+  const detailParts = [`运行状态：${base.label}`];
+  if (flagLabels.length) detailParts.push(`附加属性：${flagLabels.join("、")}`);
+  return (
+    <Tooltip
+      title={
+        <div style={{ fontSize: 12 }}>
+          <div style={{ fontWeight: 600, marginBottom: 2 }}>{hint}</div>
+          {detailParts.map((part) => (
+            <div key={part} style={{ color: "rgba(255,255,255,0.85)" }}>
+              {part}
+            </div>
+          ))}
+        </div>
+      }
+    >
+      <span
+        style={{
+          color: base.color,
+          fontFamily: "monospace",
+          fontSize: 12,
+          fontWeight: 600,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+        }}
+      >
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: base.color,
+            display: "inline-block",
+          }}
+        />
+        {letter}
+        {flags.map((f) => (
+          <span key={f} style={{ color: "#9ca3af", fontWeight: 400 }}>
+            {f}
+          </span>
+        ))}
+      </span>
+    </Tooltip>
+  );
 }
 
 function GcWindow(): React.JSX.Element {
@@ -176,7 +364,7 @@ function GcWindow(): React.JSX.Element {
     onPush();
     const timer = window.setInterval(() => {
       if (!refreshPromise.current) onPush();
-    }, 10000);
+    }, 180000);
     document.addEventListener("visibilitychange", onPush);
     ipcRenderer.on(GcEvent.PUSH, onPush);
     return () => {
@@ -192,8 +380,15 @@ function GcWindow(): React.JSX.Element {
 
   const processes = useMemo(() => {
     if (!snapshot) return [];
-    if (tagFilter.size === 0) return snapshot.processes;
-    return snapshot.processes.filter((p) => p.tags.some((t) => tagFilter.has(t)));
+    const list =
+      tagFilter.size === 0
+        ? snapshot.processes
+        : snapshot.processes.filter((p) => p.tags.some((t) => tagFilter.has(t)));
+    // 默认按 CPU（60%）与内存（40%）归一化加权排序，高占用排前；点列头可临时覆盖。
+    const maxCpu = Math.max(...list.map((p) => p.cpu), 1);
+    const maxMem = Math.max(...list.map((p) => p.rssMB), 1);
+    const score = (p: GcProcessInfo): number => (p.cpu / maxCpu) * 0.6 + (p.rssMB / maxMem) * 0.4;
+    return [...list].sort((a, b) => score(b) - score(a));
   }, [snapshot, tagFilter]);
 
   const garbage = useMemo(() => {
@@ -330,6 +525,16 @@ function GcWindow(): React.JSX.Element {
     }
   };
 
+  const handleClearLog = async (): Promise<void> => {
+    setActionError(null);
+    try {
+      await ipcRenderer.invoke(GcEvent.CLEAR_LOG);
+      await refresh();
+    } catch (error) {
+      setActionError(`清空日志失败：${errorMessage(error)}`);
+    }
+  };
+
   const cols: TableProps<GcProcessInfo>["columns"] = [
     {
       title: "PID",
@@ -340,19 +545,59 @@ function GcWindow(): React.JSX.Element {
     {
       title: "名称",
       dataIndex: "name",
-      ellipsis: true,
-      render: (v: string, r: GcProcessInfo) => <span title={r.path}>{v}</span>,
+      width: 200,
+      render: (v: string, r: GcProcessInfo) => {
+        const desc = describeProcess(r);
+        return (
+          <div>
+            <div
+              title={r.path}
+              style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            >
+              {v}
+            </div>
+            {desc && (
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#9ca3af",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {desc}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
-      title: "CPU %",
+      title: (
+        <Tooltip title="CPU 占用为「相对单个核心」的百分比；多核机器上进程可超过 100%（如 200% 表示占满 2 个核）">
+          <span>CPU %</span>
+        </Tooltip>
+      ),
       dataIndex: "cpu",
       width: 90,
       sorter: (a: GcProcessInfo, b: GcProcessInfo) => a.cpu - b.cpu,
-      render: (v: number) => (
-        <span style={{ color: v >= (settings?.cpuHighThreshold ?? 80) ? "#f5222d" : "#202124" }}>
-          {v.toFixed(1)}
-        </span>
-      ),
+      render: (v: number) => {
+        const cores = snapshot?.cpu.coreCount ?? 1;
+        const high = v >= (settings?.cpuHighThreshold ?? 80);
+        // 超过 100% 说明进程占用了多个核，换算成「≈N 核」更直观。
+        const multiCore = v > 100 ? `≈${(v / 100).toFixed(1)}核` : null;
+        return (
+          <Tooltip title={`相对单核 ${v.toFixed(1)}%（核数 ${cores}）`}>
+            <span style={{ color: high ? "#f5222d" : "#202124" }}>
+              {v.toFixed(1)}
+              {multiCore && (
+                <span style={{ color: "#9ca3af", fontSize: 11, marginLeft: 4 }}>{multiCore}</span>
+              )}
+            </span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "内存 MB",
@@ -365,7 +610,16 @@ function GcWindow(): React.JSX.Element {
         </span>
       ),
     },
-    { title: "状态", dataIndex: "state", width: 70 },
+    {
+      title: (
+        <Tooltip title="进程状态：首字母为运行状态，小写为附加属性。如 Rs = 运行中 · 会话领导者">
+          <span>状态</span>
+        </Tooltip>
+      ),
+      dataIndex: "state",
+      width: 90,
+      render: (v: string) => stateCell(v),
+    },
     {
       title: "标签",
       dataIndex: "tags",
@@ -425,7 +679,10 @@ function GcWindow(): React.JSX.Element {
               启用于 {snapshot ? formatTime(snapshot.bootAt) : "..."}
             </span>
           </div>
-          {memory && <MemoryBar memory={memory} />}
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
+            {memory && <MemoryBar memory={memory} />}
+            {snapshot?.cpu && <CpuBar cpu={snapshot.cpu} />}
+          </div>
           <div style={{ flex: 1 }} />
           <Button
             disabled={cleaning || snapshot?.running || !snapshot}
@@ -446,26 +703,39 @@ function GcWindow(): React.JSX.Element {
           </Button>
         </div>
 
-        <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, color: "#6b7280" }}>
-            检测到{" "}
-            <b style={{ color: garbage.length > 0 ? "#eb2f96" : "#202124" }}>
+        <div
+          style={{
+            marginTop: 12,
+            padding: "8px 14px",
+            background: "#fafafa",
+            border: "1px solid #f0f0f0",
+            borderRadius: 8,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            rowGap: 4,
+            gap: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 13, color: "#6b7280" }}>清理候选</span>
+            <b style={{ color: garbage.length > 0 ? "#eb2f96" : "#202124", fontSize: 14 }}>
               {snapshot ? garbage.length : "—"}
-            </b>{" "}
-            个清理候选（含深层残留）
+            </b>
+            <span style={{ fontSize: 13, color: "#6b7280" }}>个（含深层残留）</span>
             {garbageMB > 0 && (
-              <>
-                （占用约 <b style={{ color: "#1a73e8" }}>{garbageMB.toFixed(1)} MB</b>）
-              </>
+              <span style={{ fontSize: 12, color: "#1a73e8" }}>{garbageMB.toFixed(1)} MB</span>
             )}
-          </span>
-          <span style={{ fontSize: 13, color: "#6b7280" }}>
-            高消耗进程{" "}
-            <b style={{ color: highRisk.length > 0 ? "#fa8c16" : "#202124" }}>
+          </div>
+          <div style={{ width: 1, height: 16, background: "#e5e7eb", margin: "0 16px" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 13, color: "#6b7280" }}>高消耗进程</span>
+            <b style={{ color: highRisk.length > 0 ? "#fa8c16" : "#202124", fontSize: 14 }}>
               {snapshot ? highRisk.length : "—"}
-            </b>{" "}
-            个 （高消耗仅作为提示）
-          </span>
+            </b>
+            <span style={{ fontSize: 13, color: "#6b7280" }}>个（仅提示）</span>
+          </div>
+          <div style={{ width: 1, height: 16, background: "#e5e7eb", margin: "0 16px" }} />
           {snapshot?.running && <Tag color="processing">清理中...</Tag>}
           {snapshot && (
             <span style={{ fontSize: 12, color: "#6b7280" }}>
@@ -478,7 +748,7 @@ function GcWindow(): React.JSX.Element {
             </span>
           )}
         </div>
-        <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
           普通清理检查孤儿 helper；深度清理还检查同一应用的残留 helper 子进程。执行前会复核候选。
         </div>
         {refreshError && (
@@ -528,24 +798,21 @@ function GcWindow(): React.JSX.Element {
 
       {/* 标签栏 */}
       <div
-        style={{ padding: "10px 20px 0", background: "#ffffff", borderBottom: "1px solid #e5e7eb" }}
+        style={{ padding: "10px 20px 10px", background: "#ffffff", borderBottom: "1px solid #e5e7eb" }}
       >
-        <Segmented
-          value={tab}
-          onChange={(v) => setTab(v as typeof tab)}
-          options={[
-            { label: `进程 (${snapshot?.processes.length ?? "—"})`, value: "process" },
-            { label: `清理日志 (${snapshot ? logRows.length : "—"})`, value: "log" },
-            { label: "设置", value: "settings" },
-          ]}
-        />
-      </div>
-
-      {/* 内容 */}
-      <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
-        {tab === "process" && (
-          <div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <Segmented
+            value={tab}
+            onChange={(v) => setTab(v as typeof tab)}
+            options={[
+              { label: `进程 (${snapshot?.processes.length ?? "—"})`, value: "process" },
+              { label: `清理日志 (${snapshot ? logRows.length : "—"})`, value: "log" },
+              { label: "设置", value: "settings" },
+            ]}
+          />
+          {tab === "process" && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "#6b7280", marginRight: 2 }}>筛选：</span>
               {(Object.keys(TAG_META) as GcProcessTag[]).map((t) => {
                 const meta = TAG_META[t];
                 const active = tagFilter.has(t);
@@ -553,7 +820,13 @@ function GcWindow(): React.JSX.Element {
                   <Tag
                     key={t}
                     color={active ? meta.color : undefined}
-                    style={{ cursor: "pointer", padding: "2px 10px" }}
+                    style={{
+                      cursor: "pointer",
+                      padding: "2px 10px",
+                      ...(active
+                        ? {}
+                        : { color: meta.hex, borderColor: meta.hex, background: `${meta.hex}14` }),
+                    }}
                     onClick={() => toggleTag(t)}
                   >
                     {meta.label}
@@ -561,12 +834,21 @@ function GcWindow(): React.JSX.Element {
                 );
               })}
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* 内容 */}
+      <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
+        {tab === "process" && (
+          <div>
             <Table
               rowKey={(process) => `${process.pid}:${process.startedAt}`}
               size="small"
               loading={loading}
               columns={cols}
               dataSource={processes}
+              scroll={{ x: "max-content" }}
               pagination={{ pageSize: 50, showSizeChanger: false }}
               locale={{
                 emptyText: (
@@ -587,6 +869,26 @@ function GcWindow(): React.JSX.Element {
 
         {tab === "log" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {logRows.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "#ffffff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                  padding: "8px 14px",
+                }}
+              >
+                <span style={{ fontSize: 12, color: "#6b7280" }}>
+                  共 {logRows.length} 条（保留最近 48 小时）
+                </span>
+                <Button size="small" danger onClick={() => void handleClearLog()}>
+                  清空日志
+                </Button>
+              </div>
+            )}
             {logRows.length === 0 ? (
               <Empty
                 description={
@@ -616,13 +918,37 @@ function GcWindow(): React.JSX.Element {
                       {entry.source === "auto" ? "自动" : "手动"}
                     </Tag>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{entry.message}</span>
-                    {entry.freedMB > 0 && (
-                      <Tag color="purple">终止前 RSS 合计 {entry.freedMB} MB</Tag>
-                    )}
                   </div>
+                  {entry.freedPercent !== undefined && entry.memBeforeMB !== undefined && (
+                    <div style={{ marginTop: 8 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          fontSize: 12,
+                          color: "#6b7280",
+                          marginBottom: 3,
+                        }}
+                      >
+                        <span>
+                          内存 {entry.memBeforeMB} MB → {entry.memAfterMB ?? entry.memBeforeMB} MB
+                        </span>
+                        <span style={{ color: "#52c41a", fontWeight: 600 }}>
+                          释放 {entry.freedMB} MB，下降 {entry.freedPercent}%
+                        </span>
+                      </div>
+                      <Progress
+                        percent={entry.freedPercent}
+                        strokeColor="#52c41a"
+                        size="small"
+                        showInfo={false}
+                      />
+                    </div>
+                  )}
                   {entry.killed.length > 0 && (
                     <div style={{ marginTop: 6, fontSize: 12, color: "#4b5563" }}>
-                      终止：{entry.killed.map((k) => `${k.name}(${k.pid})`).join("、")}
+                      终止 {entry.killed.length} 个进程：{" "}
+                      {entry.killed.map((k) => `${k.name}(${k.pid}) ${k.rssMB}MB`).join("、")}
                     </div>
                   )}
                   {entry.skipped.length > 0 && (

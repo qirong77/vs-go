@@ -3,7 +3,7 @@ import { formatError } from "@shared/utils";
 import { GcEvent } from "./events";
 import { isGcWindowSender } from "./electron";
 import { killProcessByPid, resetGcObservations } from "./gc-core";
-import { appendGcLog, getGcLog } from "./gc-log";
+import { appendGcLog, clearGcLog, getGcLog } from "./gc-log";
 import { buildSnapshot, notifyGcChanged, runCleanNow, startGcRunner } from "./runner";
 import { getGcSettings, setGcSettings } from "./store";
 import type { GcSettings } from "./types";
@@ -131,5 +131,12 @@ export function registerGcHandlers(): void {
   ipcMain.handle(GcEvent.GET_LOG, async (event) => {
     assertGcSender(event);
     return getGcLog();
+  });
+
+  ipcMain.handle(GcEvent.CLEAR_LOG, async (event) => {
+    assertGcSender(event);
+    clearGcLog();
+    notifyGcChanged("log-cleared");
+    return true;
   });
 }

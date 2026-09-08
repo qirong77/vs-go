@@ -145,6 +145,15 @@ test("does not write when an already expired append leaves the cache unchanged",
   assert.equal(f.writes.length, 0);
 });
 
+test("clear empties the cache and persists an empty file", () => {
+  const f = fixture([entry(), entry(now - 1)]);
+  assert.equal(f.store.get().length, 2);
+  f.store.clear();
+  assert.deepEqual(f.store.get(), []);
+  assert.deepEqual(f.writes, [[]]);
+  assert.equal(f.reads(), 1);
+});
+
 test("parses only complete lines in the simulated 4 MiB tail", () => {
   const input = Buffer.from(
     "x".repeat(MAX_LOG_READ_BYTES + 100) + "\n" + JSON.stringify(entry()) + "\n"

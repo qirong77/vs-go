@@ -9,7 +9,7 @@ import {
   processIdentity,
 } from "./process-policy";
 import { terminateProcesses } from "./termination";
-import type { GcCleanResult, GcMemoryInfo, GcProcessInfo } from "./types";
+import type { GcCleanResult, GcCpuInfo, GcMemoryInfo, GcProcessInfo } from "./types";
 
 const observations = new OrphanObservations();
 let observationRevision = 0;
@@ -63,16 +63,118 @@ export function listProcesses(): Promise<GcProcessInfo[]> {
   return scan;
 }
 
-export function getMemoryInfo(): GcMemoryInfo {
+/**
+ * 读取系统内存占用。
+ *
+ * macOS 上 os.freemem() 只统计「完全空白页」（通常仅几十 MB），会把 inactive /
+ * compressor 等可回收内存误算成已用，导致占用虚高到 90%+。因此这里改用
+ * vm_stat 采样，把 free + inactive + speculative + purgeable 视为真实可用内存，
+ * 与 Activity Monitor 口径一致；压力等级取 sysctl 的 vm_pressure_level。
+ * 失败时回退到 os.freemem()，避免影响进程扫描。
+ */
+export function getMemoryInfo(): Promise<GcMemoryInfo> {
   const totalMB = Math.round(os.totalmem() / 1024 / 1024);
-  const freeMB = Math.round(os.freemem() / 1024 / 1024);
-  const usedMB = totalMB - freeMB;
-  return {
-    totalMB,
-    freeMB,
-    usedMB,
-    usedPercent: totalMB ? Math.round((usedMB / totalMB) * 100) : 0,
+  const fallback = (): GcMemoryInfo => {
+    const freeMB = Math.round(os.freemem() / 1024 / 1024);
+    const usedMB = totalMB - freeMB;
+    return {
+      totalMB,
+      freeMB,
+      usedMB,
+      usedPercent: totalMB ? Math.round((usedMB / totalMB) * 100) : 0,
+      availableMB: freeMB,
+      pressure: 0,
+    };
   };
+  const exec = (file: string, args: string[]): Promise<string> =>
+    new Promise((resolve) => {
+      execFile(
+        file,
+        args,
+        { timeout: 8000, maxBuffer: 1024 * 1024, env: { ...process.env, LC_ALL: "C", LANG: "C" } },
+        (error, stdout) => (error ? resolve("") : resolve(stdout))
+      );
+    });
+  return Promise.all([exec("/usr/bin/vm_stat", []), exec("/usr/sbin/sysctl", ["kern.memorystatus_vm_pressure_level"])])
+    .then(([statOut, levelOut]) => {
+      if (!statOut) return fallback();
+      // 从 vm_stat 头部读取实际页大小（如 "page size of 16384 bytes"），避免硬编码偏移。
+      const pageSizeMatch = /page size of\s+(\d+)\s+bytes/.exec(statOut);
+      const pageSize = pageSizeMatch ? Number(pageSizeMatch[1]) : 16384;
+      const page = (label: string): number => {
+        const m = new RegExp(`${label}:\\s+(\\d+)`).exec(statOut);
+        return m ? Number(m[1]) : 0;
+      };
+      const free = page("Pages free");
+      const inactive = page("Pages inactive");
+      const speculative = page("Pages speculative");
+      const purgeable = page("Pages purgeable");
+      const availablePages = free + inactive + speculative + purgeable;
+      const availableMB = Math.round((availablePages * pageSize) / 1024 / 1024);
+      const usedMB = Math.max(0, totalMB - availableMB);
+      const levelMatch = /kern\.memorystatus_vm_pressure_level:\s*(\d+)/.exec(levelOut);
+      const rawLevel = levelMatch ? Number(levelMatch[1]) : 0;
+      const pressure = (rawLevel === 1 ? 1 : rawLevel === 2 ? 2 : 0) as 0 | 1 | 2;
+      return {
+        totalMB,
+        freeMB: availableMB,
+        usedMB,
+        usedPercent: totalMB ? Math.min(100, Math.round((usedMB / totalMB) * 100)) : 0,
+        availableMB,
+        pressure,
+      };
+    })
+    .catch(() => fallback());
+}
+
+/**
+ * 读取系统整体 CPU 占用（top 一次采样）。
+ * 仅作展示，失败时返回全空闲的兜底值，不影响进程扫描。
+ */
+export function getCpuInfo(): Promise<GcCpuInfo> {
+  const coreCount = Math.max(1, os.cpus().length);
+  const fallback: GcCpuInfo = {
+    userPercent: 0,
+    sysPercent: 0,
+    idlePercent: 100,
+    usedPercent: 0,
+    coreCount,
+  };
+  return new Promise((resolve) => {
+    execFile(
+      "/usr/bin/top",
+      ["-l", "1", "-n", "0"],
+      {
+        timeout: 8000,
+        maxBuffer: 1024 * 1024,
+        env: { ...process.env, LC_ALL: "C", LANG: "C" },
+      },
+      (error, stdout) => {
+        if (error) {
+          resolve(fallback);
+          return;
+        }
+        const match = /CPU usage:\s*([\d.]+)%\s*user,\s*([\d.]+)%\s*sys,\s*([\d.]+)%\s*idle/.exec(
+          stdout
+        );
+        if (!match) {
+          resolve(fallback);
+          return;
+        }
+        const userPercent = Number(match[1]);
+        const sysPercent = Number(match[2]);
+        const idlePercent = Number(match[3]);
+        const usedPercent = Math.max(0, Math.min(100, Math.round(userPercent + sysPercent)));
+        resolve({
+          userPercent,
+          sysPercent,
+          idlePercent,
+          usedPercent,
+          coreCount,
+        });
+      }
+    );
+  });
 }
 
 function leafFirst(procs: GcProcessInfo[]): GcProcessInfo[] {

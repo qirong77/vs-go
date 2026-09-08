@@ -35,6 +35,23 @@ export interface GcMemoryInfo {
   freeMB: number;
   usedMB: number;
   usedPercent: number;
+  /** 真实可立即回收的内存（MB），含 free + inactive + speculative + purgeable */
+  availableMB: number;
+  /** 内存压力等级：0=正常 1=警告 2=严重（对应 macOS kern.memorystatus_vm_pressure_level） */
+  pressure: 0 | 1 | 2;
+}
+
+export interface GcCpuInfo {
+  /** top 采样得到的用户态占用（%） */
+  userPercent: number;
+  /** top 采样得到的系统态占用（%） */
+  sysPercent: number;
+  /** 空闲占用（%） */
+  idlePercent: number;
+  /** 整体占用（%），即 100 - idle */
+  usedPercent: number;
+  /** 逻辑核心数 */
+  coreCount: number;
 }
 
 export interface GcSettings {
@@ -66,6 +83,12 @@ export interface GcLogEntry {
   freedMB: number;
   skipped: Array<{ pid: number; name: string; reason: string }>;
   detail?: string;
+  /** 清理前的系统内存占用（MB） */
+  memBeforeMB?: number;
+  /** 清理后的系统内存占用（MB） */
+  memAfterMB?: number;
+  /** 释放内存占清理前的百分比（0-100），用于衡量优化幅度 */
+  freedPercent?: number;
 }
 
 export interface GcKilledItem {
@@ -96,6 +119,7 @@ export interface GcCleanResult {
 export interface GcSnapshot {
   bootAt: number;
   memory: GcMemoryInfo;
+  cpu: GcCpuInfo;
   settings: GcSettings;
   processes: GcProcessInfo[];
   lastCleanAt: number | null;

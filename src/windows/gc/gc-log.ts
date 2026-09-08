@@ -54,3 +54,7 @@ export function appendGcLog(entry: GcLogEntry): void {
 export function getGcLog(): GcLogEntry[] {
   return store.get();
 }
+
+export function clearGcLog(): void {
+  store.clear();
+}

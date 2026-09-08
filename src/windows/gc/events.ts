@@ -12,6 +12,8 @@ export enum GcEvent {
   PROTECT_REMOVE = "GC_PROTECT_REMOVE",
   /** 获取 48h 清理日志（invoke） */
   GET_LOG = "GC_GET_LOG",
+  /** 清空清理日志（invoke） */
+  CLEAR_LOG = "GC_CLEAR_LOG",
   /** 主进程 → 渲染层推送（自动清理完成、设置变更等） */
   PUSH = "GC_PUSH",
 }

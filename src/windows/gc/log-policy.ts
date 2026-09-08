@@ -79,7 +79,7 @@ export function createGcLogStore(io: {
   read: () => LogTail;
   write: (entries: GcLogEntry[]) => void;
   now?: () => number;
-}): { get: () => GcLogEntry[]; append: (entry: GcLogEntry) => void } {
+}): { get: () => GcLogEntry[]; append: (entry: GcLogEntry) => void; clear: () => void } {
   let entries: GcLogEntry[] | undefined;
   let changed = false;
   const now = io.now ?? Date.now;
@@ -116,6 +116,11 @@ export function createGcLogStore(io: {
       changed ||=
         retained.length !== current.length || retained.some((item, i) => item !== current[i]);
       entries = retained;
+      persist();
+    },
+    clear() {
+      entries = [];
+      changed = true;
       persist();
     },
   };
