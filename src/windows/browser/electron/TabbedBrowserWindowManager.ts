@@ -365,11 +365,10 @@ class Manager {
   // -------------------- 对外生命周期 --------------------
 
   hideAll(): void {
-    const visibleCount = this.windows.filter(
-      (w) => !w.isDestroyed && w.hostWindow.isVisible()
-    ).length;
-    this.windows.forEach((w) => {
-      if (!w.isDestroyed && w.hostWindow.isVisible()) w.hide();
+    const windows = this.normalWindows();
+    const visibleCount = windows.filter((w) => w.hostWindow.isVisible()).length;
+    windows.forEach((w) => {
+      if (w.hostWindow.isVisible()) w.hide();
     });
     if (visibleCount > 0) {
       vsgoLog("Browser", "hideAll", { detail: { visibleCount } });
@@ -377,24 +376,30 @@ class Manager {
   }
 
   showAll(): void {
-    if (this.windows.length === 0) {
+    const windows = this.normalWindows();
+    if (windows.length === 0) {
       this.createEmpty();
       return;
     }
-    this.windows.forEach((w) => {
-      if (!w.isDestroyed && !w.hostWindow.isVisible()) w.present();
+    windows.forEach((w) => {
+      if (!w.hostWindow.isVisible()) w.present();
     });
-    const last = this.getLastFocusedWindow();
+    const last = this.getLastFocusedWindow(true);
     if (last) last.present();
   }
 
   toggleVisible(): void {
-    const anyVisible = this.windows.some((w) => !w.isDestroyed && w.hostWindow.isVisible());
+    const anyVisible = this.normalWindows().some((w) => w.hostWindow.isVisible());
     if (anyVisible) {
       this.hideAll();
     } else {
       this.showAll();
     }
+  }
+
+  /** 批量显隐只处理普通多标签窗口；「远程浏览器控制」专属窗口仅由托盘菜单控制系统显隐。 */
+  private normalWindows(): TabbedBrowserWindow[] {
+    return this.windows.filter((w) => !w.isDestroyed && !w.isRemoteControl);
   }
 
   /** 所有 Tabbed 窗口的地址栏失焦（例如全局 Command+` 切换前后统一清理编辑态） */

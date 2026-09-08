@@ -10,8 +10,13 @@ import { registerCookieHandlers } from "@windows/cookie-manager/ipc";
 import { registerSettingsHandlers } from "@windows/app-setting/ipc";
 import { registerWindowScriptHandlers } from "@windows/script-editor/ipc";
 import { registerLogHandlers } from "@platform/log/ipc";
+import { registerGcHandlers } from "@windows/gc/ipc";
+import { startGcRunner, stopGcRunner } from "@windows/gc/runner";
 import { startWorkspaceAppChecker } from "@windows/app-setting/workspace-app";
-import { startChromeSyncServer, loadSnapshotAndApply } from "@windows/browser/electron/chrome-sync-server";
+import {
+  startChromeSyncServer,
+  loadSnapshotAndApply,
+} from "@windows/browser/electron/chrome-sync-server";
 import {
   startRemoteBrowserServer,
   stopRemoteBrowserServer,
@@ -29,6 +34,7 @@ app.whenReady().then(async () => {
   registerSettingsHandlers();
   registerWindowScriptHandlers();
   registerLogHandlers();
+  registerGcHandlers();
 
   startChromeSyncServer();
   void loadSnapshotAndApply();
@@ -37,6 +43,7 @@ app.whenReady().then(async () => {
   registerGlobalShortcuts();
   initTray();
   initMainWindow();
+  startGcRunner();
 
   startWorkspaceAppChecker();
 });
@@ -46,5 +53,6 @@ process.on("uncaughtException", (error) => {
 });
 
 app.once("before-quit", () => {
+  stopGcRunner();
   void stopRemoteBrowserServer();
 });

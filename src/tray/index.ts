@@ -5,6 +5,7 @@ import { is } from "@electron-toolkit/utils";
 import { createSettingsWindow } from "@windows/settings/electron";
 import { createLogWindow } from "@windows/log-viewer/electron";
 import { createTerminalWindow } from "@windows/terminal/electron";
+import { createGcWindow } from "@windows/gc/electron";
 import { openRemoteBrowserDocs } from "@windows/browser/electron/remote-browser-docs";
 import { TabbedBrowserWindowManager } from "@windows/browser/electron/TabbedBrowserWindowManager";
 
@@ -31,6 +32,10 @@ export function initTray(): void {
     {
       label: "日志",
       click: () => createLogWindow(),
+    },
+    {
+      label: "系统 GC",
+      click: () => createGcWindow(),
     },
     {
       label: "终端",

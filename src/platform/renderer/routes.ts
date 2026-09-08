@@ -7,6 +7,7 @@ import Settings from "@windows/settings/renderer/Settings";
 import LogViewer from "@windows/log-viewer/renderer/LogViewer";
 import Terminal from "@windows/terminal/renderer/Terminal";
 import FloatingOverlay from "@windows/browser/renderer/FloatingOverlay";
+import GcWindow from "@windows/gc/renderer/GcWindow";
 
 /** hash 路由 → 根组件（与各窗口 createSubWindow 的 hash 一致） */
 export const RENDERER_ROUTES: Record<string, FC> = {
@@ -17,6 +18,7 @@ export const RENDERER_ROUTES: Record<string, FC> = {
   settings: Settings,
   "log-viewer": LogViewer,
   terminal: Terminal,
+  gc: GcWindow,
   "floating-overlay": FloatingOverlay,
 };
 
