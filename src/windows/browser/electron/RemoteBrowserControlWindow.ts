@@ -7,8 +7,8 @@ import { TabbedBrowserWindow } from "./TabbedBrowserWindow";
  * 与普通多标签浏览器窗口在视觉与行为上完全隔离。
  */
 export class RemoteBrowserControlWindow extends TabbedBrowserWindow {
-  constructor() {
-    super({ remoteControl: true });
+  constructor(clientId?: string) {
+    super({ remoteControl: true, clientId });
   }
 
   /**

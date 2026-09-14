@@ -6,11 +6,15 @@ import type { SavedCookieByUrl } from "@shared/type";
 const { Title, Text } = Typography;
 const { ipcRenderer } = window.electron;
 
+/** 只有普通网页（http/https）才可以读写 Cookie，内部页面（vsgo://）跳过 */
+const isCookieSupportedUrl = (url: string): boolean => /^https?:\/\//i.test(url);
+
 const CookieManager: React.FC = () => {
   const [savedCookies, setSavedCookies] = useState<SavedCookieByUrl[]>([]);
   const [currentUrl, setCurrentUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
+  const targetUrl = isCookieSupportedUrl(currentUrl) ? currentUrl : "";
 
   useEffect(() => {
     loadSavedCookies();
@@ -48,14 +52,14 @@ const CookieManager: React.FC = () => {
   };
 
   const handleApply = async (cookie: SavedCookieByUrl) => {
-    if (!currentUrl) {
+    if (!targetUrl) {
       messageApi.warning("请先打开一个网页");
       return;
     }
 
     setLoading(true);
     try {
-      const result = await ipcRenderer.invoke(CookieEvent.COOKIE_APPLY_BY_URL, cookie, currentUrl);
+      const result = await ipcRenderer.invoke(CookieEvent.COOKIE_APPLY_BY_URL, cookie, targetUrl);
       if (result.success) {
         messageApi.success(`成功应用 ${result.count} 个 Cookie`);
       } else {
@@ -70,14 +74,14 @@ const CookieManager: React.FC = () => {
   };
 
   const handleSaveCurrent = async () => {
-    if (!currentUrl) {
+    if (!targetUrl) {
       messageApi.warning("请先打开一个网页");
       return;
     }
 
     setLoading(true);
     try {
-      const result = await ipcRenderer.invoke(CookieEvent.COOKIE_SAVE_BY_URL, currentUrl);
+      const result = await ipcRenderer.invoke(CookieEvent.COOKIE_SAVE_BY_URL, targetUrl);
       if (result.success) {
         messageApi.success(`成功保存 ${result.cookie.domain} 的 Cookie`);
         await loadSavedCookies();
@@ -101,7 +105,7 @@ const CookieManager: React.FC = () => {
             <Title level={3} style={{ margin: 0 }}>
               Cookie 管理
             </Title>
-            {currentUrl && (
+            {targetUrl && (
               <Button
                 type="primary"
                 onClick={handleSaveCurrent}
@@ -117,6 +121,11 @@ const CookieManager: React.FC = () => {
             <Card size="small" className="mb-4" style={{ backgroundColor: "#e6f4ff" }}>
               <Text type="secondary">当前: </Text>
               <Text code>{currentUrl}</Text>
+              {!targetUrl && (
+                <Text type="secondary" className="ml-2">
+                  （该页面不支持 Cookie 操作）
+                </Text>
+              )}
             </Card>
           )}
 
@@ -140,7 +149,7 @@ const CookieManager: React.FC = () => {
                     <Button
                       type="primary"
                       onClick={() => handleApply(cookie)}
-                      disabled={loading || !currentUrl}
+                      disabled={loading || !targetUrl}
                     >
                       应用
                     </Button>

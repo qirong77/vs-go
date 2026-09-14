@@ -768,6 +768,7 @@ export class RemoteBrowserService {
   ): Promise<RemoteBrowserServiceResult> {
     const url = this.strictNavigationUrl(body.url);
     const focus = readBooleanParameter(body, "focus", { defaultValue: false });
+    const clientId = readStringParameter(body, "clientId");
     const timeout = readIntegerParameter(body, "timeout", {
       defaultValue: 30_000,
       minimum: 100,
@@ -775,7 +776,8 @@ export class RemoteBrowserService {
     });
     const target = await withDeadline(
       // 默认在后台打开（窗口保持隐藏），只有在 open 显式传 focus:true 时才显示到前台。
-      TabbedBrowserWindowManager.openRemoteControlWindow(url, { show: false }),
+      // clientId 用于多实例隔离：不同客户端各自使用独立窗口，避免互相导航覆盖。
+      TabbedBrowserWindowManager.openRemoteControlWindow(url, { show: false, clientId }),
       timeout,
       signal,
       "Opening browser tab",

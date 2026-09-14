@@ -597,7 +597,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     method: "POST",
     path: "/browser/open",
     description:
-      "Open a safe absolute URL in the dedicated remote-browser-control window. There is at most one such window: an existing one is reused (its single tab navigates to the URL) instead of creating another. The window stays hidden in the background unless focus is true — it is never a tab shared with the normal tabbed browser.",
+      "Open a safe absolute URL in a dedicated remote-browser-control window. Windows are isolated by clientId: each clientId gets its own window (reused on subsequent opens with the same clientId), so different callers never navigate over each other. Omit clientId to share the default window (legacy single-instance behavior). The window stays hidden in the background unless focus is true — it is never a tab shared with the normal tabbed browser.",
     readOnly: false,
     body: objectSchema(
       {
@@ -605,6 +605,9 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
           format: "uri",
         }),
         focus: booleanSchema("Show and focus the resulting window. Defaults to false, so the window opens hidden in the background.", false),
+        clientId: stringSchema("Isolation key for the remote-control window. Callers that pass the same clientId share one window; different clientIds get separate windows.", {
+          maxLength: 64,
+        }),
         timeout: integerSchema("Open/load timeout in milliseconds.", 100, 120000, 30000),
       },
       ["url"]

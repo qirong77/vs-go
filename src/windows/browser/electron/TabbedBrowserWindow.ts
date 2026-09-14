@@ -30,6 +30,17 @@ import { browserStore } from "../store";
 import { injectLocalStorageForWebContents } from "./chrome-sync-server";
 import { remoteBrowserDebugger } from "./remote-browser-debugger";
 
+/** 从 PNG buffer 解析宽高（PNG 头固定布局：签名8B + 长度4B + "IHDR" + 宽4B + 高4B）。 */
+function imageSizeFromBuffer(buffer: Buffer): { width: number; height: number } {
+  if (buffer.length < 24 || buffer.toString("ascii", 1, 4) !== "PNG") {
+    return { width: 0, height: 0 };
+  }
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+}
+
 // ============================================================
 // Tab 定义
 // ============================================================
@@ -145,10 +156,29 @@ export class TabbedBrowserWindow {
   private tabRemoteActivityTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /** 是否为「远程浏览器控制」专属窗口 */
   private readonly remoteControlMode: boolean = false;
+  /** 远程窗口的客户端标识（用于多实例隔离，多个客户端不再互相踢页面） */
+  private readonly remoteClientId_: string | null = null;
+  /** 「当前激活标签页 URL」订阅者（供 Cookie 管理窗口等跟随当前页面） */
+  private activeUrlListeners = new Set<(url: string) => void>();
+  /** 最近一次已通知的激活标签页 URL，避免重复广播 */
+  private lastNotifiedActiveUrl: string | null = null;
+
+  /** 订阅当前激活标签页 URL 变化，返回取消订阅函数 */
+  onActiveUrlChanged(listener: (url: string) => void): () => void {
+    this.activeUrlListeners.add(listener);
+    return () => {
+      this.activeUrlListeners.delete(listener);
+    };
+  }
 
   /** 该窗口是否为「远程浏览器控制」专属窗口（供管理器/渲染层区分） */
   get isRemoteControl(): boolean {
     return this.remoteControlMode;
+  }
+
+  /** 远程窗口所属客户端 ID（普通窗口为 null） */
+  get remoteClientId(): string | null {
+    return this.remoteClientId_;
   }
 
   /** 页面视图顶部的 Chrome 外壳高度：普通窗口为完整外壳，远程窗口为紧凑横幅 */
@@ -161,13 +191,18 @@ export class TabbedBrowserWindow {
     return this.closed || this.hostWindow.isDestroyed();
   }
 
-  constructor(options: { remoteControl?: boolean } = {}) {
+  constructor(options: { remoteControl?: boolean; clientId?: string } = {}) {
     this.remoteControlMode = options.remoteControl === true;
+    this.remoteClientId_ = options.clientId ?? null;
     this.hostWindow = new BrowserWindow({
       width: 1200,
       height: 800,
       show: false,
-      title: this.remoteControlMode ? "远程浏览器控制" : "VsGo Browser",
+      title: this.remoteControlMode
+        ? this.remoteClientId_
+          ? `远程浏览器控制 · ${this.remoteClientId_}`
+          : "远程浏览器控制"
+        : "VsGo Browser",
       backgroundColor: this.remoteControlMode ? "#10141f" : undefined,
       titleBarStyle: this.remoteControlMode
         ? undefined
@@ -627,11 +662,37 @@ export class TabbedBrowserWindow {
   ): Promise<{ width: number; height: number; dataUrl: string; base64: string }> {
     const wc = this.getTabWebContents(tabId);
     if (!wc) throw new Error("tab not found or destroyed");
-    const image = await wc.capturePage(undefined, { stayHidden: opts?.stayHidden !== false });
-    const { width, height } = image.getSize();
-    const base64 = image.toPNG().toString("base64");
-    const dataUrl = `data:image/png;base64,${base64}`;
-    return { width, height, dataUrl, base64 };
+    // 优先用 CDP Page.captureScreenshot：它直接从渲染管线取帧，不依赖窗口
+    // 是否显示过（webContents.capturePage 对从未显示的窗口在 macOS 上报
+    // "Current display surface not available for capture"）。失败时回退 capturePage。
+    try {
+      const result = await remoteBrowserDebugger.sendCommand<{ data: string }>(
+        tabId,
+        "Page.captureScreenshot",
+        {
+          format: "png",
+          fromSurface: true,
+          captureBeyondViewport: false,
+        }
+      );
+      const base64 = result.data;
+      const buffer = Buffer.from(base64, "base64");
+      const size = imageSizeFromBuffer(buffer);
+      return {
+        width: size.width,
+        height: size.height,
+        base64,
+        dataUrl: `data:image/png;base64,${base64}`,
+      };
+    } catch (error) {
+      // CDP 截图失败（debugger 未 attach、页面无 surface 等）时回退 capturePage。
+      console.error("[captureTab] CDP screenshot failed, falling back:", error instanceof Error ? error.message : String(error));
+      const image = await wc.capturePage(undefined, { stayHidden: opts?.stayHidden !== false });
+      const { width, height } = image.getSize();
+      const base64 = image.toPNG().toString("base64");
+      const dataUrl = `data:image/png;base64,${base64}`;
+      return { width, height, dataUrl, base64 };
+    }
   }
 
   /** 向指定 tab 注入合成输入事件（虚拟鼠标/键盘）。focus 时仅聚焦 VsGo 自身窗口。 */
@@ -734,6 +795,22 @@ export class TabbedBrowserWindow {
   private broadcastState(): void {
     if (this.closed || this.hostWindow.isDestroyed()) return;
     this.hostWindow.webContents.send(BrowserTabEvent.BROWSER_TAB_STATE_UPDATED, this.getState());
+    this.notifyActiveUrlChanged();
+  }
+
+  /** 激活标签页 URL 真正变化时才通知订阅者（切换 tab、导航等都会走 broadcastState） */
+  private notifyActiveUrlChanged(): void {
+    if (this.activeUrlListeners.size === 0) return;
+    const url = this.getActiveUrl();
+    if (url === this.lastNotifiedActiveUrl) return;
+    this.lastNotifiedActiveUrl = url;
+    for (const listener of this.activeUrlListeners) {
+      try {
+        listener(url);
+      } catch (error) {
+        console.error("[TabbedBrowserWindow] 激活 URL 监听器执行失败:", error);
+      }
+    }
   }
 
   /** WebContentsView 顶部偏移，避开 Chrome 外壳 */

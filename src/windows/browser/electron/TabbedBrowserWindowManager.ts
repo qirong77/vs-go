@@ -1,6 +1,7 @@
 import { screen, BrowserWindow, app } from "electron";
 import { vsgoLog } from "@platform/log/logger";
 import { TABBED_BROWSER_DEFAULT_HOME_URL } from "@shared/type";
+import { emitActiveTabUrl } from "@platform/electron/activeTabUrl";
 import { TabbedBrowserWindow, type Tab } from "./TabbedBrowserWindow";
 import { RemoteBrowserControlWindow } from "./RemoteBrowserControlWindow";
 
@@ -49,7 +50,10 @@ class Manager {
     this.windows.push(win);
     win.hostWindow.on("focus", () => {
       this.lastFocusedId = win.hostWindow.id;
+      this.broadcastActiveUrl();
     });
+    // 窗口内切换 tab / 导航时，同步「当前页面 URL」给订阅方（Cookie 管理窗口等）
+    win.onActiveUrlChanged(() => this.broadcastActiveUrl());
     win.hostWindow.on("closed", () => {
       const idx = this.windows.indexOf(win);
       if (idx > -1) this.windows.splice(idx, 1);
@@ -78,6 +82,11 @@ class Manager {
   /** 取最近聚焦窗口当前激活标签页 URL；若没有返回空字符串 */
   getLastFocusedActiveUrl(): string {
     return this.getLastFocusedWindow()?.getActiveUrl() ?? "";
+  }
+
+  /** 广播最近聚焦窗口的当前激活标签页 URL（无窗口时广播空字符串） */
+  private broadcastActiveUrl(): void {
+    emitActiveTabUrl(this.getLastFocusedActiveUrl());
   }
 
   /** 所有未销毁的 tabbed 浏览器窗口 */
@@ -226,10 +235,15 @@ class Manager {
    */
   async openRemoteControlWindow(
     url: string,
-    opts: { show?: boolean } = {}
+    opts: { show?: boolean; clientId?: string } = {}
   ): Promise<RemoteTarget> {
-    // 一次最多一个远程控制窗口：复用已有窗口，避免重复弹出/堆积不可见标签页。
-    const existing = this.windows.find((w) => !w.isDestroyed && w.isRemoteControl);
+    // 每个 clientId 独立一个远程控制窗口：不同调用方（如多个外部服务）
+    // 各自使用自己的窗口，互不导航覆盖。未指定 clientId 时退化为共享的
+    // "default" 窗口（兼容旧行为）。
+    const clientId = opts.clientId ?? "default";
+    const existing = this.windows.find(
+      (w) => !w.isDestroyed && w.isRemoteControl && (w.remoteClientId ?? "default") === clientId
+    );
     if (existing) {
       let tab = existing.getActiveTab() ?? existing.getTabs()[0];
       if (tab) {
@@ -246,7 +260,7 @@ class Manager {
         opts,
         resolve,
         reject,
-        () => new RemoteBrowserControlWindow()
+        () => new RemoteBrowserControlWindow(clientId)
       );
     });
   }
