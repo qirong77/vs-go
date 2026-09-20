@@ -158,6 +158,8 @@ export class TabbedBrowserWindow {
   private readonly remoteControlMode: boolean = false;
   /** 远程窗口的客户端标识（用于多实例隔离，多个客户端不再互相踢页面） */
   private readonly remoteClientId_: string | null = null;
+  /** 窗口级「最近一次被远程操作」的毫秒时间戳，供空闲窗口回收判定 */
+  private lastRemoteUseAt_ = Date.now();
   /** 「当前激活标签页 URL」订阅者（供 Cookie 管理窗口等跟随当前页面） */
   private activeUrlListeners = new Set<(url: string) => void>();
   /** 最近一次已通知的激活标签页 URL，避免重复广播 */
@@ -179,6 +181,11 @@ export class TabbedBrowserWindow {
   /** 远程窗口所属客户端 ID（普通窗口为 null） */
   get remoteClientId(): string | null {
     return this.remoteClientId_;
+  }
+
+  /** 最近一次被远程（LLM）操作的时间戳；窗口创建后未使用过则为创建时间 */
+  get lastRemoteUseAt(): number {
+    return this.lastRemoteUseAt_;
   }
 
   /** 页面视图顶部的 Chrome 外壳高度：普通窗口为完整外壳，远程窗口为紧凑横幅 */
@@ -687,7 +694,10 @@ export class TabbedBrowserWindow {
     } catch (error) {
       // CDP 截图失败（debugger 未 attach、页面无 surface 等）时回退 capturePage。
       console.error("[captureTab] CDP screenshot failed, falling back:", error instanceof Error ? error.message : String(error));
-      const image = await wc.capturePage(undefined, { stayHidden: opts?.stayHidden !== false });
+      // 远程控制窗口的显隐只归用户管：回退路径也不会因为 stayHidden:false 而把窗口亮出来。
+      const image = await wc.capturePage(undefined, {
+        stayHidden: this.remoteControlMode ? true : opts?.stayHidden !== false,
+      });
       const { width, height } = image.getSize();
       const base64 = image.toPNG().toString("base64");
       const dataUrl = `data:image/png;base64,${base64}`;
@@ -695,7 +705,7 @@ export class TabbedBrowserWindow {
     }
   }
 
-  /** 向指定 tab 注入合成输入事件（虚拟鼠标/键盘）。focus 时仅聚焦 VsGo 自身窗口。 */
+  /** 向指定 tab 注入合成输入事件（虚拟鼠标/键盘）。focus 时仅聚焦目标页面，不弹起窗口。 */
   sendInputToTab(
     tabId: string,
     event: Electron.MouseInputEvent | Electron.MouseWheelInputEvent | Electron.KeyboardInputEvent,
@@ -707,12 +717,25 @@ export class TabbedBrowserWindow {
     wc.sendInputEvent(event);
   }
 
-  /** 让指定 tab 获得焦点以接收键盘输入。只聚焦 VsGo 自己的窗口，不动系统其它 focus。 */
+  /**
+   * 让指定 tab 获得焦点以接收键盘输入。
+   * 普通窗口：聚焦 VsGo 自己的窗口，不动系统其它 app 的 focus。
+   * 「远程浏览器控制」窗口：显隐完全由用户（托盘菜单）决定，程序化调用不会把它弹到前台，
+   * 否则 LLM 每次操作都会抢走用户焦点；这里只切换 active tab 并把页面焦点切过去。
+   */
   focusTab(tabId: string): void {
     const wc = this.getTabWebContents(tabId);
     if (!wc) throw new Error("tab not found or destroyed");
     const active = this.getActiveTab();
     if (active?.id !== tabId) this.switchTab(tabId);
+
+    if (this.remoteControlMode) {
+      // 只有用户确实在看这个窗口（可见且已聚焦）时才聚焦页面：
+      // webContents.focus() 可能激活宿主窗口，隐藏状态下调用会把窗口弹到前台。
+      if (this.hostWindow.isVisible() && this.hostWindow.isFocused()) wc.focus();
+      return;
+    }
+
     if (!this.hostWindow.isDestroyed()) {
       if (!this.hostWindow.isVisible()) this.hostWindow.show();
       this.hostWindow.focus();
@@ -730,6 +753,7 @@ export class TabbedBrowserWindow {
     if (this.closed || this.hostWindow.isDestroyed()) return;
     if (!this.tabs.some((t) => t.id === tabId)) return;
     const now = Date.now();
+    this.lastRemoteUseAt_ = now;
     this.tabRemoteActivityAt.set(tabId, now);
     const existing = this.tabRemoteActivityTimers.get(tabId);
     if (existing) clearTimeout(existing);
@@ -1316,7 +1340,10 @@ export class TabbedBrowserWindow {
     if (!this.hostWindow.isDestroyed()) this.hostWindow.hide();
   }
 
-  /** 供 remote-browser-server 在窗口隐藏时恢复可见并聚焦。 */
+  /**
+   * 供 remote-browser-server 在窗口隐藏时恢复可见并聚焦（仅普通窗口）。
+   * 「远程浏览器控制」窗口不在此列：它的显隐由用户在托盘菜单控制。
+   */
   showAndFocus(): void {
     if (this.hostWindow.isDestroyed()) return;
     if (!this.hostWindow.isVisible()) this.hostWindow.show();

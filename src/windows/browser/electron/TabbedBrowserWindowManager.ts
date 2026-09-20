@@ -4,6 +4,13 @@ import { TABBED_BROWSER_DEFAULT_HOME_URL } from "@shared/type";
 import { emitActiveTabUrl } from "@platform/electron/activeTabUrl";
 import { TabbedBrowserWindow, type Tab } from "./TabbedBrowserWindow";
 import { RemoteBrowserControlWindow } from "./RemoteBrowserControlWindow";
+import { remoteBrowserConfig } from "./remote-browser-config";
+import { remoteBrowserDebugger } from "./remote-browser-debugger";
+import {
+  RemoteWindowReaper,
+  type RemoteWindowRecycle,
+  type RemoteWindowState,
+} from "./remote-browser-window-reaper";
 
 export interface RemoteTargetSelector {
   tabId?: string;
@@ -40,14 +47,46 @@ class Manager {
   private lastFocusedId: number | null = null;
   private isQuitting = false;
 
+  /**
+   * 空闲「远程浏览器控制」窗口回收器。
+   * 远程控制窗口是纯后台窗口（LLM 用完就闲置），不主动回收会让每个 clientId 的
+   * BrowserWindow + 页面渲染进程常驻，导致内存持续增长。
+   */
+  private readonly remoteWindowReaper = new RemoteWindowReaper({
+    idleTtlMs: remoteBrowserConfig.remoteWindowIdleMs,
+    sweepIntervalMs: remoteBrowserConfig.remoteWindowSweepIntervalMs,
+    now: Date.now,
+    setTimer: (callback, ms) => {
+      const timer = setTimeout(callback, ms);
+      timer.unref();
+      return timer;
+    },
+    clearTimer: (timer) => clearTimeout(timer as ReturnType<typeof setTimeout>),
+    inspect: () => this.inspectRemoteWindows(),
+    recycle: (window) => this.recycleRemoteWindow(window),
+    onSweep: ({ recycled, skipped }) => {
+      vsgoLog("Browser", "远程控制窗口空闲回收", {
+        detail: {
+          recycled: recycled.map((w) => ({
+            clientId: w.clientId,
+            idleMinutes: Math.round(w.idleMs / 60_000),
+          })),
+          skipped: skipped.map((w) => ({ clientId: w.clientId, reason: w.reason })),
+        },
+      });
+    },
+  });
+
   constructor() {
     app.on("before-quit", () => {
       this.isQuitting = true;
+      this.remoteWindowReaper.stop();
     });
   }
 
   private register(win: TabbedBrowserWindow): void {
     this.windows.push(win);
+    if (win.isRemoteControl) this.remoteWindowReaper.start();
     win.hostWindow.on("focus", () => {
       this.lastFocusedId = win.hostWindow.id;
       this.broadcastActiveUrl();
@@ -64,7 +103,32 @@ class Manager {
       if (!this.isQuitting && !win.isRemoteControl && this.windows.length === 0) {
         this.createEmpty(TABBED_BROWSER_DEFAULT_HOME_URL, { show: false });
       }
+      // 没有远程控制窗口可回收时停掉扫描，避免空转
+      if (this.getRemoteControlWindows().length === 0) this.remoteWindowReaper.stop();
     });
+  }
+
+  /** 采集远程控制窗口的空闲状态：使用时间 + 可见性 + 是否有进行中的调试会话 */
+  private inspectRemoteWindows(): RemoteWindowState[] {
+    const activeSessions = remoteBrowserDebugger
+      .listSessions()
+      .filter((session) => session.status === "active");
+    return this.getRemoteControlWindows().map((window) => ({
+      clientId: window.remoteClientId ?? "default",
+      windowId: window.hostWindow.id,
+      lastUsedAt: window.lastRemoteUseAt,
+      visible: window.isWindowVisible(),
+      hasActiveSession: activeSessions.some((session) => window.hasTab(session.tabId)),
+    }));
+  }
+
+  /** 销毁空闲的远程控制窗口：走正常关闭流程，tab 的 webContents 与调试观察状态一并释放 */
+  private recycleRemoteWindow(window: RemoteWindowRecycle): void {
+    const target = this.windows.find(
+      (w) => !w.isDestroyed && w.isRemoteControl && w.hostWindow.id === window.windowId
+    );
+    if (!target) return;
+    target.closeWindow();
   }
 
   /** 取最近聚焦的可用窗口；若没有返回 undefined
@@ -178,19 +242,22 @@ class Manager {
     return this.windows.find((w) => !w.isDestroyed && w.hostWindow.id === hostId);
   }
 
-  /** 当前「远程浏览器控制」专属窗口（不存在则返回 undefined）。 */
-  getRemoteControlWindow(): TabbedBrowserWindow | undefined {
-    return this.windows.find((w) => !w.isDestroyed && w.isRemoteControl);
+  /** 全部「远程浏览器控制」专属窗口（每个 clientId 一个）。 */
+  getRemoteControlWindows(): TabbedBrowserWindow[] {
+    return this.windows.filter((w) => !w.isDestroyed && w.isRemoteControl);
   }
 
-  /** 托盘菜单「显示窗口」：把远程控制窗口显示到前台并聚焦（无窗口则忽略）。 */
-  showRemoteControlWindow(): void {
-    this.getRemoteControlWindow()?.present();
+  /**
+   * 托盘菜单「显示窗口」：把所有远程控制窗口都显示到前台并聚焦。
+   * 这是远程控制窗口唯一会被显示的入口——程序化（LLM）调用一律不弹窗，避免干扰用户。
+   */
+  showRemoteControlWindows(): void {
+    this.getRemoteControlWindows().forEach((w) => w.present());
   }
 
-  /** 托盘菜单「隐藏窗口」：把远程控制窗口隐藏到后台（无窗口则忽略）。 */
-  hideRemoteControlWindow(): void {
-    this.getRemoteControlWindow()?.hide();
+  /** 托盘菜单「隐藏窗口」：把所有远程控制窗口隐藏到后台（无窗口则忽略）。 */
+  hideRemoteControlWindows(): void {
+    this.getRemoteControlWindows().forEach((w) => w.hide());
   }
 
   /** 根据 tabId 查找持有该 tab 的窗口 */
@@ -229,9 +296,11 @@ class Manager {
 
   /**
    * 打开一个「远程浏览器控制」专属窗口，并在 host renderer ready 后挂载初始 tab。
-   * 该窗口与普通多标签浏览器窗口完全隔离，且「一次最多只有一个」远程控制窗口：
+   * 该窗口与普通多标签浏览器窗口完全隔离，且「每个 clientId 最多一个」远程控制窗口：
    * 若已存在远程窗口，则复用其当前 tab 并导航到新 URL（远程窗口是单页控制台，不新增 tab）；
-   * 否则才新建。复用/新建都由 opts.show 控制是否显示到前台（默认隐藏，后台工作）。
+   * 否则才新建。窗口始终在后台创建/复用，绝不由调用方决定是否显示到前台：
+   * 显隐只由用户在托盘菜单（「显示窗口」/「隐藏窗口」）控制，这样 LLM 操作不会弹窗干扰用户。
+   * （opts.show 仅为兼容旧签名保留，已不再生效。）
    */
   async openRemoteControlWindow(
     url: string,
@@ -251,13 +320,12 @@ class Manager {
       } else {
         tab = existing.addTab(url);
       }
-      if (opts.show !== false) existing.present();
       return { window: existing, tab };
     }
     return new Promise((resolve, reject) => {
       this.createWindowWithInitialTab(
         url,
-        opts,
+        { show: false },
         resolve,
         reject,
         () => new RemoteBrowserControlWindow(clientId)

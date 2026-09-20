@@ -99,6 +99,17 @@ const enumSchema = (values: readonly string[], description?: string): JsonSchema
   ...(description ? { description } : {}),
 });
 
+/**
+ * `focus` 参数在所有输入类端点上的统一语义：聚焦目标页面本身。
+ * 注意：它不会把「远程浏览器控制」窗口弹到前台或抢系统焦点——该窗口的显隐
+ * 只由用户在托盘菜单里控制，这样 LLM 操作不会干扰用户。
+ */
+const FOCUS_PARAMETER_DESCRIPTION =
+  "Focus the target page before the action. Never raises, shows or refocuses the VSGo window: remote-control window visibility is controlled by the user from the tray menu.";
+
+const focusSchema = (description: string = FOCUS_PARAMETER_DESCRIPTION): JsonSchema =>
+  booleanSchema(description, false);
+
 const arraySchema = (items: JsonSchema, description?: string, extra: Record<string, unknown> = {}): JsonSchema => ({
   type: "array",
   items,
@@ -438,6 +449,29 @@ const basicActionResultSchema = objectSchema(
 );
 
 /**
+ * `/browser/window/show|hide|focus` 的统一响应。
+ * `suppressed` 为 true 表示请求被接受但未下发到窗口——「远程浏览器控制」窗口的显隐
+ * 只由用户通过托盘菜单控制，API 不会把它弹出/隐藏，以免操作过程中干扰用户。
+ */
+const windowVisibilitySchema = (action: "show" | "hide" | "focus"): JsonSchema =>
+  objectSchema(
+    {
+      windowId: integerSchema(undefined, 1),
+      visible: booleanSchema("Whether the window is actually visible right now."),
+      focused: booleanSchema("Whether the window currently holds OS focus."),
+      action: enumSchema([action], "The requested visibility action, echoed back."),
+      suppressed: booleanSchema(
+        "True when the request was not applied because remote-control window visibility is user-controlled.",
+      ),
+      visibilityControl: enumSchema(
+        ["api", "user"],
+        "Who controls this window's visibility: 'api' for normal windows, 'user' for remote-browser-control windows.",
+      ),
+    },
+    ["windowId", "visible", "action", "suppressed", "visibilityControl"],
+  );
+
+/**
  * Authoritative route catalog.  Documentation projections and OpenAPI paths
  * below are generated from this array; do not maintain a second endpoint list.
  */
@@ -597,14 +631,16 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     method: "POST",
     path: "/browser/open",
     description:
-      "Open a safe absolute URL in a dedicated remote-browser-control window. Windows are isolated by clientId: each clientId gets its own window (reused on subsequent opens with the same clientId), so different callers never navigate over each other. Omit clientId to share the default window (legacy single-instance behavior). The window stays hidden in the background unless focus is true — it is never a tab shared with the normal tabbed browser.",
+      "Open a safe absolute URL in a dedicated remote-browser-control window. Windows are isolated by clientId: each clientId gets its own window (reused on subsequent opens with the same clientId), so different callers never navigate over each other. Omit clientId to share the default window (legacy single-instance behavior). The window is always created and driven in the background: it is only shown or hidden by the user from the tray menu, never by an API call. It is never a tab shared with the normal tabbed browser.",
     readOnly: false,
     body: objectSchema(
       {
         url: stringSchema("Destination URL. Only http, https and about:blank are accepted.", {
           format: "uri",
         }),
-        focus: booleanSchema("Show and focus the resulting window. Defaults to false, so the window opens hidden in the background.", false),
+        focus: focusSchema(
+          "Focus the opened page after loading. The window itself is never shown or focused by the API; remote-control window visibility is controlled by the user from the tray menu."
+        ),
         clientId: stringSchema("Isolation key for the remote-control window. Callers that pass the same clientId share one window; different clientIds get separate windows.", {
           maxLength: 64,
         }),
@@ -730,7 +766,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
         mode: enumSchema(["js", "mouse"], "DOM click is the default; mouse sends move/down/up events."),
         button: enumSchema(["left", "middle", "right"]),
         clickCount: integerSchema(undefined, 1, 3, 1),
-        focus: booleanSchema("Focus the VsGo window before synthesized input.", false),
+        focus: focusSchema(),
       },
       [],
       undefined,
@@ -763,7 +799,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     description: "Move the synthesized pointer to the center of an element located by selector or nodeRef.",
     readOnly: false,
     body: targetBody(
-      { ...locatorProperties, focus: booleanSchema("Focus the VsGo window before input.", false) },
+      { ...locatorProperties, focus: focusSchema() },
       [],
       undefined,
       { extra: locatorConstraint }
@@ -797,7 +833,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
       y: integerSchema("Viewport y coordinate.", -100000, 100000, 0),
       deltaX: integerSchema(undefined, -100000, 100000, 0),
       deltaY: integerSchema(undefined, -100000, 100000, 0),
-      focus: booleanSchema(undefined, false),
+      focus: focusSchema(),
     }),
     query: null,
     response: successEnvelopeSchema(
@@ -830,7 +866,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
         toY: integerSchema(undefined, -100000, 100000),
         button: enumSchema(["left", "middle", "right"]),
         steps: integerSchema("Number of interpolated pointer moves.", 1, 100, 8),
-        focus: booleanSchema(undefined, false),
+        focus: focusSchema(),
       },
       ["fromX", "fromY", "toX", "toY"]
     ),
@@ -923,7 +959,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
         modifiers: arraySchema(enumSchema(["alt", "control", "meta", "shift"]), undefined, {
           uniqueItems: true,
         }),
-        focus: booleanSchema(undefined, false),
+        focus: focusSchema(),
       },
       ["key"]
     ),
@@ -944,7 +980,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
       {
         text: stringSchema("Text to type.", { minLength: 1, maxLength: 100000 }),
         intervalMs: integerSchema("Delay between characters.", 0, 1000, 0),
-        focus: booleanSchema(undefined, false),
+        focus: focusSchema(),
       },
       ["text"]
     ),
@@ -1052,10 +1088,14 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     operationId: "captureBrowserScreenshot",
     method: "POST",
     path: "/browser/screenshot",
-    description: "Capture the target tab as PNG, including while its window remains hidden.",
+    description:
+      "Capture the target tab as PNG, including while its window remains hidden. Remote-browser-control windows are never revealed by a capture: their visibility is controlled by the user from the tray menu.",
     readOnly: true,
     body: targetBody({
-      stayHidden: booleanSchema("Do not reveal a hidden window during capture.", true),
+      stayHidden: booleanSchema(
+        "Do not reveal a hidden window during capture. Always enforced for remote-browser-control windows.",
+        true,
+      ),
       encoding: enumSchema(["base64", "dataUrl", "both"]),
     }),
     query: null,
@@ -1089,40 +1129,73 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     operationId: "showBrowserWindow",
     method: "POST",
     path: "/browser/window/show",
-    description: "Show and focus the browser window containing the target tab.",
+    description:
+      "Show and focus the browser window containing the target tab. Remote-browser-control windows are user-controlled: the request is accepted but not applied to them, and the response reports suppressed:true with the real visibility.",
     readOnly: false,
     body: targetBody(),
     query: null,
     response: successEnvelopeSchema(
-      objectSchema({ windowId: integerSchema(undefined, 1), visible: { const: true } }, ["windowId", "visible"])
+      windowVisibilitySchema("show")
     ),
-    example: { request: { tabId: "tab_01" }, response: successExample({ windowId: 3, visible: true }) },
+    example: {
+      request: { tabId: "tab_01" },
+      response: successExample({
+        windowId: 3,
+        visible: true,
+        focused: true,
+        action: "show",
+        suppressed: false,
+        visibilityControl: "api",
+      }),
+    },
   }),
   endpoint({
     operationId: "hideBrowserWindow",
     method: "POST",
     path: "/browser/window/hide",
-    description: "Hide a browser window selected directly by windowId or through a target tab.",
+    description:
+      "Hide a browser window selected directly by windowId or through a target tab. Remote-browser-control windows are user-controlled: the request is accepted but not applied to them, and the response reports suppressed:true with the real visibility.",
     readOnly: false,
     body: targetBody(),
     query: null,
     response: successEnvelopeSchema(
-      objectSchema({ windowId: integerSchema(undefined, 1), visible: { const: false } }, ["windowId", "visible"])
+      windowVisibilitySchema("hide")
     ),
-    example: { request: { windowId: 3 }, response: successExample({ windowId: 3, visible: false }) },
+    example: {
+      request: { windowId: 3 },
+      response: successExample({
+        windowId: 3,
+        visible: false,
+        focused: false,
+        action: "hide",
+        suppressed: false,
+        visibilityControl: "api",
+      }),
+    },
   }),
   endpoint({
     operationId: "focusBrowserWindow",
     method: "POST",
     path: "/browser/window/focus",
-    description: "Show and focus the browser window containing the target tab.",
+    description:
+      "Show and focus the browser window containing the target tab. Remote-browser-control windows are user-controlled: the request is accepted but not applied to them, and the response reports suppressed:true with the real visibility.",
     readOnly: false,
     body: targetBody(),
     query: null,
     response: successEnvelopeSchema(
-      objectSchema({ windowId: integerSchema(undefined, 1), focused: { const: true } }, ["windowId", "focused"])
+      windowVisibilitySchema("focus")
     ),
-    example: { request: { target: { tabId: "tab_01" } }, response: successExample({ windowId: 3, focused: true }) },
+    example: {
+      request: { target: { tabId: "tab_01" } },
+      response: successExample({
+        windowId: 3,
+        visible: true,
+        focused: true,
+        action: "focus",
+        suppressed: false,
+        visibilityControl: "api",
+      }),
+    },
   }),
   endpoint({
     operationId: "goBackBrowserTab",
@@ -1173,7 +1246,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     description: "Make an exact tabId active in its VsGo browser window.",
     readOnly: false,
     body: objectSchema(
-      { tabId: stringSchema(undefined, { minLength: 1 }), focus: booleanSchema("Also focus the host window.", false) },
+      { tabId: stringSchema(undefined, { minLength: 1 }), focus: focusSchema("Also focus the page inside its window.") },
       ["tabId"]
     ),
     query: null,
@@ -1640,7 +1713,7 @@ export function buildRemoteBrowserLlmDocument(
     target_convention:
       "Send target.{tabId,windowId,url} or top-level tabId/windowId to select a tab; prefer tabId. Conflicts fail validation, there is no silent fallback, ambiguous matches return AMBIGUOUS_TARGET, and every browser response echoes meta.target with the resolved tab.",
     usage_notes: [
-      "Open (or reuse) the single dedicated remote-browser-control window with POST /browser/open; it stays hidden in the background unless focus is true, and you get back the tabId to act on.",
+      "Open (or reuse) the dedicated remote-browser-control window with POST /browser/open; it always runs in the background (visibility is controlled only by the user from the tray menu, never by the API), and you get back the tabId to act on.",
       "Every browser response includes meta.target (tabId/url/title/windowId/documentId) so you know which tab was acted on.",
       "Use GET /browser/session/events and POST /browser/diagnostics to inspect console/network/runtime errors before editing code.",
       "Use POST /browser/source/resolve to map a generated stack location back to the original source file via source maps.",

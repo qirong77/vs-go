@@ -12,9 +12,10 @@ export class RemoteBrowserControlWindow extends TabbedBrowserWindow {
   }
 
   /**
-   * 远程控制窗口应尽量保持前台/激活态：
+   * 用户主动「显示窗口」时，窗口应真正激活：
    * 底层 present() 在 macOS 上用 showInactive()（不抢焦点），会导致窗口失焦、
-   * 红绿灯与横幅暗淡；这里显式 show()+focus() 激活窗口，让“正在被操作”状态始终醒目。
+   * 红绿灯与横幅暗淡；这里显式 show()+focus() 激活窗口。
+   * 注意：present() 只由托盘菜单触发——LLM 的程序化操作不会弹起远程控制窗口。
    */
   override present(): void {
     super.present();

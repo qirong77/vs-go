@@ -45,12 +45,12 @@ export function initTray(): void {
       label: "远程浏览器控制",
       submenu: [
         {
-          label: "显示窗口",
-          click: () => TabbedBrowserWindowManager.showRemoteControlWindow(),
+          label: "显示所有窗口",
+          click: () => TabbedBrowserWindowManager.showRemoteControlWindows(),
         },
         {
-          label: "隐藏窗口",
-          click: () => TabbedBrowserWindowManager.hideRemoteControlWindow(),
+          label: "隐藏所有窗口",
+          click: () => TabbedBrowserWindowManager.hideRemoteControlWindows(),
         },
         { type: "separator" },
         {

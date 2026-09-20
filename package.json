@@ -14,7 +14,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "test:remote-browser": "node --experimental-strip-types --test src/test/remote-browser-core.test.ts",
+    "test:remote-browser": "node --experimental-strip-types --test src/test/remote-browser-*.test.ts",
     "test:gc": "node --experimental-strip-types --test src/test/gc-*.test.ts",
     "preview": "electron-vite preview",
     "dev": "electron-vite dev",

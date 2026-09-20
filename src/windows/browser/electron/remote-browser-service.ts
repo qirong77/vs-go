@@ -1684,14 +1684,21 @@ export class RemoteBrowserService {
     action: "show" | "hide" | "focus",
   ): RemoteBrowserServiceResult {
     const target = this.resolveTarget(body);
-    if (action === "hide") target.window.hide();
-    else target.window.showAndFocus();
+    // 「远程浏览器控制」窗口的显隐只由用户通过托盘菜单控制：API 侧一律不下发到窗口，
+    // 否则 LLM 每次操作都可能把窗口弹到前台抢走用户焦点。这里只回报真实可见性。
+    const suppressed = target.window.isRemoteControl;
+    if (!suppressed) {
+      if (action === "hide") target.window.hide();
+      else target.window.showAndFocus();
+    }
     return this.forTarget(
       {
         windowId: target.window.hostWindow.id,
         visible: target.window.isWindowVisible(),
         focused: target.window.hostWindow.isFocused(),
         action,
+        suppressed,
+        visibilityControl: suppressed ? "user" : "api",
       },
       target,
     );
