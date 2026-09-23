@@ -19,15 +19,21 @@ import {
 } from "./remote-browser-debugger";
 import {
   buildElementActionScript,
+  buildQueryScript,
   buildSnapshotScript,
+  buildTrustedInputProbeScript,
+  formatSnapshotText,
   parseNodeRef,
+  type ClickStrategy,
   type ElementAction,
   type PageLocator,
 } from "./remote-browser-page-tools";
 import { remoteBrowserSourceMaps } from "./remote-browser-source-map";
 import {
+  waitForPageSettle,
   waitForConditions,
   type WaitCondition,
+  type WaitContext,
   type WaitEvent,
   type WaitMode,
 } from "./remote-browser-wait";
@@ -44,6 +50,12 @@ export interface RemoteBrowserServiceResult {
 interface ResolvedTarget extends RemoteTarget {
   wc: WebContents;
   implicit: boolean;
+}
+
+interface ActionBaseline {
+  seq: number;
+  documentId: string | undefined;
+  url: string;
 }
 
 interface SessionExtras {
@@ -126,6 +138,11 @@ type Operation = (typeof OPERATIONS)[number];
 
 const OPERATION_SET = new Set<string>(OPERATIONS);
 const MAX_BATCH_OPERATIONS = 50;
+/** Batch steps that navigate a page because the caller asked them to. */
+const NAVIGATION_OPERATIONS = new Set(["open", "navigate", "reload", "back", "forward"]);
+/** How long to keep checking whether synthesized input actually reached the page. */
+const SYNTHETIC_INPUT_DELIVERY_TIMEOUT_MS = 400;
+const SYNTHETIC_INPUT_DELIVERY_POLL_MS = 40;
 const MAX_SNAPSHOT_NODES = 10_000;
 const MAX_NETWORK_BODY_BYTES = 10 * 1024 * 1024;
 const DEFAULT_NETWORK_BODY_BYTES = 1024 * 1024;
@@ -210,6 +227,14 @@ const OPERATION_METHOD: Readonly<Record<Operation, "GET" | "POST">> = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function withoutKey(record: Record<string, unknown>, key: string): Record<string, unknown> {
+  const copy: Record<string, unknown> = {};
+  for (const [entryKey, value] of Object.entries(record)) {
+    if (entryKey !== key) copy[entryKey] = value;
+  }
+  return copy;
 }
 
 function stringArray(value: unknown, parameter: string): string[] | undefined {
@@ -323,13 +348,31 @@ function withDeadline<T>(
   });
 }
 
+/** How often the load waiters re-check the main frame while an event may have been missed. */
+const LOAD_SETTLE_POLL_MS = 100;
+
+/**
+ * Whether the main frame of `wc` has finished its load.
+ *
+ * `isLoadingMainFrame()` is the right predicate: `isLoading()` stays true while any
+ * subresource is still outstanding, and `did-finish-load` can already have fired by the
+ * time a waiter attaches. Relying on `isLoading()` alone therefore turns "the page is
+ * done" into "wait for the full request deadline" whenever a subresource lingers.
+ */
+function mainFrameSettled(wc: WebContents): boolean {
+  if (!wc.getURL()) return false;
+  if (typeof wc.isLoadingMainFrame === "function") return !wc.isLoadingMainFrame();
+  return !wc.isLoading();
+}
+
 function waitForMainFrameLoad(wc: WebContents, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(abortFault(signal));
       return;
     }
-    if (!wc.isLoading() && wc.getURL()) {
+    let watchdog: ReturnType<typeof setInterval> | undefined;
+    if (mainFrameSettled(wc)) {
       resolve();
       return;
     }
@@ -338,6 +381,7 @@ function waitForMainFrameLoad(wc: WebContents, signal?: AbortSignal): Promise<vo
       wc.removeListener("did-fail-load", onFailed);
       wc.removeListener("destroyed", onDestroyed);
       signal?.removeEventListener("abort", onAbort);
+      clearInterval(watchdog);
     };
     const onLoaded = (): void => {
       cleanup();
@@ -370,7 +414,10 @@ function waitForMainFrameLoad(wc: WebContents, signal?: AbortSignal): Promise<vo
     wc.on("did-fail-load", onFailed);
     wc.once("destroyed", onDestroyed);
     signal?.addEventListener("abort", onAbort, { once: true });
-    if (!wc.isLoading() && wc.getURL()) onLoaded();
+    if (mainFrameSettled(wc)) onLoaded();
+    else watchdog = setInterval(() => {
+      if (mainFrameSettled(wc)) onLoaded();
+    }, LOAD_SETTLE_POLL_MS);
   });
 }
 
@@ -380,11 +427,19 @@ function waitForDomReady(wc: WebContents, signal?: AbortSignal): Promise<void> {
       reject(abortFault(signal));
       return;
     }
+    let watchdog: ReturnType<typeof setInterval> | undefined;
+    // A main frame that already finished loading necessarily passed DOM ready, so a
+    // caller that arrives late does not have to wait for an event it will never see.
+    if (mainFrameSettled(wc)) {
+      resolve();
+      return;
+    }
     const cleanup = (): void => {
       wc.removeListener("dom-ready", onReady);
       wc.removeListener("did-fail-load", onFailed);
       wc.removeListener("destroyed", onDestroyed);
       signal?.removeEventListener("abort", onAbort);
+      clearInterval(watchdog);
     };
     const onReady = (): void => {
       cleanup();
@@ -417,6 +472,10 @@ function waitForDomReady(wc: WebContents, signal?: AbortSignal): Promise<void> {
     wc.on("did-fail-load", onFailed);
     wc.once("destroyed", onDestroyed);
     signal?.addEventListener("abort", onAbort, { once: true });
+    if (mainFrameSettled(wc)) onReady();
+    else watchdog = setInterval(() => {
+      if (mainFrameSettled(wc)) onReady();
+    }, LOAD_SETTLE_POLL_MS);
   });
 }
 
@@ -613,11 +672,11 @@ export class RemoteBrowserService {
       case "closeTab":
         return this.closeTab(body);
       case "back":
-        return this.historyAction("back", body);
+        return await this.historyAction("back", body, signal);
       case "forward":
-        return this.historyAction("forward", body);
+        return await this.historyAction("forward", body, signal);
       case "reload":
-        return this.reload(body);
+        return await this.reload(body, signal);
       case "evaluate":
         return await this.evaluate(body, signal);
       case "query":
@@ -690,6 +749,34 @@ export class RemoteBrowserService {
         navigationProtocols: ["http:", "https:", "about:blank"],
         captureDomains: ["console", "navigation", "runtime", "network", "page", "log", "crashes"],
         locatorTypes: ["selector", "nodeRef"],
+        snapshotOutputs: ["json", "text"],
+        clickModes: ["auto", "js", "mouse"],
+        clickModeDefault: "js",
+        clickModeNotes: {
+          js: "Dispatches element.click(); always reaches the page.",
+          auto: "Prefers verified real mouse input, falls back to a scripted click.",
+          mouse: "Synthesized input only; reports inputDelivered so callers can react.",
+        },
+        // Input and navigation actions settle the page and report the problems they
+        // produced unless the caller opts out with settle:false / observe:false.
+        actionVerification: {
+          operations: [
+            "click",
+            "hover",
+            "nodeAction",
+            "type",
+            "key",
+            "scroll",
+            "drag",
+            "navigate",
+            "reload",
+            "back",
+            "forward",
+          ],
+          settleDefault: true,
+          settleTimeoutMsDefault: 800,
+          observeDefault: true,
+        },
         evaluateWorlds: ["main", "isolated"],
         waitConditions: [
           "readyState",
@@ -814,6 +901,7 @@ export class RemoteBrowserService {
       maximum: 120_000,
     });
     const startedAt = Date.now();
+    const baseline = this.actionBaseline(target);
     const domReady = waitUntil === "domcontentloaded"
       ? waitForDomReady(target.wc, signal)
       : null;
@@ -831,9 +919,11 @@ export class RemoteBrowserService {
       await withDeadline(navigation, timeout, signal, "Navigation load");
     }
     const refreshed = this.refreshTarget(target);
+    const data = await this.verifyAction(target, baseline, body, signal);
     const descriptor = this.describeTarget(refreshed);
     return this.forTarget(
       {
+        ...data,
         target: descriptor,
         url: waitUntil === "none" ? url : descriptor.url,
         waitUntil,
@@ -867,28 +957,36 @@ export class RemoteBrowserService {
     };
   }
 
-  private historyAction(
+  private async historyAction(
     action: "back" | "forward",
     body: Record<string, unknown>,
-  ): RemoteBrowserServiceResult {
+    signal?: AbortSignal,
+  ): Promise<RemoteBrowserServiceResult> {
     const target = this.resolveTarget(body);
+    const baseline = this.actionBaseline(target);
     const initiated =
       action === "back"
         ? target.window.goBackTab(target.tab.id)
         : target.window.goForwardTab(target.tab.id);
+    const data = await this.verifyAction(target, baseline, body, signal);
     return this.forTarget(
-      { action, initiated, target: this.describeTarget(target) },
+      { ...data, action, initiated, target: this.describeTarget(target) },
       target,
     );
   }
 
-  private reload(body: Record<string, unknown>): RemoteBrowserServiceResult {
+  private async reload(
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<RemoteBrowserServiceResult> {
     const target = this.resolveTarget(body);
+    const baseline = this.actionBaseline(target);
     const ignoreCache = readBooleanParameter(body, "ignoreCache", { defaultValue: false });
     if (ignoreCache) target.wc.reloadIgnoringCache();
     else target.window.reloadTab(target.tab.id);
+    const data = await this.verifyAction(target, baseline, body, signal);
     return this.forTarget(
-      { action: "reload", ignoreCache, target: this.describeTarget(target) },
+      { ...data, action: "reload", ignoreCache, target: this.describeTarget(target) },
       target,
     );
   }
@@ -1101,50 +1199,7 @@ export class RemoteBrowserService {
     const attr = readStringParameter(body, "attr", { maxLength: 1_000 });
     const includeNodeRefs = readBooleanParameter(body, "includeNodeRefs", { defaultValue: true });
     const documentId = this.documentId(target);
-    const script = `(() => {
-      const selector = ${JSON.stringify(selector)};
-      const limit = ${limit};
-      const attr = ${JSON.stringify(attr ?? null)};
-      const includeNodeRefs = ${JSON.stringify(includeNodeRefs)};
-      const documentId = ${JSON.stringify(documentId)};
-      const key = Symbol.for('vsgo.remote-browser.nodes');
-      let registry = window[key];
-      if (!(registry instanceof Map)) {
-        registry = new Map();
-        Object.defineProperty(window, key, { value: registry, configurable: true, enumerable: false });
-      }
-      const reverse = new Map();
-      let nextOrdinal = 1;
-      for (const [ref, element] of registry.entries()) {
-        if (String(ref).startsWith(documentId + ':n')) {
-          reverse.set(element, ref);
-          const ordinal = Number(String(ref).slice(String(ref).lastIndexOf('n') + 1));
-          if (Number.isFinite(ordinal)) nextOrdinal = Math.max(nextOrdinal, ordinal + 1);
-        }
-      }
-      const elements = Array.from(document.querySelectorAll(selector)).slice(0, limit);
-      return elements.map((element) => {
-        let nodeRef;
-        if (includeNodeRefs) {
-          nodeRef = reverse.get(element);
-          if (!nodeRef) {
-            do { nodeRef = documentId + ':n' + nextOrdinal++; } while (registry.has(nodeRef));
-            registry.set(nodeRef, element);
-            reverse.set(element, nodeRef);
-          }
-        }
-        const rect = element.getBoundingClientRect();
-        return {
-          nodeRef,
-          tag: element.tagName,
-          id: element.id || '',
-          className: typeof element.className === 'string' ? element.className : '',
-          text: String(element.innerText || element.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 2000),
-          attr: attr ? element.getAttribute(attr) : undefined,
-          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-        };
-      });
-    })()`;
+    const script = buildQueryScript({ documentId, selector, limit, includeNodeRefs, attr });
     let elements: unknown;
     try {
       elements = await this.evaluateValue(target, script, signal);
@@ -1242,10 +1297,11 @@ export class RemoteBrowserService {
     action: ElementAction,
     value: string | undefined,
     signal?: AbortSignal,
+    clickStrategy?: ClickStrategy,
   ): Promise<ElementDescription> {
     const result = await this.evaluateValue(
       target,
-      buildElementActionScript(locator, action, value),
+      buildElementActionScript(locator, action, value, clickStrategy),
       signal,
     );
     if (!isRecord(result)) {
@@ -1269,23 +1325,52 @@ export class RemoteBrowserService {
   ): Promise<RemoteBrowserServiceResult> {
     const target = this.resolveTarget(body);
     const locator = this.locator(body, target);
-    const mode = enumValue(body, "mode", ["js", "mouse"] as const, "js");
-    const focus = readBooleanParameter(body, "focus", { defaultValue: false });
-    if (focus) target.window.focusTab(target.tab.id);
-    if (mode === "js") {
-      const description = await this.elementAction(target, locator, "click", undefined, signal);
-      return this.forTarget({ mode, ...locator, ...description }, target);
+    if (readBooleanParameter(body, "focus", { defaultValue: false })) {
+      target.window.focusTab(target.tab.id);
     }
+    // `js` stays the default: it always reaches the page, while synthesized mouse input is
+    // dropped by Chromium whenever the remote control window has not painted yet. Callers
+    // who need trusted events opt into `auto` or `mouse`.
+    const mode = enumValue(body, "mode", ["auto", "js", "mouse"] as const, "js");
+    const data = await this.verified(target, body, signal, () =>
+      this.performClick(target, locator, body, mode, signal),
+    );
+    return this.forTarget(data, target);
+  }
 
+  /**
+   * Deliver a click. `auto` asks the page whether the element is really hit-testable
+   * at its center and only then spends synthesized mouse input; covered or
+   * off-screen elements fall back to a DOM click instead of hitting the wrong node.
+   */
+  private async performClick(
+    target: ResolvedTarget,
+    locator: PageLocator,
+    body: Record<string, unknown>,
+    mode: ClickStrategy,
+    signal?: AbortSignal,
+  ): Promise<Record<string, unknown>> {
+    const description = await this.elementAction(
+      target,
+      locator,
+      "click",
+      undefined,
+      signal,
+      mode === "auto" ? "auto" : mode,
+    );
+    const modeUsed = description.strategy === "mouse" ? "mouse" : "js";
+    if (modeUsed === "js") {
+      return { mode, modeUsed, ...locator, ...description };
+    }
     const button = enumValue(body, "button", ["left", "middle", "right"] as const, "left");
     const clickCount = readIntegerParameter(body, "clickCount", {
       defaultValue: 1,
       minimum: 1,
       maximum: 3,
     });
-    const description = await this.elementAction(target, locator, "inspect", undefined, signal);
     const point = this.elementCenter(description, locator);
     throwIfAborted(signal);
+    const trustedBefore = await this.trustedInputCount(target, signal);
     target.window.sendInputToTab(target.tab.id, {
       type: "mouseMove",
       x: point.x,
@@ -1305,10 +1390,63 @@ export class RemoteBrowserService {
       button,
       clickCount,
     });
-    return this.forTarget(
-      { mode, ...locator, ...description, x: point.x, y: point.y, button, clickCount },
-      target,
-    );
+    const delivery = {
+      x: point.x,
+      y: point.y,
+      button,
+      clickCount,
+      inputDelivered: await this.waitForTrustedInput(target, trustedBefore, signal),
+    };
+    if (!delivery.inputDelivered && mode === "auto") {
+      // Chromium drops synthesized input for a window that has not painted yet, which is
+      // the normal state of a freshly opened remote control window. Falling back keeps
+      // `auto` honest - it always ends up clicking - while reporting what happened.
+      const fallback = await this.elementAction(target, locator, "click", undefined, signal, "js");
+      return {
+        mode,
+        modeUsed: "js",
+        mouseAttempted: true,
+        ...locator,
+        ...fallback,
+        x: point.x,
+        y: point.y,
+        button,
+        clickCount,
+        inputDelivered: false,
+        hint: "Synthesized mouse input was dropped (the remote control window has not painted); fell back to a scripted click.",
+      };
+    }
+    return { mode, modeUsed, ...locator, ...description, ...delivery };
+  }
+
+  /** Trusted (browser-generated) input events seen by the page, for delivery checks. */
+  private async trustedInputCount(target: ResolvedTarget, signal?: AbortSignal): Promise<number> {
+    const value = await this.evaluateValue(target, buildTrustedInputProbeScript(), signal);
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  }
+
+  /**
+   * Whether synthesized input reached the page since `before` was sampled.
+   *
+   * Delivery is asynchronous - the event crosses a process boundary and is dispatched on
+   * the renderer's own task queue - so a single read right after dispatch races the event
+   * and reports a false negative. Polling with a short deadline resolves the moment the
+   * event lands and only costs the full timeout when the input really was dropped.
+   */
+  private async waitForTrustedInput(
+    target: ResolvedTarget,
+    before: number,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    const deadline = Date.now() + SYNTHETIC_INPUT_DELIVERY_TIMEOUT_MS;
+    for (;;) {
+      if ((await this.trustedInputCount(target, signal)) > before) return true;
+      if (Date.now() >= deadline) return false;
+      await delay(
+        Math.min(SYNTHETIC_INPUT_DELIVERY_POLL_MS, deadline - Date.now()),
+        signal,
+      );
+    }
   }
 
   private async hover(
@@ -1320,9 +1458,12 @@ export class RemoteBrowserService {
     if (readBooleanParameter(body, "focus", { defaultValue: false })) {
       target.window.focusTab(target.tab.id);
     }
-    const description = await this.elementAction(target, locator, "hover", undefined, signal);
-    const point = this.elementCenter(description, locator);
-    return this.forTarget({ ...locator, ...description, x: point.x, y: point.y }, target);
+    const data = await this.verified(target, body, signal, async () => {
+      const description = await this.elementAction(target, locator, "hover", undefined, signal);
+      const point = this.elementCenter(description, locator);
+      return { ...locator, ...description, x: point.x, y: point.y };
+    });
+    return this.forTarget(data, target);
   }
 
   private elementCenter(
@@ -1359,18 +1500,21 @@ export class RemoteBrowserService {
     if (readBooleanParameter(body, "focus", { defaultValue: false })) {
       target.window.focusTab(target.tab.id);
     }
-    await this.evaluateValue(
-      target,
-      `(() => {
-        const target = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)}) || document.scrollingElement || document.body;
-        const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, composed: true, clientX: ${JSON.stringify(x)}, clientY: ${JSON.stringify(y)}, deltaX: ${JSON.stringify(deltaX)}, deltaY: ${JSON.stringify(deltaY)} });
-        target.dispatchEvent(event);
-        if (!event.defaultPrevented) window.scrollBy(${JSON.stringify(deltaX)}, ${JSON.stringify(deltaY)});
-        return true;
-      })()`,
-      signal,
-    );
-    return this.forTarget({ x, y, deltaX, deltaY }, target);
+    const data = await this.verified(target, body, signal, async () => {
+      await this.evaluateValue(
+        target,
+        `(() => {
+          const target = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)}) || document.scrollingElement || document.body;
+          const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, composed: true, clientX: ${JSON.stringify(x)}, clientY: ${JSON.stringify(y)}, deltaX: ${JSON.stringify(deltaX)}, deltaY: ${JSON.stringify(deltaY)} });
+          target.dispatchEvent(event);
+          if (!event.defaultPrevented) window.scrollBy(${JSON.stringify(deltaX)}, ${JSON.stringify(deltaY)});
+          return true;
+        })()`,
+        signal,
+      );
+      return { x, y, deltaX, deltaY };
+    });
+    return this.forTarget(data, target);
   }
 
   private async drag(
@@ -1392,36 +1536,56 @@ export class RemoteBrowserService {
       target.window.focusTab(target.tab.id);
     }
     throwIfAborted(signal);
-    target.window.sendInputToTab(target.tab.id, {
-      type: "mouseMove",
-      x: fromX,
-      y: fromY,
-    });
-    target.window.sendInputToTab(target.tab.id, {
-      type: "mouseDown",
-      x: fromX,
-      y: fromY,
-      button,
-      clickCount: 1,
-    });
-    for (let step = 1; step <= steps; step += 1) {
-      throwIfAborted(signal);
-      const ratio = step / steps;
+    const data = await this.verified(target, body, signal, async () => {
+      const before = await this.trustedInputCount(target, signal);
       target.window.sendInputToTab(target.tab.id, {
         type: "mouseMove",
-        x: fromX + (toX - fromX) * ratio,
-        y: fromY + (toY - fromY) * ratio,
-        button,
+        x: fromX,
+        y: fromY,
       });
-    }
-    target.window.sendInputToTab(target.tab.id, {
-      type: "mouseUp",
-      x: toX,
-      y: toY,
-      button,
-      clickCount: 1,
+      target.window.sendInputToTab(target.tab.id, {
+        type: "mouseDown",
+        x: fromX,
+        y: fromY,
+        button,
+        clickCount: 1,
+      });
+      for (let step = 1; step <= steps; step += 1) {
+        throwIfAborted(signal);
+        const ratio = step / steps;
+        target.window.sendInputToTab(target.tab.id, {
+          type: "mouseMove",
+          x: fromX + (toX - fromX) * ratio,
+          y: fromY + (toY - fromY) * ratio,
+          button,
+        });
+      }
+      target.window.sendInputToTab(target.tab.id, {
+        type: "mouseUp",
+        x: toX,
+        y: toY,
+        button,
+        clickCount: 1,
+      });
+      // A drag has no scripted equivalent, so an undelivered drag must be reported rather
+      // than silently doing nothing.
+      const inputDelivered = await this.waitForTrustedInput(target, before, signal);
+      return {
+        fromX,
+        fromY,
+        toX,
+        toY,
+        button,
+        steps,
+        inputDelivered,
+        ...(inputDelivered
+          ? {}
+          : {
+              hint: "The page did not receive this drag. Synthesized input is dropped while the remote control window has never painted; retry once the window has been shown.",
+            }),
+      };
     });
-    return this.forTarget({ fromX, fromY, toX, toY, button, steps }, target);
+    return this.forTarget(data, target);
   }
 
   private async key(
@@ -1444,17 +1608,35 @@ export class RemoteBrowserService {
     }
     throwIfAborted(signal);
     const electronModifiers = modifiers as Electron.KeyboardInputEvent["modifiers"];
-    target.window.sendInputToTab(target.tab.id, {
-      type: "keyDown",
-      keyCode: code,
-      modifiers: electronModifiers,
+    const data = await this.verified(target, body, signal, async () => {
+      const before = await this.trustedInputCount(target, signal);
+      target.window.sendInputToTab(target.tab.id, {
+        type: "keyDown",
+        keyCode: code,
+        modifiers: electronModifiers,
+      });
+      target.window.sendInputToTab(target.tab.id, {
+        type: "keyUp",
+        keyCode: code,
+        modifiers: electronModifiers,
+      });
+      // Synthesized key input is dropped for a window that has not painted, and unlike a
+      // click there is no scripted equivalent that would produce a trusted event, so the
+      // only honest thing to do is report whether the page actually saw it.
+      const inputDelivered = await this.waitForTrustedInput(target, before, signal);
+      return {
+        key,
+        keyCode: code,
+        modifiers,
+        inputDelivered,
+        ...(inputDelivered
+          ? {}
+          : {
+              hint: "The page did not receive this key. Synthesized input is dropped while the remote control window has never painted; retry, or type into a locator instead.",
+            }),
+      };
     });
-    target.window.sendInputToTab(target.tab.id, {
-      type: "keyUp",
-      keyCode: code,
-      modifiers: electronModifiers,
-    });
-    return this.forTarget({ key, keyCode: code, modifiers }, target);
+    return this.forTarget(data, target);
   }
 
   private async typeText(
@@ -1500,7 +1682,181 @@ export class RemoteBrowserService {
         if (intervalMs > 0) await delay(intervalMs, signal);
       }
     }
-    return this.forTarget({ ...locator, text, length: text.length, intervalMs }, target);
+    const data = await this.verified(target, body, signal, async () => ({
+      ...locator,
+      text,
+      length: text.length,
+      intervalMs,
+    }));
+    return this.forTarget(data, target);
+  }
+
+  private waitContext(target: ResolvedTarget, signal?: AbortSignal): WaitContext {
+    const baseline = Date.now();
+    return {
+      evaluate: (expression) => this.evaluateValue(target, expression, signal),
+      getUrl: () => this.currentWebContents(target).getURL(),
+      getActivity: () => {
+        const activity = remoteBrowserDebugger.getActivity(target.tab.id);
+        return {
+          pendingNetwork: activity?.pendingNetwork ?? 0,
+          lastNetworkActivity: activity?.lastNetworkActivity ?? baseline,
+          lastRuntimeErrorAt: activity?.lastRuntimeError?.timestamp ?? null,
+        };
+      },
+      getEvents: (after) =>
+        remoteBrowserDebugger.getTabEvents(target.tab.id, after, 1_000).map(
+          (event): WaitEvent => ({
+            seq: event.seq,
+            type: eventTypeForWait(event.type),
+            timestamp: new Date(event.timestamp).toISOString(),
+            payload: event.payload,
+          }),
+        ),
+      getLatestSequence: () => remoteBrowserDebugger.getLatestSequence(target.tab.id),
+      signal,
+    };
+  }
+
+  /**
+   * Snapshot of everything needed to explain what an action changed: the event
+   * cursor, the document identity and the URL at the moment the action started.
+   */
+  private actionBaseline(target: ResolvedTarget): ActionBaseline {
+    let seq = 0;
+    let documentId: string | undefined;
+    let url = "";
+    try {
+      seq = remoteBrowserDebugger.getLatestSequence(target.tab.id);
+      documentId = remoteBrowserDebugger.getActivity(target.tab.id)?.documentId;
+    } catch {
+      // The tab may not be observed yet; verification then runs without a cursor.
+    }
+    try {
+      url = this.currentWebContents(target).getURL();
+    } catch {
+      // WebContents may already be gone after a crash or a self-closing tab.
+    }
+    return { seq, documentId, url };
+  }
+
+  private issueSummary(event: RemoteBrowserDebugEvent): Record<string, unknown> {
+    const payload = eventPayload(event);
+    const message = [
+      payload.message,
+      payload.text,
+      payload.errorText,
+      payload.errorDescription,
+      payload.description,
+    ].find((value): value is string => typeof value === "string" && value.length > 0);
+    const sourceUrl =
+      typeof payload.url === "string"
+        ? payload.url
+        : typeof payload.sourceId === "string"
+          ? payload.sourceId
+          : undefined;
+    const line =
+      typeof payload.lineNumber === "number"
+        ? payload.lineNumber + 1
+        : typeof payload.line === "number"
+          ? payload.line
+          : undefined;
+    return {
+      seq: event.seq,
+      type: event.type,
+      level: this.eventLevel(event),
+      message: message ? message.replace(/\s+/g, " ").trim().slice(0, 300) : undefined,
+      url: sourceUrl,
+      line,
+      status: eventHttpStatus(event),
+    };
+  }
+
+  /**
+   * Wait for the page to settle and collect the problems the action produced.
+   *
+   * Without this every interaction costs the caller an extra `/browser/wait` plus a
+   * `/browser/session/events` round trip, and agents routinely read the page in the
+   * middle of a transition. Settling is best effort: it never fails the action, it is
+   * bounded by `settleTimeoutMs`, and callers can opt out with `settle:false`.
+   */
+  private async verifyAction(
+    target: ResolvedTarget,
+    baseline: ActionBaseline,
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<Record<string, unknown>> {
+    const settle = readBooleanParameter(body, "settle", { defaultValue: true });
+    const settleTimeoutMs = readIntegerParameter(body, "settleTimeoutMs", {
+      defaultValue: 800,
+      minimum: 0,
+      maximum: 10_000,
+    });
+    let settled = !settle || settleTimeoutMs === 0;
+    let settleWaitedMs = 0;
+    let settleMutations: number | undefined;
+    if (settle && settleTimeoutMs > 0) {
+      const context = this.waitContext(target, signal);
+      const domSettle = waitForPageSettle(context, {
+        quietMs: Math.min(200, settleTimeoutMs),
+        timeoutMs: settleTimeoutMs,
+      });
+      // Network quietness is only observable while a debug session is capturing, and its
+      // condition reads main-process state, so it costs no page round trip.
+      const networkSettle =
+        (remoteBrowserDebugger.getActivity(target.tab.id)?.activeSessions ?? 0) > 0
+          ? waitForConditions(context, [{ type: "networkIdle", idleMs: Math.min(250, settleTimeoutMs) }], {
+              timeoutMs: settleTimeoutMs,
+              pollIntervalMs: 100,
+            }).then((result) => result.matched)
+          : Promise.resolve(true);
+      const [domResult, networkQuiet] = await Promise.all([domSettle, networkSettle]);
+      settled = domResult.settled && networkQuiet;
+      settleWaitedMs = domResult.waitedMs;
+      settleMutations = domResult.mutations;
+    }
+
+    let documentId = baseline.documentId;
+    try {
+      documentId = remoteBrowserDebugger.getActivity(target.tab.id)?.documentId ?? documentId;
+    } catch {
+      // Observation state disappeared with the tab.
+    }
+    const navigated =
+      documentId !== undefined && baseline.documentId !== undefined && documentId !== baseline.documentId;
+
+    let issues: Array<Record<string, unknown>> = [];
+    let issueCount = 0;
+    if (readBooleanParameter(body, "observe", { defaultValue: true })) {
+      const maxIssues = readIntegerParameter(body, "maxIssues", {
+        defaultValue: 5,
+        minimum: 1,
+        maximum: 50,
+      });
+      try {
+        const captured = remoteBrowserDebugger
+          .getTabEvents(target.tab.id, baseline.seq, 1_000)
+          .filter((event) => this.isDiagnosticIssue(event));
+        issueCount = captured.length;
+        issues = captured.slice(0, maxIssues).map((event) => this.issueSummary(event));
+      } catch {
+        // No event history for this tab (yet); nothing to report.
+      }
+    }
+
+    return { settled, settleWaitedMs, settleMutations, navigated, issueCount, issues };
+  }
+
+  /** Run an action and append the settle/observe report to its result payload. */
+  private async verified(
+    target: ResolvedTarget,
+    body: Record<string, unknown>,
+    signal: AbortSignal | undefined,
+    run: () => Promise<Record<string, unknown>>,
+  ): Promise<Record<string, unknown>> {
+    const baseline = this.actionBaseline(target);
+    const data = await run();
+    return { ...data, ...(await this.verifyAction(target, baseline, body, signal)) };
   }
 
   private waitConditions(body: Record<string, unknown>): WaitCondition[] {
@@ -1608,32 +1964,9 @@ export class RemoteBrowserService {
     if (needsDebugger && remoteBrowserDebugger.getActivity(target.tab.id)?.activeSessions === 0) {
       temporarySession = await remoteBrowserDebugger.startSession(target.tab.id);
     }
-    const baseline = Date.now();
     try {
       const result = await waitForConditions(
-        {
-          evaluate: (expression) => this.evaluateValue(target, expression, signal),
-          getUrl: () => this.currentWebContents(target).getURL(),
-          getActivity: () => {
-            const activity = remoteBrowserDebugger.getActivity(target.tab.id);
-            return {
-              pendingNetwork: activity?.pendingNetwork ?? 0,
-              lastNetworkActivity: activity?.lastNetworkActivity ?? baseline,
-              lastRuntimeErrorAt: activity?.lastRuntimeError?.timestamp ?? null,
-            };
-          },
-          getEvents: (after) =>
-            remoteBrowserDebugger.getTabEvents(target.tab.id, after, 1_000).map(
-              (event): WaitEvent => ({
-                seq: event.seq,
-                type: eventTypeForWait(event.type),
-                timestamp: new Date(event.timestamp).toISOString(),
-                payload: event.payload,
-              }),
-            ),
-          getLatestSequence: () => remoteBrowserDebugger.getLatestSequence(target.tab.id),
-          signal,
-        },
+        this.waitContext(target, signal),
         conditions,
         { mode, timeoutMs, pollIntervalMs },
       );
@@ -2015,13 +2348,17 @@ export class RemoteBrowserService {
       throw new ApiFault("VALIDATION_ERROR", "Unsupported snapshot mode", { mode: requested });
     }
     const mode = requested as "accessibility" | "dom" | "interactive";
+    const output = enumValue(body, "output", ["json", "text"] as const, "json");
+    // The text projection already carries everything worth keeping; JSON-only detail
+    // (rectangles, attribute allow-lists, full text) is dropped unless asked for.
+    const textOutput = output === "text";
     const maxNodes = readIntegerParameter(body, "maxNodes", {
       defaultValue: 2_000,
       minimum: 1,
       maximum: MAX_SNAPSHOT_NODES,
     });
     const maxTextLength = readIntegerParameter(body, "maxTextLength", {
-      defaultValue: 2_000,
+      defaultValue: textOutput ? 200 : 2_000,
       minimum: 16,
       maximum: 100_000,
     });
@@ -2045,8 +2382,9 @@ export class RemoteBrowserService {
         selector,
         maxDepth,
         includeText: readBooleanParameter(body, "includeText", { defaultValue: true }),
-        includeRects: readBooleanParameter(body, "includeRects", { defaultValue: true }),
+        includeRects: readBooleanParameter(body, "includeRects", { defaultValue: !textOutput }),
         includeAttributes,
+        viewportOnly: readBooleanParameter(body, "viewportOnly", { defaultValue: false }),
       }),
       signal,
     );
@@ -2060,13 +2398,25 @@ export class RemoteBrowserService {
     }
     this.assertDocumentUnchanged(target, documentId);
     const nodes = Array.isArray(result.nodes) ? result.nodes : [];
-    return {
-      ...result,
+    const base = {
       documentId,
       mode,
+      output,
       target: this.describeTarget(target),
       rootRef: isRecord(nodes[0]) && typeof nodes[0].nodeRef === "string" ? nodes[0].nodeRef : null,
       nodeCount: nodes.length,
+      nodeRefFormat: `${documentId}:n<id>`,
+    };
+    if (textOutput) {
+      return {
+        ...withoutKey(result, "nodes"),
+        ...base,
+        text: formatSnapshotText(result),
+      };
+    }
+    return {
+      ...result,
+      ...base,
     };
   }
 
@@ -2086,16 +2436,24 @@ export class RemoteBrowserService {
     if (action === "setValue" && value === undefined) {
       throw new ApiFault("VALIDATION_ERROR", "'value' is required for setValue");
     }
-    if (action === "hover") {
-      const description = await this.elementAction(target, locator, "hover", undefined, signal);
-      const point = this.elementCenter(description, locator);
-      return this.forTarget(
-        { action, ...locator, ...description, x: point.x, y: point.y },
-        target,
-      );
+    if (action === "inspect" || action === "focus") {
+      const result = await this.elementAction(target, locator, action, value, signal);
+      return this.forTarget({ action, ...locator, ...result }, target);
     }
-    const result = await this.elementAction(target, locator, action, value, signal);
-    return this.forTarget({ action, ...locator, ...result }, target);
+    const data = await this.verified(target, body, signal, async () => {
+      if (action === "click") {
+        const mode = enumValue(body, "mode", ["auto", "js", "mouse"] as const, "js");
+        return { action, ...(await this.performClick(target, locator, body, mode, signal)) };
+      }
+      if (action === "hover") {
+        const description = await this.elementAction(target, locator, "hover", undefined, signal);
+        const point = this.elementCenter(description, locator);
+        return { action, ...locator, ...description, x: point.x, y: point.y };
+      }
+      const result = await this.elementAction(target, locator, action, value, signal);
+      return { action, ...locator, ...result };
+    });
+    return this.forTarget(data, target);
   }
 
   private async sourceResolve(
@@ -2440,6 +2798,12 @@ export class RemoteBrowserService {
       });
     }
     const stopOnError = readBooleanParameter(body, "stopOnError", { defaultValue: true });
+    // Opt-in protection for batches that act on a single page: as soon as one of the
+    // pages the batch already touched navigates, the remaining steps would be acting on
+    // a document the caller never saw, so they are reported as skipped instead.
+    const abortOnNavigation = readBooleanParameter(body, "abortOnNavigation", {
+      defaultValue: false,
+    });
     const timeout = readIntegerParameter(body, "timeout", {
       defaultValue: 30_000,
       minimum: 100,
@@ -2448,9 +2812,12 @@ export class RemoteBrowserService {
     const startedAt = Date.now();
     const results: Array<Record<string, unknown>> = [];
     const successfulResults = new Map<string, RemoteBrowserServiceResult>();
+    const trackedDocuments = new Map<string, string>();
     const usedIds = new Set<string>();
     let failed = 0;
     let stopped = false;
+    let stopReason: string | undefined;
+    let navigationDetectedAt: string | null = null;
 
     for (let index = 0; index < operations.length; index += 1) {
       const step = requireObject(operations[index], `operations[${index}]`);
@@ -2463,7 +2830,7 @@ export class RemoteBrowserService {
       }
       usedIds.add(id);
       if (stopped) {
-        results.push({ id, index, skipped: true, status: 424 });
+        results.push({ id, index, skipped: true, status: 424, reason: stopReason });
         continue;
       }
       throwIfAborted(signal);
@@ -2472,6 +2839,17 @@ export class RemoteBrowserService {
         results.push({ id, index, skipped: false, status: fault.status, error: fault.toJSON() });
         failed += 1;
         stopped = stopOnError;
+        continue;
+      }
+      if (abortOnNavigation && this.navigatedTrackedTab(trackedDocuments)) {
+        // The previous step may have started a navigation that had not committed when its
+        // own result was built - with settle:false nothing waits for the page. Checking the
+        // live document again before running the next step is what keeps the remaining
+        // steps off a document the caller never saw.
+        stopped = true;
+        stopReason = "NAVIGATED";
+        navigationDetectedAt = navigationDetectedAt ?? id;
+        results.push({ id, index, skipped: true, status: 424, reason: stopReason });
         continue;
       }
       try {
@@ -2525,6 +2903,30 @@ export class RemoteBrowserService {
           meta: result.meta,
         });
         successfulResults.set(id, result);
+        if (abortOnNavigation) {
+          const meta = isRecord(result.meta) ? result.meta : {};
+          const target = isRecord(meta.target) ? meta.target : {};
+          const tabId = typeof target.tabId === "string" ? target.tabId : undefined;
+          const documentId = typeof meta.documentId === "string" ? meta.documentId : undefined;
+          if (tabId) {
+            const explicit = NAVIGATION_OPERATIONS.has(operation);
+            // `navigated` comes from the step's own before/after comparison, so it is the
+            // only signal that still shows a navigation that happened *during* the step -
+            // the result's `documentId` is already the post-navigation one, and comparing
+            // consecutive post-navigation ids therefore cannot see it.
+            const navigated = isRecord(result.data) && result.data.navigated === true;
+            const baseline = trackedDocuments.get(tabId);
+            if (explicit) {
+              if (documentId) trackedDocuments.set(tabId, documentId);
+            } else if (navigated || (documentId !== undefined && baseline !== undefined && baseline !== documentId)) {
+              stopped = true;
+              stopReason = "NAVIGATED";
+              navigationDetectedAt = navigationDetectedAt ?? id;
+            } else if (documentId && baseline === undefined) {
+              trackedDocuments.set(tabId, documentId);
+            }
+          }
+        }
       } catch (error) {
         const fault = asApiFault(error);
         failed += 1;
@@ -2536,7 +2938,10 @@ export class RemoteBrowserService {
           status: fault.status,
           error: fault.toJSON(),
         });
-        if (stopOnError) stopped = true;
+        if (stopOnError) {
+          stopped = true;
+          stopReason = undefined;
+        }
       }
     }
     const skipped = results.filter((result) => result.skipped === true).length;
@@ -2545,6 +2950,8 @@ export class RemoteBrowserService {
       data: {
         transactional: false,
         stopOnError,
+        abortOnNavigation,
+        navigationDetectedAt,
         results,
         completed,
         failed,
@@ -2552,6 +2959,24 @@ export class RemoteBrowserService {
         durationMs: Date.now() - startedAt,
       },
     };
+  }
+
+  /**
+   * The tracked tab whose document changed since the batch first saw it, if any.
+   *
+   * Reads the live document generation from the tab observer, which sees a navigation that
+   * started during a step and only committed afterwards.
+   */
+  private navigatedTrackedTab(tracked: Map<string, string>): string | undefined {
+    for (const [tabId, documentId] of tracked) {
+      try {
+        const current = remoteBrowserDebugger.getActivity(tabId)?.documentId;
+        if (current !== undefined && current !== documentId) return tabId;
+      } catch {
+        // The tab was closed mid-batch; later steps will fail on their own.
+      }
+    }
+    return undefined;
   }
 
   private batchOperation(step: Record<string, unknown>): Operation {

@@ -391,9 +391,13 @@ const snapshotNodeSchema: JsonSchema = {
     nodeRef: stringSchema("Opaque reference valid for the current document generation."),
     parentNodeRef: nullable(stringSchema()),
     role: stringSchema(),
-    name: stringSchema(),
+    name: stringSchema(
+      "Accessible name. Containers that merely aggregate child text have no name, so the text is not repeated at every level."
+    ),
     tag: stringSchema(),
-    text: stringSchema(),
+    text: stringSchema(
+      "Own text; omitted for elements with element children that are neither interactive nor role-carrying. Use POST /browser/read to extract the text of a whole region."
+    ),
     value: true,
     id: stringSchema(),
     testId: stringSchema(),
@@ -402,7 +406,22 @@ const snapshotNodeSchema: JsonSchema = {
     framePath: stringSchema(),
     shadow: booleanSchema(),
     visible: booleanSchema(),
-    interactive: booleanSchema(),
+    inViewport: booleanSchema("Whether the node intersects the current viewport."),
+    interactive: booleanSchema(
+      "Whether the node can be activated or edited. True for control roles and for elements that only look like controls (a pointer cursor or an inline click handler); the text rendering marks those with 'clickable'."
+    ),
+    options: arraySchema(
+      objectSchema(
+        {
+          value: stringSchema("Value accepted by node/action setValue."),
+          text: stringSchema("Visible label."),
+        },
+        [],
+        "One entry of a select's option list."
+      ),
+      "Options a select offers. Omitted when the options are themselves listed as nodes; at most 20 entries, optionCount gives the real size."
+    ),
+    optionCount: integerSchema(undefined, 0),
     disabled: booleanSchema(),
     checked: booleanSchema(),
     selected: booleanSchema(),
@@ -420,17 +439,36 @@ const snapshotResultSchema = objectSchema(
     documentId: stringSchema("Changes after a top-level document navigation."),
     target: targetResultSchema,
     mode: enumSchema(["accessibility", "dom", "interactive"]),
+    output: enumSchema(["json", "text"]),
     format: enumSchema(["accessibility", "dom"]),
     url: stringSchema(),
     title: stringSchema(),
     rootRef: nullable(stringSchema()),
+    nodeRefFormat: stringSchema("How to spell a nodeRef passed back to the API, for example doc_7c0b:n7."),
+    text: stringSchema("Compact indentation-based rendering, present when output is 'text'."),
     nodes: arraySchema(snapshotNodeSchema),
     nodeCount: integerSchema(undefined, 0),
     count: integerSchema(undefined, 0),
+    interactiveCount: integerSchema(undefined, 0),
+    offscreenCount: integerSchema(undefined, 0),
+    viewportOnly: booleanSchema(),
+    viewport: objectSchema(
+      {
+        width: integerSchema(undefined, 0),
+        height: integerSchema(undefined, 0),
+        scrollX: integerSchema(),
+        scrollY: integerSchema(),
+      },
+      ["width", "height"]
+    ),
     visited: integerSchema(undefined, 0),
     truncated: booleanSchema(),
+    staleRefs: integerSchema(
+      "Number of nodeRef entries dropped because their element had left the document.",
+      0
+    ),
   },
-  ["documentId", "target", "mode", "format", "url", "title", "rootRef", "nodes", "nodeCount", "count", "visited", "truncated"]
+  ["documentId", "target", "mode", "format", "url", "title", "rootRef", "nodeCount", "count", "visited", "truncated"]
 );
 
 function endpoint(
@@ -447,6 +485,45 @@ const basicActionResultSchema = objectSchema(
   },
   ["action", "target"]
 );
+
+/**
+ * Input and navigation actions share one verification contract: after the action is
+ * dispatched the page is given a bounded chance to settle, and the console errors and
+ * failed requests produced by the action are returned inline. That removes the extra
+ * wait + session/events round trip agents otherwise need after every interaction.
+ */
+const verificationProperties: Readonly<Record<string, JsonSchema>> = {
+  settle: booleanSchema("Wait for the page to settle before returning (default true).", true),
+  settleTimeoutMs: integerSchema("Upper bound for settling in milliseconds.", 0, 10_000, 800),
+  observe: booleanSchema("Report console errors and failed requests produced by this action (default true).", true),
+  maxIssues: integerSchema("Maximum number of reported issues.", 1, 50, 5),
+};
+
+const verificationResultProperties: Readonly<Record<string, JsonSchema>> = {
+  settled: booleanSchema("True when the page reached a quiet state inside the settle budget."),
+  settleWaitedMs: integerSchema(undefined, 0),
+  settleMutations: integerSchema(
+    "DOM mutations observed while settling; a large number means the page was still moving.",
+    0
+  ),
+  navigated: booleanSchema("True when this action replaced the document of the target tab."),
+  issueCount: integerSchema("Number of console errors and failed requests produced by this action.", 0),
+  issues: arraySchema(
+    objectSchema(
+      {
+        seq: integerSchema(undefined, 0),
+        type: stringSchema(),
+        level: stringSchema(),
+        message: stringSchema(),
+        url: stringSchema(),
+        line: integerSchema(),
+        status: integerSchema(),
+      },
+      ["seq", "type", "level"]
+    ),
+    "Newest problems first, truncated to maxIssues."
+  ),
+};
 
 /**
  * `/browser/window/show|hide|focus` 的统一响应。
@@ -672,6 +749,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
         url: stringSchema("Destination URL.", { format: "uri" }),
         waitUntil: enumSchema(["none", "domcontentloaded", "load"], "Optional navigation completion point."),
         timeout: integerSchema("Navigation wait timeout in milliseconds.", 100, 120000, 30000),
+        ...verificationProperties,
       },
       ["url"],
       "Target may be nested or use top-level tabId/windowId. Because top-level url is the destination, select by current URL with target.url.",
@@ -685,6 +763,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
           url: stringSchema(),
           waitUntil: enumSchema(["none", "domcontentloaded", "load"]),
           waitedMs: integerSchema(undefined, 0),
+          ...verificationResultProperties,
         },
         ["target", "url", "waitUntil", "waitedMs"]
       )
@@ -758,15 +837,20 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     operationId: "clickBrowserElement",
     method: "POST",
     path: "/browser/click",
-    description: "Click an element located by CSS selector or snapshot nodeRef using DOM or synthesized mouse input.",
+    description:
+      "Click an element located by CSS selector or snapshot nodeRef. Default mode 'auto' uses synthesized mouse input when the element is hit-testable at its center and falls back to a DOM click otherwise.",
     readOnly: false,
     body: targetBody(
       {
         ...locatorProperties,
-        mode: enumSchema(["js", "mouse"], "DOM click is the default; mouse sends move/down/up events."),
+        mode: enumSchema(
+          ["auto", "js", "mouse"],
+          "'js' (default) dispatches element.click() and always reaches the page. 'auto' probes elementFromPoint, sends real mouse input when the element is on top, verifies that the page received it, and otherwise falls back to element.click(); use it when the page needs trusted events. 'mouse' always sends move/down/up and only reports whether the page received it.",
+        ),
         button: enumSchema(["left", "middle", "right"]),
         clickCount: integerSchema(undefined, 1, 3, 1),
         focus: focusSchema(),
+        ...verificationProperties,
       },
       [],
       undefined,
@@ -776,20 +860,33 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     response: successEnvelopeSchema(
       objectSchema(
         {
-          mode: enumSchema(["js", "mouse"]),
+          mode: enumSchema(["auto", "js", "mouse"]),
+          modeUsed: enumSchema(["js", "mouse"], "Which delivery path was actually used."),
+          mouseAttempted: booleanSchema(
+            "True when real mouse input was sent first and a scripted click was used as a fallback."
+          ),
+          inputDelivered: booleanSchema(
+            "Whether the page observed the synthesized mouse input. False means Chromium dropped it, which happens while a hidden remote control window has never painted."
+          ),
+          hit: enumSchema(
+            ["self", "descendant", "covered"],
+            "Which element the scripted click activated: the node itself, the descendant sitting at its centre (an `<li role=tab>` wrapping the anchor that holds the handler), or the node itself when something else covers the point."
+          ),
+          hint: stringSchema(),
           selector: stringSchema(),
           nodeRef: stringSchema(),
           tag: stringSchema(),
           text: stringSchema(),
           x: { type: "number" },
           y: { type: "number" },
+          ...verificationResultProperties,
         },
         ["mode", "tag"]
       )
     ),
     example: {
-      request: { target: { tabId: "tab_01" }, nodeRef: "doc_7c0b:n7", mode: "mouse" },
-      response: successExample({ mode: "mouse", nodeRef: "doc_7c0b:n7", tag: "BUTTON", text: "Submit", x: 423, y: 278 }),
+      request: { target: { tabId: "tab_01" }, nodeRef: "doc_7c0b:n7" },
+      response: successExample({ mode: "auto", modeUsed: "mouse", nodeRef: "doc_7c0b:n7", tag: "BUTTON", text: "Submit", x: 423, y: 278, settled: true, settleWaitedMs: 260, navigated: false, issueCount: 0, issues: [] }),
     },
   }),
   endpoint({
@@ -799,7 +896,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     description: "Move the synthesized pointer to the center of an element located by selector or nodeRef.",
     readOnly: false,
     body: targetBody(
-      { ...locatorProperties, focus: focusSchema() },
+      { ...locatorProperties, focus: focusSchema(), ...verificationProperties },
       [],
       undefined,
       { extra: locatorConstraint }
@@ -813,6 +910,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
           tag: stringSchema(),
           x: { type: "number" },
           y: { type: "number" },
+          ...verificationResultProperties,
         },
         ["tag", "x", "y"]
       )
@@ -834,6 +932,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
       deltaX: integerSchema(undefined, -100000, 100000, 0),
       deltaY: integerSchema(undefined, -100000, 100000, 0),
       focus: focusSchema(),
+      ...verificationProperties,
     }),
     query: null,
     response: successEnvelopeSchema(
@@ -843,6 +942,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
           y: integerSchema(),
           deltaX: integerSchema(),
           deltaY: integerSchema(),
+          ...verificationResultProperties,
         },
         ["x", "y", "deltaX", "deltaY"]
       )
@@ -867,6 +967,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
         button: enumSchema(["left", "middle", "right"]),
         steps: integerSchema("Number of interpolated pointer moves.", 1, 100, 8),
         focus: focusSchema(),
+        ...verificationProperties,
       },
       ["fromX", "fromY", "toX", "toY"]
     ),
@@ -880,6 +981,11 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
           toY: integerSchema(),
           button: enumSchema(["left", "middle", "right"]),
           steps: integerSchema(undefined, 1),
+          inputDelivered: booleanSchema(
+            "Whether the page observed the synthesized drag. False means Chromium dropped it, which happens while a hidden remote control window has never painted."
+          ),
+          hint: stringSchema(),
+          ...verificationResultProperties,
         },
         ["fromX", "fromY", "toX", "toY", "button", "steps"]
       )
@@ -960,11 +1066,25 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
           uniqueItems: true,
         }),
         focus: focusSchema(),
+        ...verificationProperties,
       },
       ["key"]
     ),
     query: null,
-    response: successEnvelopeSchema(objectSchema({ key: stringSchema(), keyCode: stringSchema() }, ["key", "keyCode"])),
+    response: successEnvelopeSchema(
+      objectSchema(
+        {
+          key: stringSchema(),
+          keyCode: stringSchema(),
+          inputDelivered: booleanSchema(
+            "Whether the page observed the key. False means Chromium dropped the synthesized input (a hidden remote control window that has never painted); retry, or type into a locator instead."
+          ),
+          hint: stringSchema(),
+          ...verificationResultProperties,
+        },
+        ["key", "keyCode"]
+      )
+    ),
     example: {
       request: { target: { tabId: "tab_01" }, key: "Enter" },
       response: successExample({ key: "Enter", keyCode: "Enter" }),
@@ -981,12 +1101,16 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
         text: stringSchema("Text to type.", { minLength: 1, maxLength: 100000 }),
         intervalMs: integerSchema("Delay between characters.", 0, 1000, 0),
         focus: focusSchema(),
+        ...verificationProperties,
       },
       ["text"]
     ),
     query: null,
     response: successEnvelopeSchema(
-      objectSchema({ text: stringSchema(), length: integerSchema(undefined, 0) }, ["text", "length"])
+      objectSchema(
+        { text: stringSchema(), length: integerSchema(undefined, 0), ...verificationResultProperties },
+        ["text", "length"]
+      )
     ),
     example: { request: { text: "hello" }, response: successExample({ text: "hello", length: 5 }) },
   }),
@@ -1203,7 +1327,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     path: "/browser/back",
     description: "Navigate the target tab one entry backward in history.",
     readOnly: false,
-    body: targetBody(),
+    body: targetBody({ ...verificationProperties }),
     query: null,
     response: successEnvelopeSchema(basicActionResultSchema),
     example: {
@@ -1217,7 +1341,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     path: "/browser/forward",
     description: "Navigate the target tab one entry forward in history.",
     readOnly: false,
-    body: targetBody(),
+    body: targetBody({ ...verificationProperties }),
     query: null,
     response: successEnvelopeSchema(basicActionResultSchema),
     example: {
@@ -1231,7 +1355,10 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     path: "/browser/reload",
     description: "Reload the target tab, optionally bypassing the HTTP cache.",
     readOnly: false,
-    body: targetBody({ ignoreCache: booleanSchema("Bypass the browser cache.", false) }),
+    body: targetBody({
+      ignoreCache: booleanSchema("Bypass the browser cache.", false),
+      ...verificationProperties,
+    }),
     query: null,
     response: successEnvelopeSchema(basicActionResultSchema),
     example: {
@@ -1484,19 +1611,29 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
     operationId: "snapshotBrowserPage",
     method: "POST",
     path: "/browser/snapshot",
-    description: "Capture a compact page snapshot and issue document-scoped nodeRefs for later interaction.",
+    description:
+      "Capture a page snapshot and issue document-scoped nodeRefs for later interaction. Use output 'text' for a token-efficient view and viewportOnly to keep only what is on screen.",
     readOnly: true,
     body: targetBody({
       mode: enumSchema(["accessibility", "dom", "interactive"]), selector: stringSchema("Optional CSS subtree root."),
       maxDepth: integerSchema(undefined, 0, 100, 20), maxNodes: integerSchema(undefined, 1, 10000, 2000),
       includeText: booleanSchema(undefined, true), includeHidden: booleanSchema(undefined, false), includeRects: booleanSchema(undefined, true),
       includeAttributes: arraySchema(stringSchema(), "Attribute allow-list.", { uniqueItems: true }),
+      output: enumSchema(
+        ["json", "text"],
+        "'text' (recommended) returns an indented node listing in 'text' and omits the nodes array; rectangles and full text default off.",
+      ),
+      viewportOnly: booleanSchema(
+        "Emit only nodes intersecting the viewport; the number of omitted matching nodes is reported as offscreenCount.",
+        false,
+      ),
+      maxTextLength: integerSchema(undefined, 16, 100_000, 2000),
     }),
     query: null,
     response: successEnvelopeSchema(snapshotResultSchema),
     example: {
-      request: { target: { tabId: "tab_01" }, mode: "interactive", maxNodes: 2000 },
-      response: successExample({ documentId: "doc_7c0b", target: { tabId: "tab_01", windowId: 3, url: "https://example.com/" }, mode: "interactive", rootRef: "doc_7c0b:n1", nodes: [{ nodeRef: "doc_7c0b:n1", parentNodeRef: null, role: "button", name: "Submit", tag: "button", visible: true, interactive: true, rect: { x: 40, y: 80, width: 90, height: 32 }, depth: 0 }], nodeCount: 1, truncated: false }),
+      request: { target: { tabId: "tab_01" }, mode: "interactive", output: "text", viewportOnly: true },
+      response: successExample({ documentId: "doc_7c0b", target: { tabId: "tab_01", windowId: 3, url: "https://example.com/" }, mode: "interactive", output: "text", nodeRefFormat: "doc_7c0b:n<id>", rootRef: "doc_7c0b:n1", nodeCount: 1, truncated: false, interactiveCount: 1, viewportOnly: true, offscreenCount: 0, viewport: { width: 1440, height: 900, scrollX: 0, scrollY: 0 }, text: "https://example.com/ - Example Domain\nnodes=1 interactive=1 viewport=1440x900 viewportOnly=true\nnodeRef format: \"doc_7c0b:n<id>\" - the [n<id>] prefixes below\n[n1] button \"Submit\"" }),
     },
   }),
   endpoint({
@@ -1510,7 +1647,14 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
         selector: stringSchema("CSS selector locator."),
         nodeRef: stringSchema("Document-scoped opaque node reference."),
         action: enumSchema(["inspect", "click", "hover", "focus", "clear", "setValue"]),
-        value: stringSchema("Value used by setValue."),
+        value: stringSchema(
+          "Value used by setValue. For a select either an option value or the option label shown in the snapshot is accepted; naming an option that does not exist fails with the available options instead of doing nothing. Aiming at an <option> selects it in the owning select."
+        ),
+        mode: enumSchema(
+          ["auto", "js", "mouse"],
+          "Click delivery strategy for action 'click'; same semantics as /browser/click.",
+        ),
+        ...verificationProperties,
       },
       ["action"]
     ),
@@ -1526,6 +1670,16 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
           text: stringSchema(),
           value: true,
           rect: rectSchema,
+          mode: enumSchema(["auto", "js", "mouse"]),
+          modeUsed: enumSchema(["js", "mouse"]),
+          mouseAttempted: booleanSchema(
+            "True when real mouse input was sent first and a scripted click was used as a fallback."
+          ),
+          inputDelivered: booleanSchema(
+            "Whether the page observed the synthesized mouse input."
+          ),
+          hint: stringSchema(),
+          ...verificationResultProperties,
         },
         ["action", "ok"],
         undefined,
@@ -1594,13 +1748,18 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
         additionalProperties: false,
       }, "One to 50 ordered subrequests. Nested values may reference an earlier successful step with {\"$result\":\"stepId\",\"pointer\":\"/data/path\"}.", { minItems: 1, maxItems: 50 }),
       stopOnError: booleanSchema(undefined, true), timeout: integerSchema("Overall timeout in milliseconds.", 100, 120000, 30000),
+      abortOnNavigation: booleanSchema(
+        "Skip the remaining steps once a page the batch already touched navigates, so no step acts on a document the caller never saw (default false). Detection uses each step's own settle/observe report plus the live document generation before every step; navigation operations listed in NAVIGATION_OPERATIONS (open/navigate/reload/back/forward) are the caller's own intent and move the baseline instead of stopping the batch. Disabling settle makes detection lag by one step, since a navigation that commits after a step returned is only visible to the next one.",
+        false,
+      ),
     }, ["operations"]),
     query: null,
     response: successEnvelopeSchema(objectSchema({
       results: arraySchema(objectSchema({
         id: stringSchema(), index: integerSchema(undefined, 0), operation: stringSchema(), status: integerSchema(undefined, 100, 599), skipped: booleanSchema(), data: true, error: REMOTE_BROWSER_ERROR_SCHEMA, meta: REMOTE_BROWSER_META_SCHEMA,
+        reason: enumSchema(["NAVIGATED"], "Set when abortOnNavigation stopped the batch before this step ran."),
       }, ["id", "index", "status", "skipped"])),
-      transactional: { const: false }, stopOnError: booleanSchema(), completed: integerSchema(undefined, 0), failed: integerSchema(undefined, 0), skipped: integerSchema(undefined, 0), durationMs: integerSchema(undefined, 0),
+      transactional: { const: false }, stopOnError: booleanSchema(), abortOnNavigation: booleanSchema(), navigationDetectedAt: nullable(stringSchema()), completed: integerSchema(undefined, 0), failed: integerSchema(undefined, 0), skipped: integerSchema(undefined, 0), durationMs: integerSchema(undefined, 0),
     }, ["transactional", "stopOnError", "results", "completed", "failed", "skipped", "durationMs"])),
     example: {
       request: { operations: [
@@ -1610,7 +1769,7 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
       response: successExample({ results: [
         { id: "state", index: 0, operation: "state", status: 200, skipped: false, data: { tabId: "tab_01", loading: false } },
         { id: "read", index: 1, operation: "read", status: 200, skipped: false, data: { selector: "main", text: "Example Domain" } },
-      ], transactional: false, stopOnError: true, completed: 2, failed: 0, skipped: 0, durationMs: 8 }),
+      ], transactional: false, stopOnError: true, abortOnNavigation: false, navigationDetectedAt: null, completed: 2, failed: 0, skipped: 0, durationMs: 8 }),
     },
   }),
   endpoint({
@@ -1629,6 +1788,9 @@ export const REMOTE_BROWSER_ENDPOINT_CATALOG: readonly RemoteBrowserEndpoint[] =
       navigationProtocols: arraySchema(stringSchema(), undefined, { uniqueItems: true }),
       captureDomains: arraySchema(eventCategorySchema, undefined, { uniqueItems: true }),
       locatorTypes: arraySchema(enumSchema(["selector", "nodeRef"]), undefined, { uniqueItems: true }),
+      snapshotOutputs: arraySchema(enumSchema(["json", "text"]), undefined, { uniqueItems: true }),
+      clickModes: arraySchema(enumSchema(["auto", "js", "mouse"]), undefined, { uniqueItems: true }),
+      actionVerification: genericObjectSchema,
       evaluateWorlds: arraySchema(enumSchema(["main", "isolated"]), undefined, { uniqueItems: true }),
       waitConditions: arraySchema(stringSchema(), undefined, { uniqueItems: true }),
       limits: objectSchema({
@@ -1715,8 +1877,17 @@ export function buildRemoteBrowserLlmDocument(
     usage_notes: [
       "Open (or reuse) the dedicated remote-browser-control window with POST /browser/open; it always runs in the background (visibility is controlled only by the user from the tray menu, never by the API), and you get back the tabId to act on.",
       "Every browser response includes meta.target (tabId/url/title/windowId/documentId) so you know which tab was acted on.",
+      "Prefer POST /browser/snapshot with output \"text\" (add viewportOnly true to keep only what is on screen, or mode \"interactive\" to keep only actionable nodes) before acting: it returns a compact indented listing with nodeRefs and omits the verbose JSON node array, so it costs a fraction of the tokens.",
+      "A snapshot reports structure and actionable state, not page prose: a container contributes its own text and its inline-wrapped sentences once, and never repeats its block descendants. Text that no node carries is still reachable through POST /browser/read, and POST /browser/query answers pure selector questions.",
+      "A node marked interactive that is not a control role is flagged \"clickable\" in the text rendering: the page wires it up through a pointer cursor or an inline handler rather than a role, and it is a normal click target.",
+      "A select reports the options it offers, so setValue can be given the label you see instead of a guessed internal value; when the options are already listed as their own nodes the list is not repeated on the select.",
+      "Interact with nodeRef values through POST /browser/click. Its default mode \"js\" activates the element a pointer would hit at the node's centre, so a click aimed at `<li role=\"tab\">` reaches the inner anchor that actually holds the handler; the response reports which element was activated as \"hit\". Pass mode \"auto\" to prefer real mouse input (verified, with a scripted click as a safety net) for pages that require trusted events, or \"mouse\" for synthesized input only.",
+      "Synthesized input is dropped by Chromium while the remote control window has never painted, so a click with mode \"mouse\" or a key press can be lost. Check inputDelivered on click/key responses: false means the page never saw it, so retry, use mode \"js\" for clicking, or type through a locator instead.",
+      "Input and navigation actions (click/hover/nodeAction/type/key/scroll/drag/navigate/reload/back/forward) settle the page and report what changed: settled, navigated, issueCount and issues carrying the console errors and failed requests produced by that action. Pass settle:false or observe:false to skip that work.",
+      "Reach for POST /browser/wait only for explicit conditions that are not covered by action settling (text, expression, custom event, networkIdle).",
       "Use GET /browser/session/events and POST /browser/diagnostics to inspect console/network/runtime errors before editing code.",
       "Use POST /browser/source/resolve to map a generated stack location back to the original source file via source maps.",
+      "A request body carrying a parameter this API does not define is echoed in meta.unknownParameters. An empty list means every parameter was understood - a mistyped name would otherwise be dropped and the call would still report success.",
     ].join(" "),
     operations,
   };
@@ -1794,10 +1965,11 @@ export function buildRemoteBrowserSkillText(options: {
     "",
     "## Workflow",
     "1. Open a tab with `POST /browser/open` and reuse the returned `tabId`.",
-    "2. Act: `evaluate` (JS), `click`/`hover`/`scroll`/`drag`/`key`/`type` (input), `read`/`query`/`snapshot` (observe).",
-    "3. Diagnose: `GET /browser/session/events` and `POST /browser/diagnostics` to read console/network/runtime errors before editing code.",
-    "4. Locate source: `POST /browser/source/resolve` maps a generated stack location to the original source file via source maps.",
-    "5. Wait: `POST /browser/wait` supports `selector`/`text`/`expression`/`networkIdle`/`runtimeQuiet`/`domStable` and more.",
+    "2. Observe: `POST /browser/snapshot` with `output: \"text\"` (add `viewportOnly: true` to keep only what is on screen) returns a compact node listing with `nodeRef`s; `read`/`query` cover single-selector and attribute reads.",
+    "3. Act: `click` (default `mode: \"auto\"` — real mouse input when the element is hit-testable, DOM click otherwise), `hover`/`scroll`/`drag`/`key`/`type`, or `evaluate` for arbitrary JS.",
+    "4. Read the result: every input and navigation action already settles the page and returns `settled`, `navigated`, `issueCount` and `issues` (console errors plus failed requests produced by that action). Use `POST /browser/wait` only for conditions settling does not cover.",
+    "5. Diagnose: `GET /browser/session/events` and `POST /browser/diagnostics` to read console/network/runtime errors before editing code.",
+    "6. Locate source: `POST /browser/source/resolve` maps a generated stack location to the original source file via source maps.",
     "",
     "## Operations",
     operationLines,

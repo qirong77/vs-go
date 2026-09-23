@@ -54,6 +54,150 @@ interface StableSample {
   since: number;
 }
 
+export interface SettleResult {
+  /** True when the document stayed quiet for the whole quiet window inside the budget. */
+  settled: boolean;
+  waitedMs: number;
+  quietMs: number;
+  mutations: number;
+  /** Set when settling could not be observed, e.g. the document went away. */
+  error?: string;
+}
+
+const SETTLE_QUIET_MS_DEFAULT = 200;
+
+function jsonNumber(value: number): string {
+  return Number.isFinite(value) ? String(Math.max(0, Math.round(value))) : "0";
+}
+
+/**
+ * Settle expression: resolves as soon as the document has been mutation-free for
+ * `quietMs`, or with `settled:false` once `timeoutMs` elapses. Self-contained, because
+ * this is stringified into the inspected renderer.
+ */
+export function buildPageSettleScript(quietMs: number, timeoutMs: number): string {
+  return `new Promise((resolve) => {
+    const quietMs = ${jsonNumber(quietMs)};
+    const timeoutMs = ${jsonNumber(timeoutMs)};
+    const startedAt = Date.now();
+    let mutations = 0;
+    let quietTimer = null;
+    let deadlineTimer = null;
+    let done = false;
+    const finish = (settled) => {
+      if (done) return;
+      done = true;
+      if (quietTimer !== null) clearTimeout(quietTimer);
+      if (deadlineTimer !== null) clearTimeout(deadlineTimer);
+      try { observer.disconnect(); } catch (error) { /* document is already torn down */ }
+      resolve({ settled: settled, waitedMs: Date.now() - startedAt, quietMs: quietMs, mutations: mutations });
+    };
+    const observer = new MutationObserver(() => {
+      mutations += 1;
+      if (quietTimer !== null) clearTimeout(quietTimer);
+      quietTimer = setTimeout(() => finish(true), quietMs);
+    });
+    try {
+      observer.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+    } catch (error) {
+      resolve({ settled: false, waitedMs: 0, quietMs: quietMs, mutations: 0, error: String(error) });
+      return;
+    }
+    deadlineTimer = setTimeout(() => finish(false), timeoutMs);
+    quietTimer = setTimeout(() => finish(true), quietMs);
+  })`;
+}
+
+/**
+ * Wait for the inspected document to stop mutating.
+ *
+ * Driving the quiet window from an in-page MutationObserver resolves the moment the
+ * page actually stops moving and costs a single round trip no matter how long the page
+ * keeps moving. Polling the `domStable` wait condition from the main process instead
+ * costs one `executeJavaScript` per tick and quantizes the answer to the poll interval.
+ *
+ * Page-side trouble never throws: a navigation that destroys the context is reported as
+ * an unsettled result, because settling is best effort by definition.
+ */
+export async function waitForPageSettle(
+  context: WaitContext,
+  options: { quietMs?: number; timeoutMs?: number } = {}
+): Promise<SettleResult> {
+  const quietMs = options.quietMs ?? SETTLE_QUIET_MS_DEFAULT;
+  const timeoutMs = options.timeoutMs ?? 800;
+  const startedAt = Date.now();
+  try {
+    const value = await racePageEvaluation(
+      context.evaluate(buildPageSettleScript(quietMs, timeoutMs)),
+      timeoutMs,
+      { quietMs, startedAt }
+    );
+    if (value && typeof value === "object") {
+      const record = value as Partial<SettleResult>;
+      return {
+        settled: record.settled === true,
+        waitedMs: typeof record.waitedMs === "number" ? record.waitedMs : Date.now() - startedAt,
+        quietMs,
+        mutations: typeof record.mutations === "number" ? record.mutations : 0,
+        error: typeof record.error === "string" ? record.error : undefined,
+      };
+    }
+    return { settled: false, waitedMs: Date.now() - startedAt, quietMs, mutations: 0 };
+  } catch (error) {
+    return {
+      settled: false,
+      waitedMs: Date.now() - startedAt,
+      quietMs,
+      mutations: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/** Margin added on top of the page-side budget before the main process gives up. */
+const PAGE_EVALUATION_GRACE_MS = 250;
+
+/**
+ * Bound a page evaluation that the renderer may never answer.
+ *
+ * `webContents.executeJavaScript` never settles when a navigation destroys the execution
+ * context the script was running in - the promise stays pending forever (verified against
+ * Electron 40). Settling runs after every interaction and interactions are exactly what
+ * triggers navigation, so without this bound a single link click would hold the request
+ * open until the transport deadline. The timer is cleared as soon as the renderer answers,
+ * so it only ever runs for the length of the settle budget itself.
+ */
+async function racePageEvaluation(
+  evaluation: Promise<unknown>,
+  timeoutMs: number,
+  timing: { quietMs: number; startedAt: number }
+): Promise<unknown> {
+  const budgetMs = timeoutMs + PAGE_EVALUATION_GRACE_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const guard = new Promise<unknown>((resolve) => {
+    timer = setTimeout(() => {
+      resolve({
+        settled: false,
+        waitedMs: Date.now() - timing.startedAt,
+        quietMs: timing.quietMs,
+        mutations: 0,
+        error: `page did not answer within ${budgetMs}ms (navigation or renderer teardown)`,
+      });
+    }, budgetMs);
+  });
+  const settled = evaluation.then(
+    (value) => {
+      clearTimeout(timer);
+      return value;
+    },
+    (error) => {
+      clearTimeout(timer);
+      throw error;
+    }
+  );
+  return Promise.race([settled, guard]);
+}
+
 function numberOption(condition: WaitCondition, key: string, fallback: number): number {
   const value = condition[key];
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;

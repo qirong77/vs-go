@@ -16,6 +16,7 @@ import {
   buildRemoteBrowserEndpointDetail,
   buildRemoteBrowserLlmDocument,
   buildRemoteBrowserOpenApiDocument,
+  findRemoteBrowserEndpoint,
 } from "./remote-browser-schema";
 import { RemoteBrowserService } from "./remote-browser-service";
 import { remoteBrowserDebugger } from "./remote-browser-debugger";
@@ -40,6 +41,37 @@ interface Route {
   path: string;
   operation: string;
   maxBodyBytes?: number;
+}
+
+/** Accepted outside the published body schema because the dispatcher reads them itself. */
+const SHARED_BODY_KEYS = new Set(["timeout", "timeoutMs"]);
+
+function schemaPropertyNames(schema: unknown): string[] {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return [];
+  const properties = (schema as { properties?: unknown }).properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return [];
+  return Object.keys(properties);
+}
+
+/**
+ * Parameters the caller sent that the endpoint's published contract does not describe.
+ *
+ * They are otherwise dropped silently and the call still reports success, which an automated
+ * caller reads as "the API ignored my instruction" rather than "I named it wrong". Reporting
+ * them costs nothing and turns a whole class of phantom failures into a visible hint.
+ */
+function unknownParameters(route: Route, input: Record<string, unknown>): string[] {
+  const endpoint = findRemoteBrowserEndpoint(route.method, route.path);
+  if (!endpoint) return [];
+  const declared = new Set([
+    ...schemaPropertyNames(endpoint.body),
+    ...schemaPropertyNames(endpoint.query),
+    ...SHARED_BODY_KEYS,
+  ]);
+  if (declared.size === 0) return [];
+  return Object.keys(input)
+    .filter((key) => !declared.has(key))
+    .sort();
 }
 
 const routes: readonly Route[] = [
@@ -434,7 +466,18 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
         input = { ...input, ...body };
       }
       const result = await executeWithDeadline(route, input, controller.signal);
-      sendJson(res, 200, success(result.data, requestId, startedAt, result.meta), origin);
+      const ignored = unknownParameters(route, input);
+      sendJson(
+        res,
+        200,
+        success(
+          result.data,
+          requestId,
+          startedAt,
+          ignored.length > 0 ? { ...result.meta, unknownParameters: ignored } : result.meta
+        ),
+        origin
+      );
     } finally {
       activeRequests = Math.max(0, activeRequests - 1);
     }
